@@ -496,18 +496,17 @@ window.initDevice3D = function (host, { pick, icons }) {
   const knobTop = new T.MeshStandardMaterial({ color: srgb(0x141416), metalness: 0.35, roughness: 0.5, envMapIntensity: 0.6, emissive: 0x6f8cff, emissiveIntensity: 0 });
   const knob = new T.Group(); knob.position.set(0, H - KNOB_SINK, KNOB_Z);
   const spinner = new T.Group(); knob.add(spinner);
-  const CH = 1.4; // top chamfer
+  const CH = 1.2; // 45° chamfer on the top edge
   const knobBody = new T.Mesh(new T.CylinderGeometry(KNOB_R, KNOB_R, KNOB_H - CH, 128, 1, true), knobSide);
   knobBody.position.y = (KNOB_H - CH) / 2;
   const lid = new T.Mesh(new T.LatheGeometry([
-    new T.Vector2(KNOB_R, 0), new T.Vector2(KNOB_R - 0.25, 0.8), new T.Vector2(KNOB_R - 0.9, CH - 0.1),
-    new T.Vector2(KNOB_R - 1.6, CH),
+    new T.Vector2(KNOB_R, 0), new T.Vector2(KNOB_R - CH, CH),
   ], 128), knobTop);
   lid.position.y = KNOB_H - CH;
 
   // flat top as a fine polar grid, with a spherical finger dimple pressed into it
   function knobFace() {
-    const RT = KNOB_R - 1.6, RINGS = 48, SEG = 160;
+    const RT = KNOB_R - CH, RINGS = 48, SEG = 160;
     const DX = -6, DZ = -6, DR = 4.6, DEPTH = 1.3; // dimple centre, radius, depth
     const pos = [0, 0, 0], idx = [];
     for (let i = 1; i <= RINGS; i++) {
