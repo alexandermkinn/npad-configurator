@@ -256,7 +256,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   const T = THREE;
   const W = 73, D = 98, H = 20, R = 5;                       // case
   // keycaps: 18.1 mm at the base on a 19.05 mm pitch, so neighbours sit about 1 mm apart
-  const PITCH = 19.05, CAP_BASE = 18.1, CAP_Y = H - 3, TRAVEL = 3.5;
+  const PITCH = 19.05, CAP_BASE = 18.1, CAP_Y = H - 2, TRAVEL = 3.5;
   // key pocket: caps span 56.2 × 37.2 mm, leaving about a 1 mm gap to the pocket wall
   const WELL_W = 58, WELL_D = 39, WELL_Z = 21, FLOOR = H - 10;
   const KNOB_R = 15.5, KNOB_H = 16, KNOB_Z = -20, KNOB_SINK = 3; // knob sits in a round recess
@@ -361,18 +361,79 @@ window.initDevice3D = function (host, { pick, icons }) {
   const switchGeo = new T.BoxGeometry(14, 5, 14);
   const switchMat = new T.MeshStandardMaterial({ color: 0x050507, roughness: 0.9 });
 
-  // ---- keycaps (XDA: uniform height, gently tapered) ----
-  function capGeometry() {
-    const h = 9.5;
-    const g = extrudeUp(roundRect(new T.Shape(), 0, 0, CAP_BASE - 3, CAP_BASE - 3, 2), h, 1.5, 4);
-    const p = g.attributes.position;
-    for (let i = 0; i < p.count; i++) {
-      const k = 1 - 0.2 * (p.getY(i) / h);
-      p.setX(i, p.getX(i) * k); p.setZ(i, p.getZ(i) * k);
+  // ---- keycaps: Cherry-style sculpted profile ----
+  // A loft of rounded rectangles from the 18.1 mm base up to a smaller top that sits
+  // toward the back and tilts toward the user, with a rounded top edge and a shallow
+  // cylindrical dish. The legend is a copy of the dished top surface, so it follows it.
+  const CAP = {
+    base: CAP_BASE / 2, baseR: 0.9,
+    topX: 6.4, topZ: 6.8, topR: 2.6, topCz: -0.7,   // top half-width/depth, corner radius, offset to the back
+    height: 8.6, tilt: 0.07, dish: 0.5, fillet: 1.2,
+  };
+  function ringPoints(hx, hz, r, cz, y, n = 7) {
+    // rounded rectangle in the xz-plane, same point count at every size so rings can be stitched
+    const pts = [];
+    const corners = [[hx - r, hz - r, 0], [-(hx - r), hz - r, Math.PI / 2], [-(hx - r), -(hz - r), Math.PI], [hx - r, -(hz - r), Math.PI * 1.5]];
+    corners.forEach(([cx, cz2, a0]) => {
+      for (let i = 0; i <= n; i++) {
+        const a = a0 + (i / n) * (Math.PI / 2);
+        pts.push(new T.Vector3(cx + r * Math.cos(a), y, cz + cz2 + r * Math.sin(a)));
+      }
+    });
+    return pts;
+  }
+  // height offset of the top surface: tilted toward the front, dished across the width
+  const topOffset = (x, z) => -CAP.tilt * (z - CAP.topCz) - CAP.dish * Math.max(0, 1 - (x / CAP.topX) ** 2);
+  function stitch(rings, center, uvFor) {
+    const M = rings[0].length, pos = [], uv = [], idx = [];
+    rings.forEach(r => r.forEach(p => { pos.push(p.x, p.y, p.z); if (uvFor) uv.push(...uvFor(p)); }));
+    for (let i = 0; i < rings.length - 1; i++) {
+      for (let j = 0; j < M; j++) {
+        const a = i * M + j, b = i * M + (j + 1) % M, c = (i + 1) * M + j, d = (i + 1) * M + (j + 1) % M;
+        idx.push(a, c, b, b, c, d);
+      }
     }
-    return { g, h };
+    const ci = rings.length * M;
+    pos.push(center.x, center.y, center.z); if (uvFor) uv.push(...uvFor(center));
+    for (let j = 0; j < M; j++) idx.push((rings.length - 1) * M + j, ci, (rings.length - 1) * M + (j + 1) % M);
+    const g = new T.BufferGeometry();
+    g.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
+    if (uvFor) g.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    return g;
+  }
+  function capGeometry() {
+    const { base, baseR, topX, topZ, topR, topCz, height, fillet } = CAP;
+    const sx = topX + fillet * 0.8, sz = topZ + fillet * 0.8, sy = height - fillet, sr = topR + fillet * 0.5;
+    const rings = [];
+    // sloped walls from the base to the shoulder
+    for (let i = 0; i <= 6; i++) {
+      const u = i / 6;
+      rings.push(ringPoints(base + (sx - base) * u, base + (sz - base) * u, baseR + (sr - baseR) * u, topCz * u, sy * u));
+    }
+    // rounded edge from the shoulder onto the top
+    for (let i = 1; i <= 5; i++) {
+      const a = (i / 5) * Math.PI / 2;
+      rings.push(ringPoints(topX + (sx - topX) * Math.cos(a), topZ + (sz - topZ) * Math.cos(a), sr + (topR - sr) * (i / 5), topCz, sy + fillet * Math.sin(a)));
+    }
+    // blend the tilt and dish in toward the top
+    rings.forEach(r => r.forEach(p => { const w = Math.min(1, p.y / height) ** 4; p.y += w * topOffset(p.x, p.z); }));
+    // the dished top, as rings shrinking to the centre
+    const edge = rings[rings.length - 1];
+    const topRings = [edge];
+    [0.75, 0.5, 0.25].forEach(sc => topRings.push(edge.map(p => {
+      const x = p.x * sc, z = topCz + (p.z - topCz) * sc;
+      return new T.Vector3(x, height + topOffset(x, z), z);
+    })));
+    const center = new T.Vector3(0, height + topOffset(0, topCz), topCz);
+    const body = stitch(rings.concat(topRings.slice(1)), center);
+    const top = (size) => stitch(topRings.map(r => r.map(p => p.clone().setY(p.y + 0.03))), center.clone().setY(center.y + 0.03),
+      p => [0.5 + p.x / size, 0.5 - (p.z - topCz) / size]);
+    return { body, top };
   }
   const cap = capGeometry();
+  const legendGeo = { n: cap.top(10.5), icon: cap.top(9) };
 
   function legendTexture(icon) {
     const c = document.createElement('canvas'); c.width = c.height = 256;
@@ -411,12 +472,11 @@ window.initDevice3D = function (host, { pick, icons }) {
 
     const group = new T.Group(); group.position.set(x, CAP_Y, z);
     const mat = new T.MeshStandardMaterial({ color: srgb(0x2c2e4e), roughness: 0.62, metalness: 0.05, envMapIntensity: 0.5, emissive: 0x6f8cff, emissiveIntensity: 0 });
-    const body = new T.Mesh(cap.g, mat);
+    const body = new T.Mesh(cap.body, mat);
     body.castShadow = body.receiveShadow = true;
     body.userData.input = id;
     const legendMat = new T.MeshBasicMaterial({ map: legendTexture(icon), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
-    const legend = new T.Mesh(new T.PlaneGeometry(icon === 'n' ? 10 : 8.5, icon === 'n' ? 10 : 8.5), legendMat);
-    legend.rotation.x = -Math.PI / 2; legend.position.y = cap.h + 0.02;
+    const legend = new T.Mesh(icon === 'n' ? legendGeo.n : legendGeo.icon, legendMat);
     legend.userData.input = id;
     group.add(body, legend);
     scene.add(group);
