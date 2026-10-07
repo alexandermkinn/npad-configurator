@@ -147,7 +147,7 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
   display: grid; place-items: center; color: var(--glyph);
   transition: transform .12s, box-shadow .12s;
 }
-.cap svg { width: 50%; height: 50%; }
+.cap svg { width: 40%; height: 40%; }
 .cap .n { font-family: var(--font-display); font-weight: 800; font-size: clamp(24px, 8vw, 40px); line-height: 1; margin-top: -8%; }
 .cell.down .cap { transform: translateY(3px); box-shadow: 0 0 0 #17181c, 0 1px 3px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.08); }
 .cap .led { position: absolute; top: 7px; right: 7px; width: 5px; height: 5px; border-radius: 50%; background: #474a52; }
@@ -454,13 +454,32 @@ window.initDevice3D = function (host, { pick, icons }) {
   // A loft of rounded rectangles from the 18.1 mm base up to a large, centred square top:
   // uniform height (no row sculpt or tilt), gently tapered walls, a rounded top edge and a
   // shallow spherical dish. The legend is a copy of the dished top surface, so it follows it.
-  // Proportions from photos of the real caps: flat-faced walls meeting at fairly tight corners,
-  // a crisp top edge, and a nearly flat top.
+  // Proportions from photos of the real caps: well-slanted walls rising from a crisp rounded-square
+  // base to a smaller squircle top, a crisp top edge, and a subtle round dish.
   const CAP = {
-    base: CAP_BASE / 2, baseR: 0.8,
-    topX: 7.0, topZ: 7.0, topR: 2.2, topCz: 0,      // top half-width/depth (≈14 mm square), corner radius, no offset
-    height: 9.1, tilt: 0, dish: 0.35, fillet: 0.7,
+    base: CAP_BASE / 2, baseExp: 10,                // base: superellipse exponent 10 ≈ square with tight corners
+    topX: 6.4, topZ: 6.4, topExp: 4, topCz: 0,      // top: ≈12.8 mm squircle, centred
+    height: 9.1, tilt: 0, dish: 0.7, fillet: 0.7,
   };
+  // Superellipse ring |x/a|^e + |z/b|^e = 1 in the xz-plane, resampled to evenly spaced points
+  // (same count and start point at every size, so rings stitch cleanly). e = 2 is an ellipse,
+  // e ≈ 4 a squircle, large e a square with tight corners.
+  function squircleRing(a, b, e, cz, y, N = 96) {
+    const M = 1024, raw = [], len = [0];
+    for (let i = 0; i <= M; i++) {
+      const t = (i / M) * Math.PI * 2, c = Math.cos(t), s = Math.sin(t);
+      raw.push([a * Math.sign(c) * Math.abs(c) ** (2 / e), b * Math.sign(s) * Math.abs(s) ** (2 / e)]);
+      if (i) len.push(len[i - 1] + Math.hypot(raw[i][0] - raw[i - 1][0], raw[i][1] - raw[i - 1][1]));
+    }
+    const pts = [];
+    for (let k = 0, j = 0; k < N; k++) {
+      const target = (k / N) * len[M];
+      while (len[j + 1] < target) j++;
+      const f = (target - len[j]) / (len[j + 1] - len[j] || 1);
+      pts.push(new T.Vector3(raw[j][0] + (raw[j + 1][0] - raw[j][0]) * f, y, cz + raw[j][1] + (raw[j + 1][1] - raw[j][1]) * f));
+    }
+    return pts;
+  }
   function ringPoints(hx, hz, r, cz, y, n = 7, m = 6) {
     // rounded rectangle in the xz-plane, same point count at every size so rings can be stitched:
     // n segments per corner arc, plus m points along each straight side so curved surfaces lofted
@@ -475,8 +494,8 @@ window.initDevice3D = function (host, { pick, icons }) {
     });
     return pts;
   }
-  // height offset of the top surface: a round dish (XDA) that eases out to nothing at the corners,
-  // so there's no crease where it meets the square top, plus any tilt (none for XDA)
+  // height offset of the top surface: a round dish, deepest in the middle and easing out toward
+  // the edges and corners with no crease, plus any tilt (none for these caps)
   const topOffset = (x, z) => {
     const r2 = ((x / CAP.topX) ** 2 + ((z - CAP.topCz) / CAP.topZ) ** 2) / 2;  // 0 at the centre, 1 at the corners
     return -CAP.tilt * (z - CAP.topCz) - CAP.dish * Math.max(0, 1 - r2) ** 2;
@@ -501,18 +520,18 @@ window.initDevice3D = function (host, { pick, icons }) {
     return g;
   }
   function capGeometry() {
-    const { base, baseR, topX, topZ, topR, topCz, height, fillet } = CAP;
-    const sx = topX + fillet * 0.8, sz = topZ + fillet * 0.8, sy = height - fillet, sr = topR + fillet * 0.5;
+    const { base, baseExp, topX, topZ, topExp, topCz, height, fillet } = CAP;
+    const sx = topX + fillet * 0.8, sz = topZ + fillet * 0.8, sy = height - fillet;
     const rings = [];
-    // sloped walls from the base to the shoulder
-    for (let i = 0; i <= 6; i++) {
-      const u = i / 6;
-      rings.push(ringPoints(base + (sx - base) * u, base + (sz - base) * u, baseR + (sr - baseR) * u, topCz * u, sy * u));
+    // slanted walls from the base to the shoulder, morphing from rounded square to squircle
+    for (let i = 0; i <= 8; i++) {
+      const u = i / 8;
+      rings.push(squircleRing(base + (sx - base) * u, base + (sz - base) * u, baseExp + (topExp - baseExp) * u, topCz * u, sy * u));
     }
-    // rounded edge from the shoulder onto the top
+    // crisp rounded edge from the shoulder onto the top
     for (let i = 1; i <= 5; i++) {
       const a = (i / 5) * Math.PI / 2;
-      rings.push(ringPoints(topX + (sx - topX) * Math.cos(a), topZ + (sz - topZ) * Math.cos(a), sr + (topR - sr) * (i / 5), topCz, sy + fillet * Math.sin(a)));
+      rings.push(squircleRing(topX + (sx - topX) * Math.cos(a), topZ + (sz - topZ) * Math.cos(a), topExp, topCz, sy + fillet * Math.sin(a)));
     }
     // blend the tilt and dish in toward the top
     rings.forEach(r => r.forEach(p => { const w = Math.min(1, p.y / height) ** 4; p.y += w * topOffset(p.x, p.z); }));
@@ -530,7 +549,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     return { body, top };
   }
   const cap = capGeometry();
-  const legendGeo = cap.top(9);
+  const legendGeo = cap.top(11.25); // legend artwork spans ~7 mm of the top
 
   function legendTexture(icon) {
     const c = document.createElement('canvas'); c.width = c.height = 256;
