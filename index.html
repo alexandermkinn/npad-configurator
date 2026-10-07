@@ -46,14 +46,21 @@ body { margin: 0; overflow: hidden;
 .app {
   height: 100%; display: grid; gap: 12px 16px; padding: 14px 16px 16px;
   grid-template-columns: minmax(0, 1fr) 340px; grid-template-rows: auto minmax(0, 1fr);
+  transition: grid-template-columns .4s cubic-bezier(.3, .7, .3, 1), grid-template-rows .4s cubic-bezier(.3, .7, .3, 1), column-gap .4s;
 }
+/* panels tucked away: the render takes the whole window and the model re-centres */
+.app.collapsed { grid-template-columns: minmax(0, 1fr) 0px; column-gap: 0; }
+.app.collapsed .side { opacity: 0; pointer-events: none; }
 .topbar { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 h1 { font-family: var(--font-display); font-weight: 800; font-size: 24px; letter-spacing: -0.02em; margin: 0; line-height: 1.1; }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.side { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow: auto; }
+.side { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow: auto; width: 340px; transition: opacity .25s; }
 @media (max-width: 820px) {
   .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1.1fr) minmax(0, 1fr); }
+  .app.collapsed { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) 0px; row-gap: 0; }
+  .side { width: auto; }
 }
+@media (prefers-reduced-motion: reduce) { .app, .side { transition: none; } }
 button {
   font: inherit; font-weight: 500; font-size: 13px; color: var(--fg);
   background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
@@ -188,13 +195,14 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 </style>
 </head>
 <body>
-<div class="app">
+<div class="app collapsed">
   <header class="topbar">
     <h1>npad tester</h1>
     <div class="actions">
       <button id="btn-hid" type="button" class="primary">Connect directly</button>
       <button id="btn-learn" type="button">Set up keys</button>
       <button id="btn-reset" type="button">Clear results</button>
+      <button id="btn-panels" type="button" aria-controls="side" aria-expanded="false">Show panels</button>
     </div>
   </header>
 
@@ -221,7 +229,7 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
     <p class="hint" id="hint">Click a key or a control to reassign it.</p>
   </main>
 
-  <aside class="side">
+  <aside class="side" id="side" inert>
     <div class="status" id="status" role="status" aria-live="polite"><p id="status-text"></p><div id="status-actions" class="actions"></div></div>
 
     <section class="panel" aria-labelledby="h-controls">
@@ -847,7 +855,17 @@ window.initDevice3D = function (host, { pick, icons }) {
     renderStatus(target);
   }
 
+  // ---- side panels: hidden at first, opened by the button or when something needs attention ----
+  function setPanels(open) {
+    document.querySelector('.app').classList.toggle('collapsed', !open);
+    $('#side').inert = !open;
+    $('#btn-panels').textContent = open ? 'Hide panels' : 'Show panels';
+    $('#btn-panels').setAttribute('aria-expanded', String(open));
+  }
+  const panelsOpen = () => !document.querySelector('.app').classList.contains('collapsed');
+
   function setStatus(kind, html, actions = []) {
+    if (kind === 'learn' || kind === 'warn') setPanels(true);
     const s = $('#status'); s.dataset.kind = kind;
     $('#status-text').innerHTML = html;
     const a = $('#status-actions'); a.innerHTML = '';
@@ -905,6 +923,7 @@ window.initDevice3D = function (host, { pick, icons }) {
 
   // ---- activation visuals ----
   function activate(id, down) {
+    if (!panelsOpen()) setPanels(true); // first input from the npad: show the results
     if (id === 'cw' || id === 'ccw') {
       knobAngle += id === 'cw' ? 24 : -24;
       $('#knob-face').style.transform = `rotate(${knobAngle}deg)`;
@@ -1004,6 +1023,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   }
 
   $('#btn-learn').addEventListener('click', startLearn);
+  $('#btn-panels').addEventListener('click', () => setPanels(!panelsOpen()));
   $('#btn-reset').addEventListener('click', () => { tested.clear(); knobAngle = 0; $('#knob-face').style.transform = ''; dev3d?.reset(); render(); });
   $('#btn-clear-log').addEventListener('click', () => { logEl.innerHTML = '<tr class="empty"><td colspan="5">Log cleared.</td></tr>'; });
 
