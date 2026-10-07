@@ -762,8 +762,8 @@ window.initDevice3D = function (host, { pick, icons }) {
   function frame() {
     const t = clock.getElapsedTime(), dt = Math.min(0.1, t - lastT);
     lastT = t;
-    // turntable: about one turn every 40 s, with eased start and stop
-    turntable.speed += ((turntable.on ? 0.16 : 0) - turntable.speed) * Math.min(1, dt * 1.2);
+    // turntable: about one turn every 80 s, with eased start and stop
+    turntable.speed += ((turntable.on ? 0.08 : 0) - turntable.speed) * Math.min(1, dt * 1.2);
     if (Math.abs(turntable.speed) > 1e-4) {
       view.yaw += turntable.speed * dt;
       if (turntable.on) { view.pitch = orbitPitch(view.yaw); view.zoom = orbitZoom(view.yaw); }
