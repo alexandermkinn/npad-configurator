@@ -296,6 +296,10 @@ window.initDevice3D = function (host, { pick, icons }) {
   sun.shadow.bias = -0.0008;
   sun.shadow.radius = 5;
   scene.add(sun);
+  // low fill from the right so the sides (and the knob's knurl) aren't lost in shadow
+  const fill = new T.DirectionalLight(0xdfe4ff, 0.45);
+  fill.position.set(160, 50, 40);
+  scene.add(fill);
 
   const ground = new T.Mesh(new T.PlaneGeometry(800, 800), new T.ShadowMaterial({ opacity: 0.35 }));
   ground.rotation.x = -Math.PI / 2;
@@ -487,24 +491,26 @@ window.initDevice3D = function (host, { pick, icons }) {
   });
 
   // ---- knob: anodized aluminium, knurled sides, finger dimple ----
-  const knobSide = new T.MeshStandardMaterial({ color: srgb(0x19191c), metalness: 0.4, roughness: 0.5, envMapIntensity: 0.9, emissive: 0x6f8cff, emissiveIntensity: 0 });
+  const knobSide = new T.MeshStandardMaterial({ color: srgb(0x1c1c20), metalness: 0.55, roughness: 0.38, envMapIntensity: 1.2, emissive: 0x6f8cff, emissiveIntensity: 0 });
   const knobTop = new T.MeshStandardMaterial({ color: srgb(0x141416), metalness: 0.35, roughness: 0.5, envMapIntensity: 0.6, emissive: 0x6f8cff, emissiveIntensity: 0 });
   const knob = new T.Group(); knob.position.set(0, H - KNOB_SINK, KNOB_Z);
   const spinner = new T.Group(); knob.add(spinner);
   const CH = 0.6; // 45° chamfer on the top edge
-  // fine straight knurl over the full height of the side (about 0.5 mm pitch)
+  // straight knurl over the full height of the side: sharp V-grooves with faceted
+  // normals, so each ridge has a lit face and a dark face even at small sizes
   function knobSideGeometry() {
-    const h = KNOB_H - CH, RIDGES = 180, DEPTH = 0.14;
-    const g = new T.CylinderGeometry(KNOB_R, KNOB_R, h, RIDGES * 6, 1, true);
+    const h = KNOB_H - CH, RIDGES = 120, DEPTH = 0.3;
+    const g = new T.CylinderGeometry(KNOB_R, KNOB_R, h, RIDGES * 2, 1, true);
     const p = g.attributes.position;
     for (let i = 0; i < p.count; i++) {
       const x = p.getX(i), z = p.getZ(i);
-      const a = Math.atan2(x, z);
-      const k = 1 - (DEPTH * (0.5 - 0.5 * Math.cos(a * RIDGES))) / KNOB_R;
+      const seg = Math.round(((Math.atan2(x, z) + Math.PI * 2) % (Math.PI * 2)) / (Math.PI / RIDGES));
+      const k = seg % 2 ? 1 - DEPTH / KNOB_R : 1; // alternate crest and groove
       p.setX(i, x * k); p.setZ(i, z * k);
     }
-    g.computeVertexNormals();
-    return g;
+    const flat = g.toNonIndexed();
+    flat.computeVertexNormals();
+    return flat;
   }
   const knobBody = new T.Mesh(knobSideGeometry(), knobSide);
   knobBody.position.y = (KNOB_H - CH) / 2;
