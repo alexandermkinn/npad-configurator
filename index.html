@@ -398,8 +398,12 @@ window.initDevice3D = function (host, { pick, icons }) {
   floor.position.set(0, FLOOR, WELL_Z);
   scene.add(floor);
 
-  const switchGeo = new T.BoxGeometry(14, 5, 14);
+  // MX-style switch: opaque bottom housing, clear tapered top housing (a square frustum)
+  const SW_BOTTOM = 2, SW_TOP = 2.4;                    // heights above the pocket floor
+  const switchBaseGeo = new T.BoxGeometry(14, SW_BOTTOM, 14);
   const switchMat = new T.MeshStandardMaterial({ color: 0x050507, roughness: 0.9 });
+  const housingGeo = new T.CylinderGeometry(5.8 * Math.SQRT2, 7 * Math.SQRT2, SW_TOP, 4, 1);
+  housingGeo.rotateY(Math.PI / 4);
 
   // ---- keycaps: Cherry-style sculpted profile ----
   // A loft of rounded rectangles from the 18.1 mm base up to a smaller top that sits
@@ -525,7 +529,14 @@ window.initDevice3D = function (host, { pick, icons }) {
   const KEYS = [['k1', 'n', 0, 0], ['k2', 'globe', 1, 0], ['k3', 'share', 2, 0], ['k4', 'shrimp', 0, 1], ['k5', 'boat', 1, 1], ['k6', 'sparkle', 2, 1]];
   KEYS.forEach(([id, icon, col, row]) => {
     const x = (col - 1) * PITCH, z = WELL_Z + (row === 0 ? -PITCH / 2 : PITCH / 2);
-    const sw = new T.Mesh(switchGeo, switchMat); sw.position.set(x, FLOOR + 2.5, z); scene.add(sw);
+    const swBase = new T.Mesh(switchBaseGeo, switchMat); swBase.position.set(x, FLOOR + SW_BOTTOM / 2, z);
+    // clear top housing: faintly visible plastic that glows with the LED shining up through it
+    const housingMat = new T.MeshStandardMaterial({
+      color: 0xffffff, transparent: true, opacity: 0.22, roughness: 0.15, metalness: 0,
+      emissive: 0x000000, depthWrite: false,
+    });
+    const housing = new T.Mesh(housingGeo, housingMat); housing.position.set(x, FLOOR + SW_BOTTOM + SW_TOP / 2, z);
+    scene.add(swBase, housing);
 
     const group = new T.Group(); group.position.set(x, CAP_Y, z);
     const mat = new T.MeshStandardMaterial({ color: srgb(0x15161c), roughness: 0.6, metalness: 0.05, envMapIntensity: 0.5, emissive: 0x6f8cff, emissiveIntensity: 0 });
@@ -538,21 +549,22 @@ window.initDevice3D = function (host, { pick, icons }) {
     group.add(body, legend);
     scene.add(group);
 
-    // south-facing RGB LED under the switch: a soft pool of light on the floor that overlaps its
-    // neighbours, a fainter haze higher up near the keycap skirts, and a light for the spill
+    // one RGB LED centred under the stem, shining up through the clear housing: the housing glows,
+    // a soft pool of light spreads across the floor and overlaps its neighbours, a faint haze
+    // sits just above the housing, and a light gives the spill on the caps and pocket walls
     const ledMat = glowMaterial(), hazeMat = glowMaterial();
     const ledPatch = new T.Mesh(new T.PlaneGeometry(PITCH * 1.7, PITCH * 1.7), ledMat);
     ledPatch.rotation.x = -Math.PI / 2;
-    ledPatch.position.set(x, FLOOR + 0.05, z + 2);
+    ledPatch.position.set(x, FLOOR + 0.05, z);
     const haze = new T.Mesh(new T.PlaneGeometry(PITCH * 1.5, PITCH * 1.5), hazeMat);
     haze.rotation.x = -Math.PI / 2;
-    haze.position.set(x, (FLOOR + CAP_Y) / 2, z + 2);
-    const ledLight = new T.PointLight(0x000000, 0, 42, 2);
-    ledLight.position.set(x, FLOOR + 3, z + 5);
+    haze.position.set(x, FLOOR + SW_BOTTOM + SW_TOP + 0.3, z);
+    const ledLight = new T.PointLight(0x000000, 0, 28, 2); // short reach: stays in the pocket, off the knob
+    ledLight.position.set(x, FLOOR + SW_BOTTOM + 0.5, z); // a single LED, centred under the stem
     scene.add(ledPatch, haze, ledLight);
 
     pickables.push(body, legend);
-    keys[id] = { group, mat, legendMat, ledMat, hazeMat, ledLight, led: LED_POS[id], down: false, t: 0, pressedAt: -1e9, heat: 0, rnd: { h: 0, s: 1, v: 0, next: 0 } };
+    keys[id] = { group, mat, legendMat, ledMat, hazeMat, housingMat, ledLight, led: LED_POS[id], down: false, t: 0, pressedAt: -1e9, heat: 0, rnd: { h: 0, s: 1, v: 0, next: 0 } };
   });
 
   // ---- knob: anodized aluminium, knurled sides, finger dimple ----
@@ -862,8 +874,10 @@ window.initDevice3D = function (host, { pick, icons }) {
       k.legendMat.color.copy(tested.has(id) ? GREEN : WHITE);
       k.heat = Math.max(0, k.heat - 0.004);
       const [r, g, b] = ledColor(k, t);
-      k.ledMat.color.setRGB(r, g, b).convertSRGBToLinear().multiplyScalar(1.4);
-      k.hazeMat.color.copy(k.ledMat.color).multiplyScalar(0.3);
+      k.ledMat.color.setRGB(r, g, b).convertSRGBToLinear().multiplyScalar(1.1);
+      k.hazeMat.color.copy(k.ledMat.color).multiplyScalar(0.22);
+      k.housingMat.emissive.copy(k.ledMat.color).multiplyScalar(0.75);
+      k.housingMat.opacity = 0.22 + 0.5 * Math.max(r, g, b);   // lit plastic reads as more solid
       k.ledLight.color.setRGB(r, g, b);
       k.ledLight.intensity = 3.5 * Math.max(r, g, b);
     });
