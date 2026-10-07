@@ -486,13 +486,8 @@ window.initDevice3D = function (host, { pick, icons }) {
     keys[id] = { group, mat, legendMat, down: false, t: 0 };
   });
 
-  // ---- knob: knurled aluminium with a domed finger nub ----
-  const knurlCanvas = document.createElement('canvas'); knurlCanvas.width = 512; knurlCanvas.height = 4;
-  const kctx = knurlCanvas.getContext('2d');
-  for (let i = 0; i < 512; i += 4) { kctx.fillStyle = '#fff'; kctx.fillRect(i, 0, 2, 4); kctx.fillStyle = '#000'; kctx.fillRect(i + 2, 0, 2, 4); }
-  const knurl = new T.CanvasTexture(knurlCanvas); knurl.wrapS = T.RepeatWrapping; knurl.repeat.set(3, 1);
-
-  const knobSide = new T.MeshStandardMaterial({ color: srgb(0x121214), metalness: 0.35, roughness: 0.55, envMapIntensity: 0.6, bumpMap: knurl, bumpScale: 0.12, emissive: 0x6f8cff, emissiveIntensity: 0 });
+  // ---- knob: smooth anodized aluminium with a finger dimple ----
+  const knobSide = new T.MeshStandardMaterial({ color: srgb(0x121214), metalness: 0.35, roughness: 0.55, envMapIntensity: 0.6, emissive: 0x6f8cff, emissiveIntensity: 0 });
   const knobTop = new T.MeshStandardMaterial({ color: srgb(0x141416), metalness: 0.35, roughness: 0.5, envMapIntensity: 0.6, emissive: 0x6f8cff, emissiveIntensity: 0 });
   const knob = new T.Group(); knob.position.set(0, H - KNOB_SINK, KNOB_Z);
   const spinner = new T.Group(); knob.add(spinner);
