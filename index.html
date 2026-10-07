@@ -742,7 +742,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     return [[v, u, p], [q, v, p], [p, v, u], [p, q, v], [u, p, v], [v, p, q]][i % 6];
   }
   // While idle-spinning with no real lighting to show, run a demo backlight that fades in and out.
-  const DEMO_LIGHT = { effect: 'cycle_left_right', h: 0.6, s: 1, v: 0.9, speed: 0.25 };
+  const DEMO_LIGHT = { effect: 'solid_color', h: 0, s: 0, v: 0.85, speed: 0.5 }; // plain white, like the stock firmware
   let idleGlow = 0;                                   // 0..1 fade for the demo backlight
   function ledColor(k, t) {
     const L = lighting || (idleGlow > 0.001 ? { ...DEMO_LIGHT, v: DEMO_LIGHT.v * idleGlow } : null);
