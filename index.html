@@ -502,18 +502,16 @@ window.initDevice3D = function (host, { pick, icons }) {
     if (icon === 'n') {
       const draw = () => {
         ctx.clearRect(0, 0, 256, 256);
-        // blocky, flat-topped n as printed on the keycap
-        ctx.fillStyle = '#ffffff';
-        ctx.beginPath();
-        ctx.moveTo(58, 196); ctx.lineTo(58, 96); ctx.quadraticCurveTo(58, 64, 90, 64);
-        ctx.lineTo(198, 64); ctx.lineTo(198, 196); ctx.lineTo(150, 196); ctx.lineTo(150, 112);
-        ctx.lineTo(106, 112); ctx.lineTo(106, 196); ctx.closePath();
-        ctx.fill();
+        // a bold lowercase n, as printed on the cap
+        ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+        ctx.font = '800 210px "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif';
+        ctx.fillText('n', 128, 184);
         tex.needsUpdate = true;
       };
       draw();
+      document.fonts?.load('800 210px "Schibsted Grotesk"').then(draw, () => {});
     } else {
-      const svg = icons[icon].replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" ').replace(/currentColor/g, '#ffffff').replace(/stroke-width="1\.[0-9]"/g, 'stroke-width="2"');
+      const svg = icons[icon].replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" ').replace(/currentColor/g, '#ffffff');
       const img = new Image();
       img.onload = () => { ctx.clearRect(0, 0, 256, 256); ctx.drawImage(img, 0, 0, 256, 256); tex.needsUpdate = true; };
       img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
@@ -918,13 +916,14 @@ window.initDevice3D = function (host, { pick, icons }) {
 </script>
 <script>
 (() => {
+  // Keycap legends: Phosphor Icons "light" weight (MIT, phosphoricons.com), matching the printed caps
   const ICONS = {
     n: '<span class="n">n</span>',
-    globe: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18M4.6 7.5h14.8M4.6 16.5h14.8"/></svg>',
-    share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5l6 6-6 6"/><path d="M20 11h-8a8 8 0 0 0-8 8"/></svg>',
-    shrimp: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 7c-4-2.5-10-1-11.5 3.5C4.3 14 6.5 17.5 10 18"/><path d="M17 7c1.5 1 1.8 3 .5 4H9"/><path d="M8.5 11.5l1.5 2.5M11.5 11l1 3M14.5 11l.5 2.5"/><path d="M10 18l-3 2.5 4-.5-1-2z"/><path d="M17 7l4-3M18 8.5l4-1"/><circle cx="15.4" cy="8.4" r=".6" fill="currentColor"/></svg>',
-    boat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13"/><path d="M12 4l6.5 11H12z"/><path d="M10.5 7.5L5.5 15h5z"/><path d="M3.5 17.5h17l-2.5 3H6z"/></svg>',
-    sparkle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M10 6c.7 4 2.6 5.9 6.5 6.5-3.9.6-5.8 2.5-6.5 6.5-.7-4-2.6-5.9-6.5-6.5C7.4 11.9 9.3 10 10 6z"/><path d="M18 2.5c.3 1.6 1 2.3 2.5 2.5-1.5.3-2.2 1-2.5 2.5-.3-1.5-1-2.2-2.5-2.5 1.5-.2 2.2-.9 2.5-2.5z"/><path d="M20 10v3M18.5 11.5h3" stroke-linecap="round"/></svg>',
+    globe: '<svg viewBox="0 0 256 256" fill="currentColor"><path d="M128,26A102,102,0,1,0,230,128,102.12,102.12,0,0,0,128,26Zm81.57,64H169.19a132.58,132.58,0,0,0-25.73-50.67A90.29,90.29,0,0,1,209.57,90ZM218,128a89.7,89.7,0,0,1-3.83,26H171.81a155.43,155.43,0,0,0,0-52h42.36A89.7,89.7,0,0,1,218,128Zm-90,87.83a110,110,0,0,1-15.19-19.45A124.24,124.24,0,0,1,99.35,166h57.3a124.24,124.24,0,0,1-13.46,30.38A110,110,0,0,1,128,215.83ZM96.45,154a139.18,139.18,0,0,1,0-52h63.1a139.18,139.18,0,0,1,0,52ZM38,128a89.7,89.7,0,0,1,3.83-26H84.19a155.43,155.43,0,0,0,0,52H41.83A89.7,89.7,0,0,1,38,128Zm90-87.83a110,110,0,0,1,15.19,19.45A124.24,124.24,0,0,1,156.65,90H99.35a124.24,124.24,0,0,1,13.46-30.38A110,110,0,0,1,128,40.17Zm-15.46-.84A132.58,132.58,0,0,0,86.81,90H46.43A90.29,90.29,0,0,1,112.54,39.33ZM46.43,166H86.81a132.58,132.58,0,0,0,25.73,50.67A90.29,90.29,0,0,1,46.43,166Zm97,50.67A132.58,132.58,0,0,0,169.19,166h40.38A90.29,90.29,0,0,1,143.46,216.67Z"/></svg>',
+    share: '<svg viewBox="0 0 256 256" fill="currentColor"><path d="M236.24,107.76l-80-80A6,6,0,0,0,146,32V74.2c-54.48,3.59-120.39,55-127.93,120.66a10,10,0,0,0,17.23,8h0C46.56,190.85,87,152.6,146,150.13V192a6,6,0,0,0,10.24,4.24l80-80A6,6,0,0,0,236.24,107.76ZM158,177.52V144a6,6,0,0,0-6-6c-27.73,0-54.76,7.25-80.32,21.55a193.38,193.38,0,0,0-40.81,30.65c4.7-26.56,20.16-52,44-72.27C98.47,97.94,127.29,86,152,86a6,6,0,0,0,6-6V46.49L223.51,112Z"/></svg>',
+    shrimp: '<svg viewBox="0 0 256 256" fill="currentColor"><path d="M138,116a10,10,0,1,1,10,10A10,10,0,0,1,138,116Zm83.9-32A78.1,78.1,0,0,1,144,158H112a14,14,0,0,0,0,28h56a6,6,0,0,1,0,12H118v20h34a6,6,0,0,1,0,12H96A78,78,0,0,1,96,74H212a14,14,0,0,0,0-28H128a22,22,0,0,1-22-22,6,6,0,0,1,12,0,10,10,0,0,0,10,10h84a26,26,0,0,1,9.9,50ZM50.65,199.88l35.48-25.34A23.74,23.74,0,0,1,86,172a25.92,25.92,0,0,1,1.46-8.57L31.51,138a65.8,65.8,0,0,0,19.14,61.88ZM90.3,186.3,60.49,207.59A65.56,65.56,0,0,0,96,218h10V197.29A26.05,26.05,0,0,1,90.3,186.3ZM106,146.71V86H96a66.1,66.1,0,0,0-60.86,40.47L94,153.24A25.86,25.86,0,0,1,106,146.71ZM209.73,86H118v60h26A66.09,66.09,0,0,0,209.73,86Z"/></svg>',
+    boat: '<svg viewBox="0 0 256 256" fill="currentColor"><path d="M245.41,173.4A6,6,0,0,0,240,170H142V142h74a6,6,0,0,0,4.44-10L142,45.68V8a6,6,0,0,0-10.66-3.78l-104,128A6,6,0,0,0,32,142h98v28H16a6,6,0,0,0-4.69,9.75l29.6,37A14,14,0,0,0,51.84,222H204.16a14,14,0,0,0,10.93-5.25l29.6-37A6,6,0,0,0,245.41,173.4Zm-43-43.4H142V63.52ZM44.61,130,130,24.9V130Zm161.11,79.25a2,2,0,0,1-1.56.75H51.84a2,2,0,0,1-1.56-.75L28.48,182h199Z"/></svg>',
+    sparkle: '<svg viewBox="0 0 256 256" fill="currentColor"><path d="M196.89,130.94,144.4,111.6,125.06,59.11a13.92,13.92,0,0,0-26.12,0L79.6,111.6,27.11,130.94a13.92,13.92,0,0,0,0,26.12L79.6,176.4l19.34,52.49a13.92,13.92,0,0,0,26.12,0L144.4,176.4l52.49-19.34a13.92,13.92,0,0,0,0-26.12Zm-4.15,14.86-55.08,20.3a6,6,0,0,0-3.56,3.56l-20.3,55.08a1.92,1.92,0,0,1-3.6,0L89.9,169.66a6,6,0,0,0-3.56-3.56L31.26,145.8a1.92,1.92,0,0,1,0-3.6l55.08-20.3a6,6,0,0,0,3.56-3.56l20.3-55.08a1.92,1.92,0,0,1,3.6,0l20.3,55.08a6,6,0,0,0,3.56,3.56l55.08,20.3a1.92,1.92,0,0,1,0,3.6ZM146,40a6,6,0,0,1,6-6h18V16a6,6,0,0,1,12,0V34h18a6,6,0,0,1,0,12H182V64a6,6,0,0,1-12,0V46H152A6,6,0,0,1,146,40ZM246,88a6,6,0,0,1-6,6H230v10a6,6,0,0,1-12,0V94H208a6,6,0,0,1,0-12h10V72a6,6,0,0,1,12,0V82h10A6,6,0,0,1,246,88Z"/></svg>',
   };
   const INPUTS = [
     { id: 'k1', name: 'n key', short: 'n', icon: 'n', pos: [1, 0] },
