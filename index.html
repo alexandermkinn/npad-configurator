@@ -486,20 +486,19 @@ window.initDevice3D = function (host, { pick, icons }) {
     keys[id] = { group, mat, legendMat, down: false, t: 0 };
   });
 
-  // ---- knob: anodized aluminium, ridged sides, finger dimple ----
-  const knobSide = new T.MeshStandardMaterial({ color: srgb(0x121214), metalness: 0.35, roughness: 0.55, envMapIntensity: 0.6, emissive: 0x6f8cff, emissiveIntensity: 0 });
+  // ---- knob: anodized aluminium, knurled sides, finger dimple ----
+  const knobSide = new T.MeshStandardMaterial({ color: srgb(0x19191c), metalness: 0.4, roughness: 0.5, envMapIntensity: 0.9, emissive: 0x6f8cff, emissiveIntensity: 0 });
   const knobTop = new T.MeshStandardMaterial({ color: srgb(0x141416), metalness: 0.35, roughness: 0.5, envMapIntensity: 0.6, emissive: 0x6f8cff, emissiveIntensity: 0 });
   const knob = new T.Group(); knob.position.set(0, H - KNOB_SINK, KNOB_Z);
   const spinner = new T.Group(); knob.add(spinner);
   const CH = 0.6; // 45° chamfer on the top edge
-  // fine vertical ridges cut into the side, leaving a smooth band under the chamfer
+  // fine straight knurl over the full height of the side (about 0.5 mm pitch)
   function knobSideGeometry() {
-    const h = KNOB_H - CH, RIDGES = 90, DEPTH = 0.22, BAND = 1.4;
-    const g = new T.CylinderGeometry(KNOB_R, KNOB_R, h, RIDGES * 8, 24, true);
+    const h = KNOB_H - CH, RIDGES = 180, DEPTH = 0.14;
+    const g = new T.CylinderGeometry(KNOB_R, KNOB_R, h, RIDGES * 6, 1, true);
     const p = g.attributes.position;
     for (let i = 0; i < p.count; i++) {
-      const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-      if (y > h / 2 - BAND) continue;
+      const x = p.getX(i), z = p.getZ(i);
       const a = Math.atan2(x, z);
       const k = 1 - (DEPTH * (0.5 - 0.5 * Math.cos(a * RIDGES))) / KNOB_R;
       p.setX(i, x * k); p.setZ(i, z * k);
