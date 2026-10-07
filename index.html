@@ -255,9 +255,10 @@ window.initDevice3D = function (host, { pick, icons }) {
   if (!window.THREE) throw new Error('three.js did not load');
   const T = THREE;
   const W = 73, D = 98, H = 20, R = 5;                       // case
-  // key pocket: caps span 55.3 × 36.3 mm, leaving about a 1 mm gap to the pocket wall
-  const WELL_W = 57, WELL_D = 38, WELL_Z = 21, FLOOR = H - 10;
-  const PITCH = 19.05, CAP_Y = H - 2, TRAVEL = 3.5;
+  // keycaps: 18.1 mm at the base on a 19.05 mm pitch, so neighbours sit about 1 mm apart
+  const PITCH = 19.05, CAP_BASE = 18.1, CAP_Y = H - 3, TRAVEL = 3.5;
+  // key pocket: caps span 56.2 × 37.2 mm, leaving about a 1 mm gap to the pocket wall
+  const WELL_W = 58, WELL_D = 39, WELL_Z = 21, FLOOR = H - 10;
   const KNOB_R = 15.5, KNOB_H = 16, KNOB_Z = -20, KNOB_SINK = 3; // knob sits in a round recess
   const srgb = hex => new T.Color(hex).convertSRGBToLinear();
 
@@ -358,12 +359,12 @@ window.initDevice3D = function (host, { pick, icons }) {
   scene.add(floor);
 
   const switchGeo = new T.BoxGeometry(14, 5, 14);
-  const switchMat = new T.MeshStandardMaterial({ color: 0x0c0d10, roughness: 0.7 });
+  const switchMat = new T.MeshStandardMaterial({ color: 0x050507, roughness: 0.9 });
 
   // ---- keycaps (XDA: uniform height, gently tapered) ----
   function capGeometry() {
     const h = 9.5;
-    const g = extrudeUp(roundRect(new T.Shape(), 0, 0, 14.2, 14.2, 2), h, 1.5, 4);
+    const g = extrudeUp(roundRect(new T.Shape(), 0, 0, CAP_BASE - 3, CAP_BASE - 3, 2), h, 1.5, 4);
     const p = g.attributes.position;
     for (let i = 0; i < p.count; i++) {
       const k = 1 - 0.2 * (p.getY(i) / h);
