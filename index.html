@@ -450,29 +450,35 @@ window.initDevice3D = function (host, { pick, icons }) {
   const stemGeo = new T.BoxGeometry(HOLE.x * 2 - 1.2, stemH, HOLE.z * 2 - 1.2);
   const ledDotGeo = new T.SphereGeometry(0.9, 16, 8);
 
-  // ---- keycaps: Cherry-style sculpted profile ----
-  // A loft of rounded rectangles from the 18.1 mm base up to a smaller top that sits
-  // toward the back and tilts toward the user, with a rounded top edge and a shallow
-  // cylindrical dish. The legend is a copy of the dished top surface, so it follows it.
+  // ---- keycaps: XDA profile ----
+  // A loft of rounded rectangles from the 18.1 mm base up to a large, centred square top:
+  // uniform height (no row sculpt or tilt), gently tapered walls, a rounded top edge and a
+  // shallow spherical dish. The legend is a copy of the dished top surface, so it follows it.
   const CAP = {
-    base: CAP_BASE / 2, baseR: 0.9,
-    topX: 6.4, topZ: 6.8, topR: 2.6, topCz: -0.7,   // top half-width/depth, corner radius, offset to the back
-    height: 8.6, tilt: 0.07, dish: 0.5, fillet: 1.2,
+    base: CAP_BASE / 2, baseR: 1.0,
+    topX: 7.2, topZ: 7.2, topR: 3.0, topCz: 0,      // top half-width/depth (≈14.4 mm square), corner radius, no offset
+    height: 9.1, tilt: 0, dish: 0.8, fillet: 1.5,
   };
-  function ringPoints(hx, hz, r, cz, y, n = 7) {
-    // rounded rectangle in the xz-plane, same point count at every size so rings can be stitched
+  function ringPoints(hx, hz, r, cz, y, n = 7, m = 6) {
+    // rounded rectangle in the xz-plane, same point count at every size so rings can be stitched:
+    // n segments per corner arc, plus m points along each straight side so curved surfaces lofted
+    // through these rings shade smoothly instead of showing long-triangle facets
     const pts = [];
     const corners = [[hx - r, hz - r, 0], [-(hx - r), hz - r, Math.PI / 2], [-(hx - r), -(hz - r), Math.PI], [hx - r, -(hz - r), Math.PI * 1.5]];
-    corners.forEach(([cx, cz2, a0]) => {
-      for (let i = 0; i <= n; i++) {
-        const a = a0 + (i / n) * (Math.PI / 2);
-        pts.push(new T.Vector3(cx + r * Math.cos(a), y, cz + cz2 + r * Math.sin(a)));
-      }
+    const at = (c, a) => new T.Vector3(c[0] + r * Math.cos(a), y, cz + c[1] + r * Math.sin(a));
+    corners.forEach((c, k) => {
+      for (let i = 0; i <= n; i++) pts.push(at(c, c[2] + (i / n) * (Math.PI / 2)));
+      const from = at(c, c[2] + Math.PI / 2), next = corners[(k + 1) % 4], to = at(next, next[2]);
+      for (let j = 1; j <= m; j++) pts.push(from.clone().lerp(to, j / (m + 1)));
     });
     return pts;
   }
-  // height offset of the top surface: tilted toward the front, dished across the width
-  const topOffset = (x, z) => -CAP.tilt * (z - CAP.topCz) - CAP.dish * Math.max(0, 1 - (x / CAP.topX) ** 2);
+  // height offset of the top surface: a round dish (XDA) that eases out to nothing at the corners,
+  // so there's no crease where it meets the square top, plus any tilt (none for XDA)
+  const topOffset = (x, z) => {
+    const r2 = ((x / CAP.topX) ** 2 + ((z - CAP.topCz) / CAP.topZ) ** 2) / 2;  // 0 at the centre, 1 at the corners
+    return -CAP.tilt * (z - CAP.topCz) - CAP.dish * Math.max(0, 1 - r2) ** 2;
+  };
   function stitch(rings, center, uvFor) {
     const M = rings[0].length, pos = [], uv = [], idx = [];
     rings.forEach(r => r.forEach(p => { pos.push(p.x, p.y, p.z); if (uvFor) uv.push(...uvFor(p)); }));
@@ -511,7 +517,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     // the dished top, as rings shrinking to the centre
     const edge = rings[rings.length - 1];
     const topRings = [edge];
-    [0.75, 0.5, 0.25].forEach(sc => topRings.push(edge.map(p => {
+    [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1].forEach(sc => topRings.push(edge.map(p => { // fine steps keep the dish smooth
       const x = p.x * sc, z = topCz + (p.z - topCz) * sc;
       return new T.Vector3(x, height + topOffset(x, z), z);
     })));
