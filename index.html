@@ -256,8 +256,9 @@ window.initDevice3D = function (host, { pick, icons }) {
   const T = THREE;
   const W = 73, D = 98, H = 20, R = 5;                       // case
   const WELL_W = 62, WELL_D = 42, WELL_Z = 21, FLOOR = H - 10; // key pocket
-  const PITCH = 19.05, CAP_Y = H - 2.5, TRAVEL = 3.5;
-  const KNOB_R = 17, KNOB_H = 13, KNOB_Z = -20;
+  const PITCH = 19.05, CAP_Y = H - 2, TRAVEL = 3.5;
+  const KNOB_R = 15.5, KNOB_H = 16, KNOB_Z = -20, KNOB_SINK = 3; // knob sits in a round recess
+  const srgb = hex => new T.Color(hex).convertSRGBToLinear();
 
   const renderer = new T.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -320,15 +321,36 @@ window.initDevice3D = function (host, { pick, icons }) {
   }
 
   // ---- case ----
-  const aluminium = new T.MeshStandardMaterial({ color: 0x0d0e10, metalness: 0.6, roughness: 0.48, envMapIntensity: 0.45 });
-  const caseShape = roundRect(new T.Shape(), 0, 0, W - 2, D - 2, R);
-  caseShape.holes.push(roundRect(new T.Path(), 0, -WELL_Z, WELL_W + 2, WELL_D + 2, 3));
-  const caseMesh = new T.Mesh(extrudeUp(caseShape, H, 1), aluminium);
-  caseMesh.castShadow = caseMesh.receiveShadow = true;
-  scene.add(caseMesh);
+  // matte, bead-blasted black aluminium
+  const aluminium = new T.MeshStandardMaterial({ color: srgb(0x1c1c1f), metalness: 0.25, roughness: 0.72, envMapIntensity: 0.6 });
+  const PLATE = 1.4; // bottom plate, slightly inset, leaves a seam line
+  const caseShape = roundRect(new T.Shape(), 0, 0, W - 1.6, D - 1.6, R);
+  caseShape.holes.push(roundRect(new T.Path(), 0, -WELL_Z, WELL_W + 2, WELL_D + 2, 2.5));
+  caseShape.holes.push(new T.Path().absarc(0, -KNOB_Z, KNOB_R + 1.6, 0, Math.PI * 2, true));
+  const caseGeo = extrudeUp(caseShape, H - PLATE, 0.8, 1);
+  caseGeo.translate(0, PLATE, 0);
+  const caseMesh = new T.Mesh(caseGeo, aluminium);
+  const plate = new T.Mesh(extrudeUp(roundRect(new T.Shape(), 0, 0, W - 2.6, D - 2.6, R - 0.5), PLATE - 0.15, 0.3, 1),
+    new T.MeshStandardMaterial({ color: srgb(0x111113), metalness: 0.25, roughness: 0.8 }));
+  [caseMesh, plate].forEach(m => { m.castShadow = m.receiveShadow = true; scene.add(m); });
+
+  // floor of the knob recess
+  const recess = new T.Mesh(new T.CircleGeometry(KNOB_R + 1.6, 64), new T.MeshStandardMaterial({ color: srgb(0x050506), roughness: 1 }));
+  recess.rotation.x = -Math.PI / 2;
+  recess.position.set(0, H - KNOB_SINK - 0.4, KNOB_Z);
+  scene.add(recess);
+
+  // USB-C port centred on the back edge
+  const port = new T.Mesh(new T.ShapeGeometry(roundRect(new T.Shape(), 0, 0, 9, 3.4, 1.6), 12), new T.MeshBasicMaterial({ color: 0x000000 }));
+  port.rotation.y = Math.PI;
+  port.position.set(0, H * 0.5, -D / 2 + 0.75);
+  const portRim = new T.Mesh(new T.ShapeGeometry(roundRect(new T.Shape(), 0, 0, 10.4, 4.8, 2.3), 12), new T.MeshStandardMaterial({ color: srgb(0x0b0b0c), roughness: 0.6 }));
+  portRim.rotation.y = Math.PI;
+  portRim.position.set(0, H * 0.5, -D / 2 + 0.78);
+  scene.add(portRim, port);
 
   // ---- pocket floor, switches and underglow ----
-  const floorMat = new T.MeshStandardMaterial({ color: 0x05060b, emissive: 0x1f45ff, emissiveIntensity: 1, roughness: 0.9, toneMapped: false });
+  const floorMat = new T.MeshStandardMaterial({ color: 0x05060b, emissive: 0x1f45ff, emissiveIntensity: 0.75, roughness: 0.9, toneMapped: false });
   const floor = new T.Mesh(new T.PlaneGeometry(WELL_W, WELL_D), floorMat);
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(0, FLOOR, WELL_Z);
@@ -339,11 +361,11 @@ window.initDevice3D = function (host, { pick, icons }) {
 
   // ---- keycaps (XDA: uniform height, gently tapered) ----
   function capGeometry() {
-    const h = 8.5;
+    const h = 9.5;
     const g = extrudeUp(roundRect(new T.Shape(), 0, 0, 14.2, 14.2, 2), h, 1.5, 4);
     const p = g.attributes.position;
     for (let i = 0; i < p.count; i++) {
-      const k = 1 - 0.16 * (p.getY(i) / h);
+      const k = 1 - 0.2 * (p.getY(i) / h);
       p.setX(i, p.getX(i) * k); p.setZ(i, p.getZ(i) * k);
     }
     return { g, h };
@@ -359,15 +381,18 @@ window.initDevice3D = function (host, { pick, icons }) {
     if (icon === 'n') {
       const draw = () => {
         ctx.clearRect(0, 0, 256, 256);
-        ctx.fillStyle = '#f2f3f5'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.font = '800 200px "Schibsted Grotesk", system-ui, sans-serif';
-        ctx.fillText('n', 128, 112);
+        // blocky, flat-topped n as printed on the keycap
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.moveTo(58, 196); ctx.lineTo(58, 96); ctx.quadraticCurveTo(58, 64, 90, 64);
+        ctx.lineTo(198, 64); ctx.lineTo(198, 196); ctx.lineTo(150, 196); ctx.lineTo(150, 112);
+        ctx.lineTo(106, 112); ctx.lineTo(106, 196); ctx.closePath();
+        ctx.fill();
         tex.needsUpdate = true;
       };
       draw();
-      document.fonts?.load('800 200px "Schibsted Grotesk"').then(draw, () => {});
     } else {
-      const svg = icons[icon].replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" ').replace(/currentColor/g, '#f2f3f5');
+      const svg = icons[icon].replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" ').replace(/currentColor/g, '#ffffff').replace(/stroke-width="1\.[0-9]"/g, 'stroke-width="2"');
       const img = new Image();
       img.onload = () => { ctx.clearRect(0, 0, 256, 256); ctx.drawImage(img, 0, 0, 256, 256); tex.needsUpdate = true; };
       img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
@@ -383,7 +408,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     const sw = new T.Mesh(switchGeo, switchMat); sw.position.set(x, FLOOR + 2.5, z); scene.add(sw);
 
     const group = new T.Group(); group.position.set(x, CAP_Y, z);
-    const mat = new T.MeshStandardMaterial({ color: 0x1b1c20, roughness: 0.8, metalness: 0.05, envMapIntensity: 0.25, emissive: 0x6f8cff, emissiveIntensity: 0 });
+    const mat = new T.MeshStandardMaterial({ color: srgb(0x2c2e4e), roughness: 0.62, metalness: 0.05, envMapIntensity: 0.5, emissive: 0x6f8cff, emissiveIntensity: 0 });
     const body = new T.Mesh(cap.g, mat);
     body.castShadow = body.receiveShadow = true;
     body.userData.input = id;
@@ -408,43 +433,28 @@ window.initDevice3D = function (host, { pick, icons }) {
   for (let i = 0; i < 512; i += 4) { kctx.fillStyle = '#fff'; kctx.fillRect(i, 0, 2, 4); kctx.fillStyle = '#000'; kctx.fillRect(i + 2, 0, 2, 4); }
   const knurl = new T.CanvasTexture(knurlCanvas); knurl.wrapS = T.RepeatWrapping; knurl.repeat.set(3, 1);
 
-  const knobSide = new T.MeshStandardMaterial({ color: 0x111215, metalness: 0.7, roughness: 0.4, envMapIntensity: 0.5, bumpMap: knurl, bumpScale: 0.35, emissive: 0x6f8cff, emissiveIntensity: 0 });
-  const knobTop = new T.MeshStandardMaterial({ color: 0x141518, metalness: 0.65, roughness: 0.45, envMapIntensity: 0.5, emissive: 0x6f8cff, emissiveIntensity: 0 });
-  const knob = new T.Group(); knob.position.set(0, H, KNOB_Z);
+  const knobSide = new T.MeshStandardMaterial({ color: srgb(0x121214), metalness: 0.35, roughness: 0.55, envMapIntensity: 0.6, bumpMap: knurl, bumpScale: 0.12, emissive: 0x6f8cff, emissiveIntensity: 0 });
+  const knobTop = new T.MeshStandardMaterial({ color: srgb(0x141416), metalness: 0.35, roughness: 0.5, envMapIntensity: 0.6, emissive: 0x6f8cff, emissiveIntensity: 0 });
+  const knob = new T.Group(); knob.position.set(0, H - KNOB_SINK, KNOB_Z);
   const spinner = new T.Group(); knob.add(spinner);
   const CH = 1.4; // top chamfer
   const knobBody = new T.Mesh(new T.CylinderGeometry(KNOB_R, KNOB_R, KNOB_H - CH, 128, 1, true), knobSide);
-  knobBody.position.y = (KNOB_H - CH) / 2 + 0.6;
+  knobBody.position.y = (KNOB_H - CH) / 2;
   const lid = new T.Mesh(new T.LatheGeometry([
     new T.Vector2(KNOB_R, 0), new T.Vector2(KNOB_R - 0.25, 0.8), new T.Vector2(KNOB_R - 0.9, CH - 0.1),
     new T.Vector2(KNOB_R - 1.6, CH), new T.Vector2(KNOB_R - 3, CH), new T.Vector2(0.01, CH),
   ], 128), knobTop);
-  lid.position.y = KNOB_H - CH + 0.6;
-  const NUB_R = 6, NUB_BASE = 4.2;
+  lid.position.y = KNOB_H - CH;
+  const NUB_R = 7, NUB_BASE = 4.4;
   const nubTheta = Math.asin(NUB_BASE / NUB_R);
   const nub = new T.Mesh(new T.SphereGeometry(NUB_R, 48, 24, 0, Math.PI * 2, 0, nubTheta),
-    new T.MeshStandardMaterial({ color: 0x16171a, metalness: 0.65, roughness: 0.3, envMapIntensity: 0.6 }));
-  nub.position.set(6.8, KNOB_H + 0.6 - NUB_R * Math.cos(nubTheta), 6.8);
-  // a dark seam where the knob meets the case
-  const seam = new T.Mesh(new T.CylinderGeometry(KNOB_R + 0.8, KNOB_R + 0.8, 0.6, 96), new T.MeshStandardMaterial({ color: 0x050506, roughness: 1 }));
-  seam.position.y = 0.3;
+    new T.MeshStandardMaterial({ color: srgb(0x18181b), metalness: 0.4, roughness: 0.35, envMapIntensity: 0.8 }));
+  nub.position.set(-6.2, KNOB_H - NUB_R * Math.cos(nubTheta), -6.2);
   [knobBody, lid, nub].forEach(m => { m.castShadow = m.receiveShadow = true; m.userData.input = 'press'; pickables.push(m); });
   spinner.add(knobBody, lid, nub);
-  knob.add(seam);
   scene.add(knob);
   let knobAngle = 0, knobShown = 0, knobDown = false, knobT = 0;
 
-  // ---- USB-C cable out the back ----
-  const rubber = new T.MeshStandardMaterial({ color: 0x141518, roughness: 0.6 });
-  const cablePath = new T.CatmullRomCurve3([
-    new T.Vector3(0, H * 0.55, -D / 2 - 6), new T.Vector3(0, H * 0.5, -D / 2 - 22),
-    new T.Vector3(8, 3, -D / 2 - 55), new T.Vector3(30, 1.8, -D / 2 - 140),
-  ]);
-  const cable = new T.Mesh(new T.TubeGeometry(cablePath, 64, 1.8, 16), rubber);
-  const plug = new T.Mesh(new T.BoxGeometry(10, 5.5, 14), rubber);
-  plug.position.set(0, H * 0.55, -D / 2 - 7);
-  cable.castShadow = plug.castShadow = true;
-  scene.add(cable, plug);
 
   // ---- camera with drag-to-turn ----
   const camera = new T.PerspectiveCamera(24, 1, 10, 2000);
@@ -497,7 +507,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   let target = null;
   const tested = new Set();
   const clock = new T.Clock();
-  const GREEN = new T.Color(0x7ce3a6), WHITE = new T.Color(0xffffff);
+  const GREEN = srgb(0x7ce3a6), WHITE = srgb(0xf2ede0); // cream legends
   function frame() {
     const t = clock.getElapsedTime();
     const pulse = 0.18 + 0.18 * Math.sin(t * 5);
@@ -508,11 +518,11 @@ window.initDevice3D = function (host, { pick, icons }) {
       k.mat.emissiveIntensity = id === target ? pulse : 0;
       k.legendMat.color.copy(tested.has(id) ? GREEN : WHITE);
     });
-    floorMat.emissiveIntensity = 1 + 0.6 * Math.max(...Object.values(keys).map(k => k.t));
+    floorMat.emissiveIntensity = 0.75 + 0.7 * Math.max(...Object.values(keys).map(k => k.t));
     knobShown += (knobAngle - knobShown) * 0.25;
     spinner.rotation.y = -knobShown;
     knobT += ((knobDown ? 1 : 0) - knobT) * 0.45;
-    knob.position.y = H - 1.2 * knobT;
+    knob.position.y = H - KNOB_SINK - 1.2 * knobT;
     const knobPulse = ['cw', 'ccw', 'press'].includes(target) ? pulse : 0;
     knobSide.emissiveIntensity = knobTop.emissiveIntensity = knobPulse;
     renderer.render(scene, camera);
