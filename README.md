@@ -2,13 +2,21 @@
 
 A single-page key tester for the npad macropad (a [momokai Aurora](https://github.com/qmk/qmk_firmware/tree/master/keyboards/momokai/aurora) running QMK/VIA, USB ID `69F9:0009`). Press each key and turn the knob; each control lights up and turns green once the page registers it.
 
-No build step: `index.html` is the whole site.
+No build step: `index.html` is the whole site. The Dockerfile only wraps it in nginx for deployment.
 
 ## Run locally
 
 ```sh
 python3 -m http.server 8000
 # open http://localhost:8000 in Chrome or Edge
+```
+
+## Deploy (ngrok Ship)
+
+Ship builds the `Dockerfile` on each push to `main`. The container serves the page on `$PORT` (8080 by default) and answers `GET /healthz` for the health check.
+
+```sh
+docker build -t npad-keytester . && docker run --rm -p 8080:8080 npad-keytester
 ```
 
 ## Two ways it listens
