@@ -714,8 +714,11 @@ window.initDevice3D = function (host, { pick, icons }) {
     const p = v * (1 - s), q = v * (1 - s * f), u = v * (1 - s * (1 - f));
     return [[v, u, p], [q, v, p], [p, v, u], [p, q, v], [u, p, v], [v, p, q]][i % 6];
   }
+  // While idle-spinning with no real lighting to show, run a demo backlight that fades in and out.
+  const DEMO_LIGHT = { effect: 'cycle_left_right', h: 0.6, s: 1, v: 0.9, speed: 0.25 };
+  let idleGlow = 0;                                   // 0..1 fade for the demo backlight
   function ledColor(k, t) {
-    const L = lighting;
+    const L = lighting || (idleGlow > 0.001 ? { ...DEMO_LIGHT, v: DEMO_LIGHT.v * idleGlow } : null);
     if (!L || L.v <= 0 || L.effect === 'none') return [0, 0, 0];
     const T = t * (0.2 + L.speed * 1.6);            // effect clock, scaled by speed
     const [x, y] = k.led, nx = x / 224, ny = y / 64;
@@ -810,6 +813,9 @@ window.initDevice3D = function (host, { pick, icons }) {
     const t = clock.getElapsedTime(), dt = Math.min(0.1, t - lastT);
     lastT = t;
     runDemo(t);
+    // demo backlight: fade in while idle (after a beat), fade out once someone takes over
+    const glowTarget = turntable.on && !reduceMotion && t > 0.8 ? 1 : 0;
+    idleGlow += (glowTarget - idleGlow) * Math.min(1, dt * (glowTarget ? 1.2 : 3));
     // turntable: about one turn every 80 s, with eased start and stop
     turntable.speed += ((turntable.on ? 0.08 : 0) - turntable.speed) * Math.min(1, dt * 1.2);
     if (Math.abs(turntable.speed) > 1e-4) {
