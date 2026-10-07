@@ -959,6 +959,8 @@ window.initDevice3D = function (host, { pick, icons }) {
     },
     reset() { knobAngle = 0; },
     setTarget(id) { target = id; },
+    // stop idling (if it is) and ease to the iso working view
+    snapIso() { snapToIso(); },
     // go back to idle mode: orbit, demo key taps and the demo backlight
     resumeIdle() {
       if (reduceMotion || turntable.on) return;
@@ -1074,6 +1076,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   // ---- side panels: hidden at first, opened by the button or when something needs attention ----
   function setPanels(open) {
     if (!open && panelsOpen()) dev3d?.resumeIdle(); // closing the panels hands the stage back to the idle animation
+    if (open && !panelsOpen()) dev3d?.snapIso();     // opening them is getting to work: settle on the iso view
     document.querySelector('.app').classList.toggle('collapsed', !open);
     $('#side').inert = !open;
     $('#btn-panels').setAttribute('aria-label', open ? 'Hide panels' : 'Show panels');
