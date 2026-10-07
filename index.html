@@ -146,6 +146,8 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
   .target .cap, .knob-btn.target { animation: none; box-shadow: 0 0 0 3px #fff; }
   .knob { transition: none; }
 }
+.npad3d { width: min(520px, 100%); aspect-ratio: 1 / 0.95; position: relative; }
+.npad3d canvas { width: 100%; height: 100%; display: block; cursor: grab; touch-action: pan-y; }
 .hint { color: var(--muted); font-size: 13px; text-align: center; margin: 0; max-width: 40ch; }
 
 /* ---------- status chips ---------- */
@@ -207,6 +209,7 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 
   <div class="main">
     <section class="stage" aria-label="npad">
+      <div class="npad3d" id="npad3d" hidden aria-label="3D model of the npad. Drag to turn it; click a key to reassign it."></div>
       <div class="npad">
         <div class="cable" aria-hidden="true"></div>
         <div class="knob-zone">
@@ -244,6 +247,292 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
   <p class="foot">The page can only hear key events while this tab has focus. The stock knob sends Mute and Volume up/down, which macOS usually handles before the browser sees them. A direct connection still detects the knob press, but turns aren't part of the switch matrix, so they only register if the browser receives the volume keys.</p>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// 3D model of the npad (momokai Aurora). Units are millimetres, measured from
+// momokai's product photos using the 19.05 mm key pitch as the scale.
+window.initDevice3D = function (host, { pick, icons }) {
+  if (!window.THREE) throw new Error('three.js did not load');
+  const T = THREE;
+  const W = 73, D = 98, H = 20, R = 5;                       // case
+  const WELL_W = 62, WELL_D = 42, WELL_Z = 21, FLOOR = H - 10; // key pocket
+  const PITCH = 19.05, CAP_Y = H - 2.5, TRAVEL = 3.5;
+  const KNOB_R = 17, KNOB_H = 13, KNOB_Z = -20;
+
+  const renderer = new T.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.outputEncoding = T.sRGBEncoding;
+  renderer.toneMapping = T.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.0;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = T.PCFSoftShadowMap;
+  host.appendChild(renderer.domElement);
+
+  const scene = new T.Scene();
+
+  // A small studio for the anodized aluminium to reflect.
+  const pmrem = new T.PMREMGenerator(renderer);
+  const studio = new T.Scene();
+  studio.add(new T.Mesh(new T.BoxGeometry(100, 100, 100), new T.MeshBasicMaterial({ color: 0x24262c, side: T.BackSide })));
+  const softbox = (w, h, x, y, z, c) => {
+    const m = new T.Mesh(new T.PlaneGeometry(w, h), new T.MeshBasicMaterial({ color: c, side: T.DoubleSide }));
+    m.position.set(x, y, z); m.lookAt(0, 0, 0); studio.add(m);
+  };
+  softbox(70, 25, 0, 45, 5, 0xffffff);
+  softbox(30, 40, -45, 15, 25, 0xc9d2ff);
+  softbox(30, 30, 45, 10, -25, 0x9a9a9a);
+  scene.environment = pmrem.fromScene(studio, 0.04).texture;
+
+  scene.add(new T.HemisphereLight(0xe4e9ff, 0x0d0e12, 0.18));
+  const sun = new T.DirectionalLight(0xffffff, 1.0);
+  sun.position.set(-70, 170, 90);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(1024, 1024);
+  Object.assign(sun.shadow.camera, { left: -110, right: 110, top: 110, bottom: -110, near: 20, far: 450 });
+  sun.shadow.camera.updateProjectionMatrix();
+  sun.shadow.bias = -0.0008;
+  sun.shadow.radius = 5;
+  scene.add(sun);
+
+  const ground = new T.Mesh(new T.PlaneGeometry(800, 800), new T.ShadowMaterial({ opacity: 0.35 }));
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  function roundRect(path, cx, cy, w, h, r) {
+    const x = cx - w / 2, y = cy - h / 2;
+    path.moveTo(x + r, y);
+    path.lineTo(x + w - r, y); path.absarc(x + w - r, y + r, r, -Math.PI / 2, 0);
+    path.lineTo(x + w, y + h - r); path.absarc(x + w - r, y + h - r, r, 0, Math.PI / 2);
+    path.lineTo(x + r, y + h); path.absarc(x + r, y + h - r, r, Math.PI / 2, Math.PI);
+    path.lineTo(x, y + r); path.absarc(x + r, y + r, r, Math.PI, Math.PI * 1.5);
+    return path;
+  }
+  // Extrude a flat outline upward: shape x -> x, shape y -> -z, depth -> +y
+  function extrudeUp(shape, height, bevel, segs = 3) {
+    const g = new T.ExtrudeGeometry(shape, {
+      depth: height - bevel * 2, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel,
+      bevelSegments: segs, curveSegments: 16,
+    });
+    g.rotateX(-Math.PI / 2);
+    g.translate(0, bevel, 0);
+    return g;
+  }
+
+  // ---- case ----
+  const aluminium = new T.MeshStandardMaterial({ color: 0x0d0e10, metalness: 0.6, roughness: 0.48, envMapIntensity: 0.45 });
+  const caseShape = roundRect(new T.Shape(), 0, 0, W - 2, D - 2, R);
+  caseShape.holes.push(roundRect(new T.Path(), 0, -WELL_Z, WELL_W + 2, WELL_D + 2, 3));
+  const caseMesh = new T.Mesh(extrudeUp(caseShape, H, 1), aluminium);
+  caseMesh.castShadow = caseMesh.receiveShadow = true;
+  scene.add(caseMesh);
+
+  // ---- pocket floor, switches and underglow ----
+  const floorMat = new T.MeshStandardMaterial({ color: 0x05060b, emissive: 0x1f45ff, emissiveIntensity: 1, roughness: 0.9, toneMapped: false });
+  const floor = new T.Mesh(new T.PlaneGeometry(WELL_W, WELL_D), floorMat);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.set(0, FLOOR, WELL_Z);
+  scene.add(floor);
+
+  const switchGeo = new T.BoxGeometry(14, 5, 14);
+  const switchMat = new T.MeshStandardMaterial({ color: 0x0c0d10, roughness: 0.7 });
+
+  // ---- keycaps (XDA: uniform height, gently tapered) ----
+  function capGeometry() {
+    const h = 8.5;
+    const g = extrudeUp(roundRect(new T.Shape(), 0, 0, 14.2, 14.2, 2), h, 1.5, 4);
+    const p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const k = 1 - 0.16 * (p.getY(i) / h);
+      p.setX(i, p.getX(i) * k); p.setZ(i, p.getZ(i) * k);
+    }
+    return { g, h };
+  }
+  const cap = capGeometry();
+
+  function legendTexture(icon) {
+    const c = document.createElement('canvas'); c.width = c.height = 256;
+    const ctx = c.getContext('2d');
+    const tex = new T.CanvasTexture(c);
+    tex.encoding = T.sRGBEncoding;
+    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    if (icon === 'n') {
+      const draw = () => {
+        ctx.clearRect(0, 0, 256, 256);
+        ctx.fillStyle = '#f2f3f5'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.font = '800 200px "Schibsted Grotesk", system-ui, sans-serif';
+        ctx.fillText('n', 128, 112);
+        tex.needsUpdate = true;
+      };
+      draw();
+      document.fonts?.load('800 200px "Schibsted Grotesk"').then(draw, () => {});
+    } else {
+      const svg = icons[icon].replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" ').replace(/currentColor/g, '#f2f3f5');
+      const img = new Image();
+      img.onload = () => { ctx.clearRect(0, 0, 256, 256); ctx.drawImage(img, 0, 0, 256, 256); tex.needsUpdate = true; };
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    }
+    return tex;
+  }
+
+  const pickables = [];
+  const keys = {};
+  const KEYS = [['k1', 'n', 0, 0], ['k2', 'globe', 1, 0], ['k3', 'share', 2, 0], ['k4', 'shrimp', 0, 1], ['k5', 'boat', 1, 1], ['k6', 'sparkle', 2, 1]];
+  KEYS.forEach(([id, icon, col, row]) => {
+    const x = (col - 1) * PITCH, z = WELL_Z + (row === 0 ? -PITCH / 2 : PITCH / 2);
+    const sw = new T.Mesh(switchGeo, switchMat); sw.position.set(x, FLOOR + 2.5, z); scene.add(sw);
+
+    const group = new T.Group(); group.position.set(x, CAP_Y, z);
+    const mat = new T.MeshStandardMaterial({ color: 0x1b1c20, roughness: 0.8, metalness: 0.05, envMapIntensity: 0.25, emissive: 0x6f8cff, emissiveIntensity: 0 });
+    const body = new T.Mesh(cap.g, mat);
+    body.castShadow = body.receiveShadow = true;
+    body.userData.input = id;
+    const legendMat = new T.MeshBasicMaterial({ map: legendTexture(icon), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+    const legend = new T.Mesh(new T.PlaneGeometry(icon === 'n' ? 10 : 8.5, icon === 'n' ? 10 : 8.5), legendMat);
+    legend.rotation.x = -Math.PI / 2; legend.position.y = cap.h + 0.02;
+    legend.userData.input = id;
+    group.add(body, legend);
+    scene.add(group);
+
+    const light = new T.PointLight(0x2f55ff, 1.2, 34, 2);
+    light.position.set(x, FLOOR + 3.5, z);
+    scene.add(light);
+
+    pickables.push(body, legend);
+    keys[id] = { group, mat, legendMat, light, down: false, t: 0 };
+  });
+
+  // ---- knob: knurled aluminium with a domed finger nub ----
+  const knurlCanvas = document.createElement('canvas'); knurlCanvas.width = 512; knurlCanvas.height = 4;
+  const kctx = knurlCanvas.getContext('2d');
+  for (let i = 0; i < 512; i += 4) { kctx.fillStyle = '#fff'; kctx.fillRect(i, 0, 2, 4); kctx.fillStyle = '#000'; kctx.fillRect(i + 2, 0, 2, 4); }
+  const knurl = new T.CanvasTexture(knurlCanvas); knurl.wrapS = T.RepeatWrapping; knurl.repeat.set(3, 1);
+
+  const knobSide = new T.MeshStandardMaterial({ color: 0x111215, metalness: 0.7, roughness: 0.4, envMapIntensity: 0.5, bumpMap: knurl, bumpScale: 0.35, emissive: 0x6f8cff, emissiveIntensity: 0 });
+  const knobTop = new T.MeshStandardMaterial({ color: 0x141518, metalness: 0.65, roughness: 0.45, envMapIntensity: 0.5, emissive: 0x6f8cff, emissiveIntensity: 0 });
+  const knob = new T.Group(); knob.position.set(0, H, KNOB_Z);
+  const spinner = new T.Group(); knob.add(spinner);
+  const CH = 1.4; // top chamfer
+  const knobBody = new T.Mesh(new T.CylinderGeometry(KNOB_R, KNOB_R, KNOB_H - CH, 128, 1, true), knobSide);
+  knobBody.position.y = (KNOB_H - CH) / 2 + 0.6;
+  const lid = new T.Mesh(new T.LatheGeometry([
+    new T.Vector2(KNOB_R, 0), new T.Vector2(KNOB_R - 0.25, 0.8), new T.Vector2(KNOB_R - 0.9, CH - 0.1),
+    new T.Vector2(KNOB_R - 1.6, CH), new T.Vector2(KNOB_R - 3, CH), new T.Vector2(0.01, CH),
+  ], 128), knobTop);
+  lid.position.y = KNOB_H - CH + 0.6;
+  const NUB_R = 6, NUB_BASE = 4.2;
+  const nubTheta = Math.asin(NUB_BASE / NUB_R);
+  const nub = new T.Mesh(new T.SphereGeometry(NUB_R, 48, 24, 0, Math.PI * 2, 0, nubTheta),
+    new T.MeshStandardMaterial({ color: 0x16171a, metalness: 0.65, roughness: 0.3, envMapIntensity: 0.6 }));
+  nub.position.set(6.8, KNOB_H + 0.6 - NUB_R * Math.cos(nubTheta), 6.8);
+  // a dark seam where the knob meets the case
+  const seam = new T.Mesh(new T.CylinderGeometry(KNOB_R + 0.8, KNOB_R + 0.8, 0.6, 96), new T.MeshStandardMaterial({ color: 0x050506, roughness: 1 }));
+  seam.position.y = 0.3;
+  [knobBody, lid, nub].forEach(m => { m.castShadow = m.receiveShadow = true; m.userData.input = 'press'; pickables.push(m); });
+  spinner.add(knobBody, lid, nub);
+  knob.add(seam);
+  scene.add(knob);
+  let knobAngle = 0, knobShown = 0, knobDown = false, knobT = 0;
+
+  // ---- USB-C cable out the back ----
+  const rubber = new T.MeshStandardMaterial({ color: 0x141518, roughness: 0.6 });
+  const cablePath = new T.CatmullRomCurve3([
+    new T.Vector3(0, H * 0.55, -D / 2 - 6), new T.Vector3(0, H * 0.5, -D / 2 - 22),
+    new T.Vector3(8, 3, -D / 2 - 55), new T.Vector3(30, 1.8, -D / 2 - 140),
+  ]);
+  const cable = new T.Mesh(new T.TubeGeometry(cablePath, 64, 1.8, 16), rubber);
+  const plug = new T.Mesh(new T.BoxGeometry(10, 5.5, 14), rubber);
+  plug.position.set(0, H * 0.55, -D / 2 - 7);
+  cable.castShadow = plug.castShadow = true;
+  scene.add(cable, plug);
+
+  // ---- camera with drag-to-turn ----
+  const camera = new T.PerspectiveCamera(24, 1, 10, 2000);
+  const look = new T.Vector3(0, 6, 4);
+  const view = { yaw: -0.42, pitch: 0.92, dist: 275 };
+  function placeCamera() {
+    const cp = Math.cos(view.pitch);
+    camera.position.set(look.x + view.dist * cp * Math.sin(view.yaw), look.y + view.dist * Math.sin(view.pitch), look.z + view.dist * cp * Math.cos(view.yaw));
+    camera.lookAt(look);
+  }
+  function resize() {
+    const w = host.clientWidth, h = host.clientHeight;
+    if (!w || !h) return;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    // keep the whole device in frame on narrow screens
+    view.dist = 275 * Math.max(1, 1.05 / camera.aspect);
+    camera.updateProjectionMatrix(); placeCamera();
+  }
+  new ResizeObserver(resize).observe(host);
+  resize();
+
+  const canvas = renderer.domElement;
+  const ray = new T.Raycaster(), ndc = new T.Vector2();
+  function hit(e) {
+    const r = canvas.getBoundingClientRect();
+    ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    return ray.intersectObjects(pickables, false)[0]?.object.userData.input || null;
+  }
+  let drag = null;
+  canvas.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, moved: false }; canvas.setPointerCapture(e.pointerId); });
+  canvas.addEventListener('pointermove', e => {
+    if (!drag) { canvas.style.cursor = hit(e) ? 'pointer' : 'grab'; return; }
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (!drag.moved && Math.hypot(dx, dy) < 5) return;
+    drag.moved = true; canvas.style.cursor = 'grabbing';
+    view.yaw -= dx * 0.008;
+    if (e.pointerType === 'mouse') view.pitch = Math.min(1.45, Math.max(0.3, view.pitch + dy * 0.006));
+    drag.x = e.clientX; drag.y = e.clientY;
+    placeCamera();
+  });
+  canvas.addEventListener('pointerup', e => {
+    if (drag && !drag.moved) { const id = hit(e); if (id) pick(id); }
+    drag = null; canvas.style.cursor = 'grab';
+  });
+  canvas.addEventListener('pointercancel', () => { drag = null; });
+
+  // ---- animation ----
+  let target = null;
+  const tested = new Set();
+  const clock = new T.Clock();
+  const GREEN = new T.Color(0x7ce3a6), WHITE = new T.Color(0xffffff);
+  function frame() {
+    const t = clock.getElapsedTime();
+    const pulse = 0.18 + 0.18 * Math.sin(t * 5);
+    Object.entries(keys).forEach(([id, k]) => {
+      k.t += ((k.down ? 1 : 0) - k.t) * 0.45;
+      k.group.position.y = CAP_Y - TRAVEL * k.t;
+      k.light.intensity = 1.2 + 3 * k.t;
+      k.mat.emissiveIntensity = id === target ? pulse : 0;
+      k.legendMat.color.copy(tested.has(id) ? GREEN : WHITE);
+    });
+    floorMat.emissiveIntensity = 1 + 0.6 * Math.max(...Object.values(keys).map(k => k.t));
+    knobShown += (knobAngle - knobShown) * 0.25;
+    spinner.rotation.y = -knobShown;
+    knobT += ((knobDown ? 1 : 0) - knobT) * 0.45;
+    knob.position.y = H - 1.2 * knobT;
+    const knobPulse = ['cw', 'ccw', 'press'].includes(target) ? pulse : 0;
+    knobSide.emissiveIntensity = knobTop.emissiveIntensity = knobPulse;
+    renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  return {
+    press(id, down) {
+      if (id === 'press') knobDown = down;
+      else if (keys[id]) keys[id].down = down;
+    },
+    turn(dir) { knobAngle += dir * (Math.PI / 10); },
+    reset() { knobAngle = 0; },
+    setTarget(id) { target = id; },
+    setTested(set) { tested.clear(); set.forEach(id => tested.add(id)); },
+    release() { Object.values(keys).forEach(k => { k.down = false; }); knobDown = false; },
+  };
+};
+</script>
 <script>
 (() => {
   const ICONS = {
@@ -284,6 +573,7 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
   let ignoreUntil = 0;     // swallow the rest of a multi-key macro burst after capturing
   const downCodes = new Map(); // code -> inputId currently held
   let knobAngle = 0;
+  let dev3d = null;
 
   const $ = s => document.querySelector(s);
   const save = () => { try { localStorage.setItem(STORE, JSON.stringify(map)); } catch {} };
@@ -337,6 +627,7 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
     document.querySelectorAll('.cell').forEach(c => c.classList.toggle('target', c.dataset.cell === target));
     $('#knob').classList.toggle('target', ['cw', 'ccw', 'press'].includes(target));
     document.querySelectorAll('.chip').forEach(r => r.classList.toggle('active', r.dataset.input === target));
+    dev3d?.setTarget(target); dev3d?.setTested(tested);
     $('#count').textContent = `${tested.size} / ${INPUTS.length} working`;
     renderStatus(target);
   }
@@ -404,8 +695,10 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
       $('#knob-face').style.transform = `rotate(${knobAngle}deg)`;
       const t = $(id === 'cw' ? '#turn-cw' : '#turn-ccw');
       t.classList.add('flash'); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('flash'), 60);
+      dev3d?.turn(id === 'cw' ? 1 : -1);
       tested.add(id); render(); return;
     }
+    dev3d?.press(id, down);
     const el = id === 'press' ? $('#knob') : document.querySelector(`[data-cell="${id}"]`);
     el.classList.toggle('down', down);
     if (down) { tested.add(id); render(); }
@@ -478,22 +771,25 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 
   window.addEventListener('blur', () => {
     downCodes.clear();
+    dev3d?.release();
     document.querySelectorAll('.down').forEach(el => el.classList.remove('down'));
     $('#hint').textContent = 'Click anywhere on this page so it can hear the npad.';
   });
-  window.addEventListener('focus', () => { $('#hint').textContent = 'Click a key or a chip to reassign it.'; });
+  let hintText = 'Click a key or a chip to reassign it.';
+  window.addEventListener('focus', () => { $('#hint').textContent = hintText; });
 
   // click a key/row: assign the pending unknown signature, or wait for the next press
   document.addEventListener('click', e => {
     const t = e.target.closest('[data-input]');
-    if (!t) return;
-    const id = t.dataset.input;
+    if (t) pick(t.dataset.input);
+  });
+  function pick(id) {
     if (mode === 'test' && pendingSig) { assign(id, pendingSig); pendingSig = null; tested.add(id); render(); return; }
     mode = 'assign'; assignId = id; render();
-  });
+  }
 
   $('#btn-learn').addEventListener('click', startLearn);
-  $('#btn-reset').addEventListener('click', () => { tested.clear(); knobAngle = 0; $('#knob-face').style.transform = ''; render(); });
+  $('#btn-reset').addEventListener('click', () => { tested.clear(); knobAngle = 0; $('#knob-face').style.transform = ''; dev3d?.reset(); render(); });
   $('#btn-clear-log').addEventListener('click', () => { logEl.innerHTML = '<tr class="empty"><td colspan="5">Log cleared.</td></tr>'; });
 
   // ---- direct connection: QMK/VIA raw HID (usage page 0xFF60) ----
@@ -582,6 +878,20 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
   }
   if ('hid' in navigator) navigator.hid.addEventListener('disconnect', e => { if (e.device === hidDev) hidDisconnect(); });
   $('#btn-hid').addEventListener('click', () => hidDev ? hidDisconnect() : hidConnect());
+
+  // ---- 3D model, with the flat drawing as a fallback ----
+  try {
+    const host = $('#npad3d');
+    host.hidden = false;
+    dev3d = initDevice3D(host, { pick, icons: ICONS });
+    document.querySelector('.npad').hidden = true;
+    hintText = 'Drag to turn it around. Click a key or a chip to reassign it.';
+    $('#hint').textContent = hintText;
+  } catch (err) {
+    console.warn('3D view unavailable, using the flat drawing:', err);
+    $('#npad3d').hidden = true;
+    dev3d = null;
+  }
 
   render();
 })();
