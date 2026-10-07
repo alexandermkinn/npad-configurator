@@ -10,18 +10,21 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
 /* Layout: device-first and centered. The npad is the page; a strip of status chips sits under it and the event log folds away below. */
+/* A single dark look: the npad sits under a soft spotlight on a near-black stage. */
 :root {
-  --bg: #eef0f4;
-  --panel: #ffffff;
-  --fg: #16181d;
-  --muted: #5d6472;
-  --line: #d9dde5;
-  --accent: #3a5bff;
-  --ok: #138a4a;
-  --ok-soft: #dff3e8;
-  --warn: #9a5b00;
-  --warn-soft: #fbefd9;
-  /* the device is matte black in both themes */
+  color-scheme: dark;
+  --bg: #0c0d10;
+  --stage-hi: #22252d;
+  --panel: #15171c;
+  --fg: #e9ebf0;
+  --muted: #959cab;
+  --line: #262a33;
+  --accent: #5b78ff;
+  --ok: #4fd08a;
+  --ok-soft: #133624;
+  --warn: #f0b45a;
+  --warn-soft: #3a2a10;
+  /* flat fallback drawing of the device */
   --case: #1d1e22;
   --case-hi: #2a2c31;
   --cap: #2d2f35;
@@ -32,18 +35,6 @@
   --font-body: "Schibsted Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #101216; --panel: #181b21; --fg: #e9ebf0; --muted: #98a0ae; --line: #2a2f38;
-    --accent: #7d95ff; --ok: #4fd08a; --ok-soft: #133624; --warn: #f0b45a; --warn-soft: #3a2a10;
-    color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #101216; --panel: #181b21; --fg: #e9ebf0; --muted: #98a0ae; --line: #2a2f38;
-  --accent: #7d95ff; --ok: #4fd08a; --ok-soft: #133624; --warn: #f0b45a; --warn-soft: #3a2a10;
-  color-scheme: dark;
-}
 
 * { box-sizing: border-box; }
 body { margin: 0;
@@ -51,7 +42,7 @@ body { margin: 0;
   font-family: var(--font-body); font-size: 15px; line-height: 1.5;
   padding-inline: 16px; padding-block: 28px 48px;
 }
-.wrap { max-width: 760px; margin: 0 auto; display: grid; gap: 24px; justify-items: center; text-align: center; }
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; gap: 24px; justify-items: center; text-align: center; }
 .wrap > * { width: 100%; }
 
 header { display: grid; justify-items: center; gap: 16px; }
@@ -82,7 +73,8 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .status b { font-weight: 700; }
 
 /* ---------- the device ---------- */
-.stage { display: grid; justify-items: center; gap: 16px; padding-block: 8px; }
+.stage { display: grid; justify-items: center; gap: 12px; padding-block: 0 8px; width: 100%;
+  background: radial-gradient(ellipse 55% 50% at 50% 52%, var(--stage-hi), transparent 72%); }
 .npad {
   width: min(400px, 100%); position: relative;
   background: linear-gradient(160deg, var(--case-hi), var(--case) 45%);
@@ -146,7 +138,7 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
   .target .cap, .knob-btn.target { animation: none; box-shadow: 0 0 0 3px #fff; }
   .knob { transition: none; }
 }
-.npad3d { width: min(520px, 100%); aspect-ratio: 1 / 0.95; position: relative; }
+.npad3d { width: 100%; height: clamp(360px, 66vh, 760px); position: relative; }
 .npad3d canvas { width: 100%; height: 100%; display: block; cursor: grab; touch-action: pan-y; }
 .hint { color: var(--muted); font-size: 13px; text-align: center; margin: 0; max-width: 40ch; }
 
@@ -205,8 +197,6 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
     </div>
   </header>
 
-  <div class="status" id="status" role="status" aria-live="polite"><p id="status-text"></p><div id="status-actions" class="actions"></div></div>
-
   <div class="main">
     <section class="stage" aria-label="npad">
       <div class="npad3d" id="npad3d" hidden aria-label="3D model of the npad. Drag to turn it; click a key to reassign it."></div>
@@ -231,6 +221,7 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
       <p class="hint" id="hint">Click a key or a chip to reassign it.</p>
     </section>
 
+    <div class="status" id="status" role="status" aria-live="polite"><p id="status-text"></p><div id="status-actions" class="actions"></div></div>
     <div class="strip" id="rows" aria-label="Controls"></div>
     <span class="count" id="count">0 / 9 working</span>
   </div>
@@ -300,6 +291,9 @@ window.initDevice3D = function (host, { pick, icons }) {
   const fill = new T.DirectionalLight(0xdfe4ff, 0.45);
   fill.position.set(160, 50, 40);
   scene.add(fill);
+  const rim = new T.DirectionalLight(0xcfd8ff, 0.6);
+  rim.position.set(-40, 90, -220);
+  scene.add(rim);
 
   const ground = new T.Mesh(new T.PlaneGeometry(800, 800), new T.ShadowMaterial({ opacity: 0.35 }));
   ground.rotation.x = -Math.PI / 2;
@@ -554,7 +548,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   // ---- camera with drag-to-turn ----
   const camera = new T.PerspectiveCamera(24, 1, 10, 2000);
   const look = new T.Vector3(0, 6, 4);
-  const view = { yaw: -0.42, pitch: 0.92, dist: 275 };
+  const view = { yaw: -0.42, pitch: 0.92, dist: 300 };
   function placeCamera() {
     const cp = Math.cos(view.pitch);
     camera.position.set(look.x + view.dist * cp * Math.sin(view.yaw), look.y + view.dist * Math.sin(view.pitch), look.z + view.dist * cp * Math.cos(view.yaw));
@@ -566,7 +560,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     // keep the whole device in frame on narrow screens
-    view.dist = 275 * Math.max(1, 1.05 / camera.aspect);
+    view.dist = 300 * Math.max(1, 1.25 / camera.aspect);
     camera.updateProjectionMatrix(); placeCamera();
   }
   new ResizeObserver(resize).observe(host);
