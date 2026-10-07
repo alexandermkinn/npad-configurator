@@ -255,7 +255,8 @@ window.initDevice3D = function (host, { pick, icons }) {
   if (!window.THREE) throw new Error('three.js did not load');
   const T = THREE;
   const W = 73, D = 98, H = 20, R = 5;                       // case
-  const WELL_W = 62, WELL_D = 42, WELL_Z = 21, FLOOR = H - 10; // key pocket
+  // key pocket: caps span 55.3 × 36.3 mm, leaving about a 1 mm gap to the pocket wall
+  const WELL_W = 57, WELL_D = 38, WELL_Z = 21, FLOOR = H - 10;
   const PITCH = 19.05, CAP_Y = H - 2, TRAVEL = 3.5;
   const KNOB_R = 15.5, KNOB_H = 16, KNOB_Z = -20, KNOB_SINK = 3; // knob sits in a round recess
   const srgb = hex => new T.Color(hex).convertSRGBToLinear();
@@ -351,7 +352,7 @@ window.initDevice3D = function (host, { pick, icons }) {
 
   // ---- pocket floor, switches and underglow ----
   const floorMat = new T.MeshStandardMaterial({ color: 0x05060b, emissive: 0x1f45ff, emissiveIntensity: 0.75, roughness: 0.9, toneMapped: false });
-  const floor = new T.Mesh(new T.PlaneGeometry(WELL_W, WELL_D), floorMat);
+  const floor = new T.Mesh(new T.PlaneGeometry(WELL_W + 2, WELL_D + 2), floorMat);
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(0, FLOOR, WELL_Z);
   scene.add(floor);
