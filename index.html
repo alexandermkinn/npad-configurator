@@ -334,6 +334,7 @@ window.initDevice3D = function (host, { pick, icons }) {
 
   const ground = new T.Mesh(new T.PlaneGeometry(800, 800), new T.ShadowMaterial({ opacity: 0.35 }));
   ground.rotation.x = -Math.PI / 2;
+  ground.position.y = -2; // the npad stands on 2 mm rubber feet
   ground.receiveShadow = true;
   scene.add(ground);
 
@@ -370,6 +371,16 @@ window.initDevice3D = function (host, { pick, icons }) {
   const plate = new T.Mesh(extrudeUp(roundRect(new T.Shape(), 0, 0, W - 2.6, D - 2.6, R - 0.5), PLATE - 0.15, 0.3, 1),
     new T.MeshStandardMaterial({ color: srgb(0x111113), metalness: 0.25, roughness: 0.8 }));
   [caseMesh, plate].forEach(m => { m.castShadow = m.receiveShadow = true; scene.add(m); });
+
+  // four rubber feet under the corners, 2 mm tall
+  const footGeo = new T.CylinderGeometry(3.6, 4, 2, 32);
+  const footMat = new T.MeshStandardMaterial({ color: srgb(0x0e0e10), roughness: 0.95, metalness: 0 });
+  [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sz]) => {
+    const foot = new T.Mesh(footGeo, footMat);
+    foot.position.set(sx * (W / 2 - 9), -1, sz * (D / 2 - 10));
+    foot.castShadow = true;
+    scene.add(foot);
+  });
 
   // floor of the knob recess
   const recess = new T.Mesh(new T.CircleGeometry(KNOB_R + 1.6, 64), new T.MeshStandardMaterial({ color: srgb(0x050506), roughness: 1 }));
