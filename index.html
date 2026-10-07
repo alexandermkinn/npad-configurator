@@ -892,7 +892,12 @@ window.initDevice3D = function (host, { pick, icons }) {
     turntable.speed += ((turntable.on ? 0.08 : 0) - turntable.speed) * Math.min(1, dt * 1.2);
     if (Math.abs(turntable.speed) > 1e-4) {
       view.yaw += turntable.speed * dt;
-      if (turntable.on) { view.pitch = orbitPitch(view.yaw); view.zoom = orbitZoom(view.yaw); }
+      if (turntable.on) {
+        // follow the orbit's height and distance; eased, so resuming from another view glides into it
+        const k = Math.min(1, dt * 1.5);
+        view.pitch += (orbitPitch(view.yaw) - view.pitch) * k;
+        view.zoom += (orbitZoom(view.yaw) - view.zoom) * k;
+      }
       placeCamera();
     }
     if (turntable.goHome) {
@@ -954,6 +959,13 @@ window.initDevice3D = function (host, { pick, icons }) {
     },
     reset() { knobAngle = 0; },
     setTarget(id) { target = id; },
+    // go back to idle mode: orbit, demo key taps and the demo backlight
+    resumeIdle() {
+      if (reduceMotion || turntable.on) return;
+      turntable.goHome = false;
+      turntable.on = true;
+      demo.next = clock.getElapsedTime() + 1.5;
+    },
     setTested(set) { tested.clear(); set.forEach(id => tested.add(id)); },
     release() { Object.values(keys).forEach(k => { k.down = false; }); knobDown = false; },
   };
@@ -1061,6 +1073,7 @@ window.initDevice3D = function (host, { pick, icons }) {
 
   // ---- side panels: hidden at first, opened by the button or when something needs attention ----
   function setPanels(open) {
+    if (!open && panelsOpen()) dev3d?.resumeIdle(); // closing the panels hands the stage back to the idle animation
     document.querySelector('.app').classList.toggle('collapsed', !open);
     $('#side').inert = !open;
     $('#btn-panels').setAttribute('aria-label', open ? 'Hide panels' : 'Show panels');
