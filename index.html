@@ -549,7 +549,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     return { body, top };
   }
   const cap = capGeometry();
-  const legendGeo = cap.top(7.2); // the legend artwork spans 7.2 mm of the top
+  const legendGeo = cap.top(8); // the legend artwork spans 8 mm of the top
 
   function legendTexture(icon) {
     const c = document.createElement('canvas'); c.width = c.height = 256;
