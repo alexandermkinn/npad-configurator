@@ -284,10 +284,10 @@ window.initDevice3D = function (host, { pick, icons }) {
   const T = THREE;
   const W = 73, D = 98, H = 18, R = 5;                       // case
   // keycaps: 18.1 mm at the base on a 19.05 mm pitch, so neighbours sit about 1 mm apart
-  const PITCH = 19.05, CAP_BASE = 18.1, CAP_Y = H - 2, TRAVEL = 3.5;
+  const PITCH = 19.05, CAP_BASE = 18.1, CAP_Y = H - 2.5, TRAVEL = 3.5; // caps stand ~6.6 mm proud of the case
   // key pocket: caps span 56.2 × 37.2 mm, leaving about a 1 mm gap to the pocket wall
   const WELL_W = 58, WELL_D = 39, WELL_Z = 21, FLOOR = H - 10;
-  const KNOB_R = 15.5, KNOB_H = 14, KNOB_Z = -20, KNOB_SINK = 3; // knob sits in a round recess
+  const KNOB_R = 15.5, KNOB_H = 12.2, KNOB_Z = -20, KNOB_SINK = 3; // sits in a round recess, ~9.2 mm proud (from side photos)
   const srgb = hex => new T.Color(hex).convertSRGBToLinear();
 
   const renderer = new T.WebGLRenderer({ antialias: true, alpha: true });
@@ -454,10 +454,12 @@ window.initDevice3D = function (host, { pick, icons }) {
   // A loft of rounded rectangles from the 18.1 mm base up to a large, centred square top:
   // uniform height (no row sculpt or tilt), gently tapered walls, a rounded top edge and a
   // shallow spherical dish. The legend is a copy of the dished top surface, so it follows it.
+  // Proportions from photos of the real caps: flat-faced walls meeting at fairly tight corners,
+  // a crisp top edge, and a nearly flat top.
   const CAP = {
-    base: CAP_BASE / 2, baseR: 1.0,
-    topX: 7.2, topZ: 7.2, topR: 3.0, topCz: 0,      // top half-width/depth (≈14.4 mm square), corner radius, no offset
-    height: 9.1, tilt: 0, dish: 0.8, fillet: 1.5,
+    base: CAP_BASE / 2, baseR: 0.8,
+    topX: 7.0, topZ: 7.0, topR: 2.2, topCz: 0,      // top half-width/depth (≈14 mm square), corner radius, no offset
+    height: 9.1, tilt: 0, dish: 0.35, fillet: 0.7,
   };
   function ringPoints(hx, hz, r, cz, y, n = 7, m = 6) {
     // rounded rectangle in the xz-plane, same point count at every size so rings can be stitched:
