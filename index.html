@@ -611,12 +611,19 @@ window.initDevice3D = function (host, { pick, icons }) {
   const behind = yaw => (1 - Math.cos(yaw - HOME_YAW)) / 2;        // 0 at the front, 1 directly behind
   const orbitPitch = yaw => HOME_PITCH + (BACK_PITCH - HOME_PITCH) * behind(yaw);
   const orbitZoom = yaw => 1 + (BACK_ZOOM - 1) * behind(yaw);       // ease in a touch behind it
-  // Idle turntable on load: eases in, stops when someone takes over. goHome swings back to the front view.
+  // The working view people land on once they take over: a standard isometric angle, turned 45°
+  // with the knob at the back right, looking down at the true-isometric 35.3°.
+  const ISO = { yaw: Math.PI / 4, pitch: Math.atan(1 / Math.SQRT2) };
+  // Idle turntable on load: eases in, and snaps to ISO as soon as someone takes over.
   const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  const turntable = { on: !reduceMotion, speed: 0, goHome: false };
-  function stopTurntable(home) {
-    turntable.on = false;
-    turntable.goHome = home;
+  const turntable = { on: !reduceMotion, speed: 0, goHome: false, target: null };
+  const spinning = () => turntable.on || turntable.speed > 0.01;
+  function snapToIso() {
+    turntable.on = false; turntable.speed = 0;
+    // the short way round to the iso yaw
+    const yaw = ISO.yaw + Math.round((view.yaw - ISO.yaw) / (Math.PI * 2)) * Math.PI * 2;
+    turntable.target = { yaw, pitch: ISO.pitch };
+    turntable.goHome = true;
   }
   function placeCamera() {
     const cp = Math.cos(view.pitch), d = view.dist * view.zoom;
@@ -656,7 +663,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   canvas.addEventListener('wheel', e => {
     if (hit(e) !== 'press') return;      // scrolling elsewhere still scrolls the page
     e.preventDefault(); e.stopPropagation();
-    stopTurntable(false);
+    if (spinning()) snapToIso();
     wheelAcc += e.deltaY;
     while (Math.abs(wheelAcc) >= 40) {    // one detent per notch, or per 40px of trackpad scroll
       const dir = wheelAcc < 0 ? 1 : -1;  // scroll up turns it clockwise
@@ -666,7 +673,7 @@ window.initDevice3D = function (host, { pick, icons }) {
 
   let drag = null;
   canvas.addEventListener('pointerdown', e => {
-    stopTurntable(false);
+    if (spinning()) snapToIso();
     const onKnob = hit(e) === 'press';
     drag = { x: e.clientX, y: e.clientY, moved: false, knob: onKnob, a0: onKnob ? knobScreenAngle(e) : 0, start: knobAngle };
     canvas.setPointerCapture(e.pointerId);
@@ -683,8 +690,9 @@ window.initDevice3D = function (host, { pick, icons }) {
       knobAngle = Math.round(drag.start / DETENT) * DETENT;
       return;
     }
-    view.yaw -= dx * 0.008;
-    if (e.pointerType === 'mouse') view.pitch = Math.min(1.45, Math.max(0.3, view.pitch + dy * 0.006));
+    const v = turntable.goHome ? turntable.target : view; // mid-snap, steer where it's heading
+    v.yaw -= dx * 0.008;
+    if (e.pointerType === 'mouse') v.pitch = Math.min(1.45, Math.max(0.3, v.pitch + dy * 0.006));
     drag.x = e.clientX; drag.y = e.clientY;
     placeCamera();
   });
@@ -770,14 +778,13 @@ window.initDevice3D = function (host, { pick, icons }) {
       placeCamera();
     }
     if (turntable.goHome) {
-      // take the short way round to the front view
-      const target = HOME_YAW + Math.round((view.yaw - HOME_YAW) / (Math.PI * 2)) * Math.PI * 2;
-      const k = Math.min(1, dt * 3.5);
-      view.yaw += (target - view.yaw) * k;
-      view.pitch += (HOME_PITCH - view.pitch) * k;
+      // quick ease (settles in about a third of a second)
+      const { yaw, pitch } = turntable.target, k = Math.min(1, dt * 9);
+      view.yaw += (yaw - view.yaw) * k;
+      view.pitch += (pitch - view.pitch) * k;
       view.zoom += (1 - view.zoom) * k;
-      if (Math.abs(target - view.yaw) < 1e-3 && Math.abs(HOME_PITCH - view.pitch) < 1e-3) {
-        view.yaw = target; view.pitch = HOME_PITCH; view.zoom = 1; turntable.goHome = false;
+      if (Math.abs(yaw - view.yaw) < 1e-3 && Math.abs(pitch - view.pitch) < 1e-3 && Math.abs(1 - view.zoom) < 1e-3) {
+        view.yaw = yaw; view.pitch = pitch; view.zoom = 1; turntable.goHome = false;
       }
       placeCamera();
     }
@@ -807,7 +814,7 @@ window.initDevice3D = function (host, { pick, icons }) {
 
   return {
     press(id, down) {
-      if (down && (turntable.on || turntable.speed > 0.01)) stopTurntable(true); // show the front when the npad is used
+      if (down && spinning()) snapToIso(); // the npad is in use: settle on the working view
       if (id === 'press') { knobDown = down; return; }
       const k = keys[id];
       if (!k) return;
@@ -820,7 +827,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     },
     setLighting(state) { lighting = state; },
     turn(dir) {
-      if (turntable.on || turntable.speed > 0.01) stopTurntable(true);
+      if (spinning()) snapToIso();
       knobAngle += dir * (Math.PI / 10);
     },
     reset() { knobAngle = 0; },
