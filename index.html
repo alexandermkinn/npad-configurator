@@ -377,19 +377,39 @@ window.initDevice3D = function (host, { pick, icons }) {
   recess.position.set(0, H - KNOB_SINK - 0.4, KNOB_Z);
   scene.add(recess);
 
-  // USB-C port centred on the back face (the case's outer wall is at z = -D/2):
-  // a lighter chamfered rim, the black opening, and the contact tongue inside it
-  const backPlate = (w, h, r, color, out, basic) => {
-    const m = new T.Mesh(new T.ShapeGeometry(roundRect(new T.Shape(), 0, 0, w, h, r), 16),
-      basic ? new T.MeshBasicMaterial({ color }) : new T.MeshStandardMaterial({ color: srgb(color), roughness: 0.55, metalness: 0.3 }));
-    m.rotation.y = Math.PI;                       // face out of the back
-    m.position.set(0, H * 0.5, -D / 2 - out);
-    scene.add(m);
-    return m;
-  };
-  backPlate(10.6, 4.6, 2.3, 0x2c2c31, 0.02);      // chamfer catching the light
-  backPlate(9, 3.2, 1.6, 0x000000, 0.04, true);  // opening
-  backPlate(6.4, 0.7, 0.35, 0x1d1d21, 0.06);     // tongue
+  // USB-C port, centred on the back face (the case's outer wall is at z = -D/2): a stadium-shaped
+  // pocket milled into the case with a silver USB-C receptacle at the bottom. There's no CSG here,
+  // so the pocket is a stencil "window": a mask on the back face marks where the opening is visible,
+  // and the pocket's inside is drawn only there, so it reads as a real cavity from any angle.
+  {
+    const PORT_Y = H * 0.5, POCKET = { w: 12.5, h: 7, depth: 2 };
+    const backZ = -D / 2, floorZ = backZ + POCKET.depth;
+    const flat = (w, h, r) => new T.ShapeGeometry(roundRect(new T.Shape(), 0, 0, w, h, r), 24);
+    const facingOut = (mesh, z, order) => {          // a flat piece on the back, facing out of it
+      mesh.rotation.y = Math.PI; mesh.position.set(0, PORT_Y, z); mesh.renderOrder = order; scene.add(mesh);
+    };
+    const inside = (opts) => Object.assign(new T.MeshStandardMaterial(opts), {
+      depthTest: false, depthWrite: false,             // drawn through the case face, but only inside the mask
+      stencilWrite: true, stencilRef: 1, stencilFunc: T.EqualStencilFunc,
+    });
+    // 1. mask: invisible, marks the opening wherever it's visible
+    facingOut(new T.Mesh(flat(POCKET.w, POCKET.h, POCKET.h / 2 - 0.01), new T.MeshBasicMaterial({
+      colorWrite: false, depthWrite: false,
+      stencilWrite: true, stencilRef: 1, stencilFunc: T.AlwaysStencilFunc, stencilZPass: T.ReplaceStencilOp,
+    })), backZ - 0.05, 10);
+    // 2. the pocket: walls and floor, as one loft from the opening down to the floor
+    const pocketGeo = stitch([
+      ringPoints(POCKET.w / 2, POCKET.h / 2, POCKET.h / 2 - 0.01, 0, 0),
+      ringPoints(POCKET.w / 2, POCKET.h / 2, POCKET.h / 2 - 0.01, 0, POCKET.depth),
+    ], new T.Vector3(0, POCKET.depth, 0));
+    pocketGeo.rotateX(Math.PI / 2);                    // depth runs into the case (+z)
+    const pocket = new T.Mesh(pocketGeo, inside({ color: srgb(0x161618), roughness: 0.7, metalness: 0.25, side: T.DoubleSide }));
+    pocket.position.set(0, PORT_Y, backZ); pocket.renderOrder = 11; scene.add(pocket);
+    // 3. the receptacle on the floor: silver shell, dark opening, contact tongue
+    facingOut(new T.Mesh(flat(8.94, 3.26, 1.6), inside({ color: srgb(0xc9cbd0), roughness: 0.3, metalness: 0.9 })), floorZ - 0.02, 12);
+    facingOut(new T.Mesh(flat(8.3, 2.6, 1.28), inside({ color: 0x020203, roughness: 0.9 })), floorZ - 0.04, 13);
+    facingOut(new T.Mesh(flat(6.6, 0.7, 0.3), inside({ color: srgb(0x2a2a2e), roughness: 0.6 })), floorZ - 0.06, 14);
+  }
 
   // ---- pocket floor and switches (RGB off) ----
   const floorMat = new T.MeshStandardMaterial({ color: srgb(0x1b1b20), roughness: 0.75 }); // plate: dark, but catches the LED light
