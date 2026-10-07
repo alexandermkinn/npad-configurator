@@ -580,13 +580,43 @@ window.initDevice3D = function (host, { pick, icons }) {
     ray.setFromCamera(ndc, camera);
     return ray.intersectObjects(pickables, false)[0]?.object.userData.input || null;
   }
+  // spinning the knob by hand: it snaps to the encoder's 20 detents
+  const DETENT = Math.PI / 10;
+  function knobScreenAngle(e) {
+    const c = knob.getWorldPosition(new T.Vector3()).project(camera);
+    const r = canvas.getBoundingClientRect();
+    const cx = r.left + (c.x + 1) / 2 * r.width, cy = r.top + (1 - c.y) / 2 * r.height;
+    return Math.atan2(e.clientY - cy, e.clientX - cx);
+  }
+  let wheelAcc = 0;
+  canvas.addEventListener('wheel', e => {
+    if (hit(e) !== 'press') return;      // scrolling elsewhere still scrolls the page
+    e.preventDefault(); e.stopPropagation();
+    wheelAcc += e.deltaY;
+    while (Math.abs(wheelAcc) >= 40) {    // one detent per notch, or per 40px of trackpad scroll
+      const dir = wheelAcc < 0 ? 1 : -1;  // scroll up turns it clockwise
+      knobAngle += dir * DETENT; wheelAcc += dir * 40;
+    }
+  }, { passive: false });
+
   let drag = null;
-  canvas.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, moved: false }; canvas.setPointerCapture(e.pointerId); });
+  canvas.addEventListener('pointerdown', e => {
+    const onKnob = hit(e) === 'press';
+    drag = { x: e.clientX, y: e.clientY, moved: false, knob: onKnob, a0: onKnob ? knobScreenAngle(e) : 0, start: knobAngle };
+    canvas.setPointerCapture(e.pointerId);
+  });
   canvas.addEventListener('pointermove', e => {
-    if (!drag) { canvas.style.cursor = hit(e) ? 'pointer' : 'grab'; return; }
+    if (!drag) { const id = hit(e); canvas.style.cursor = id === 'press' ? 'grab' : id ? 'pointer' : 'grab'; return; }
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
     if (!drag.moved && Math.hypot(dx, dy) < 5) return;
     drag.moved = true; canvas.style.cursor = 'grabbing';
+    if (drag.knob) {
+      let d = knobScreenAngle(e) - drag.a0;
+      d = Math.atan2(Math.sin(d), Math.cos(d));          // shortest way round
+      drag.start += d; drag.a0 += d;
+      knobAngle = Math.round(drag.start / DETENT) * DETENT;
+      return;
+    }
     view.yaw -= dx * 0.008;
     if (e.pointerType === 'mouse') view.pitch = Math.min(1.45, Math.max(0.3, view.pitch + dy * 0.006));
     drag.x = e.clientX; drag.y = e.clientY;
@@ -988,7 +1018,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     host.hidden = false;
     dev3d = initDevice3D(host, { pick, icons: ICONS });
     document.querySelector('.npad').hidden = true;
-    hintText = 'Drag to turn it around. Click a key or a chip to reassign it.';
+    hintText = 'Drag to turn it around, or scroll or drag on the knob to spin it. Click a key or a chip to reassign it.';
     $('#hint').textContent = hintText;
   } catch (err) {
     console.warn('3D view unavailable, using the flat drawing:', err);
