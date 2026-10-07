@@ -491,7 +491,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     return { body, top };
   }
   const cap = capGeometry();
-  const legendGeo = { n: cap.top(10.5), icon: cap.top(9) };
+  const legendGeo = cap.top(9);
 
   function legendTexture(icon) {
     const c = document.createElement('canvas'); c.width = c.height = 256;
@@ -499,23 +499,10 @@ window.initDevice3D = function (host, { pick, icons }) {
     const tex = new T.CanvasTexture(c);
     tex.encoding = T.sRGBEncoding;
     tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-    if (icon === 'n') {
-      const draw = () => {
-        ctx.clearRect(0, 0, 256, 256);
-        // a bold lowercase n, as printed on the cap
-        ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-        ctx.font = '800 210px "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif';
-        ctx.fillText('n', 128, 184);
-        tex.needsUpdate = true;
-      };
-      draw();
-      document.fonts?.load('800 210px "Schibsted Grotesk"').then(draw, () => {});
-    } else {
-      const svg = icons[icon].replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" ').replace(/currentColor/g, '#ffffff');
-      const img = new Image();
-      img.onload = () => { ctx.clearRect(0, 0, 256, 256); ctx.drawImage(img, 0, 0, 256, 256); tex.needsUpdate = true; };
-      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
-    }
+    const svg = icons[icon].replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" ').replace(/currentColor/g, '#ffffff');
+    const img = new Image();
+    img.onload = () => { ctx.clearRect(0, 0, 256, 256); ctx.drawImage(img, 0, 0, 256, 256); tex.needsUpdate = true; };
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
     return tex;
   }
 
@@ -544,7 +531,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     body.castShadow = body.receiveShadow = true;
     body.userData.input = id;
     const legendMat = new T.MeshBasicMaterial({ map: legendTexture(icon), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
-    const legend = new T.Mesh(icon === 'n' ? legendGeo.n : legendGeo.icon, legendMat);
+    const legend = new T.Mesh(legendGeo, legendMat);
     legend.userData.input = id;
     const stem = new T.Mesh(stemGeo, stemMat);              // moves with the keycap
     stem.position.y = 0.5 - stemH / 2;
@@ -916,9 +903,9 @@ window.initDevice3D = function (host, { pick, icons }) {
 </script>
 <script>
 (() => {
-  // Keycap legends: Phosphor Icons "light" weight (MIT, phosphoricons.com), matching the printed caps
+  // Keycap legends: the ngrok "n" logo, and Phosphor Icons "light" weight (MIT, phosphoricons.com)
   const ICONS = {
-    n: '<span class="n">n</span>',
+    n: '<svg viewBox="-16 -16 288 288"><path fill="currentColor" d="M210.695 58.494c-3.381-4.044-7.198-7.535-11.288-10.637-3.654-2.715-7.525-5.098-11.724-7.037-2.018-.942-4.144-1.717-6.38-2.438-3.217-1.052-6.707-1.773-10.306-2.382h-45.369L95.636 70.739V36.72H32V220h63.637V96.336H155.4l4.963-.11v123.719H224V105.312q0-14.627-2.781-26.096c-1.854-7.59-5.344-14.46-10.524-20.722"/></svg>',
     globe: '<svg viewBox="0 0 256 256" fill="currentColor"><path d="M128,26A102,102,0,1,0,230,128,102.12,102.12,0,0,0,128,26Zm81.57,64H169.19a132.58,132.58,0,0,0-25.73-50.67A90.29,90.29,0,0,1,209.57,90ZM218,128a89.7,89.7,0,0,1-3.83,26H171.81a155.43,155.43,0,0,0,0-52h42.36A89.7,89.7,0,0,1,218,128Zm-90,87.83a110,110,0,0,1-15.19-19.45A124.24,124.24,0,0,1,99.35,166h57.3a124.24,124.24,0,0,1-13.46,30.38A110,110,0,0,1,128,215.83ZM96.45,154a139.18,139.18,0,0,1,0-52h63.1a139.18,139.18,0,0,1,0,52ZM38,128a89.7,89.7,0,0,1,3.83-26H84.19a155.43,155.43,0,0,0,0,52H41.83A89.7,89.7,0,0,1,38,128Zm90-87.83a110,110,0,0,1,15.19,19.45A124.24,124.24,0,0,1,156.65,90H99.35a124.24,124.24,0,0,1,13.46-30.38A110,110,0,0,1,128,40.17Zm-15.46-.84A132.58,132.58,0,0,0,86.81,90H46.43A90.29,90.29,0,0,1,112.54,39.33ZM46.43,166H86.81a132.58,132.58,0,0,0,25.73,50.67A90.29,90.29,0,0,1,46.43,166Zm97,50.67A132.58,132.58,0,0,0,169.19,166h40.38A90.29,90.29,0,0,1,143.46,216.67Z"/></svg>',
     share: '<svg viewBox="0 0 256 256" fill="currentColor"><path d="M236.24,107.76l-80-80A6,6,0,0,0,146,32V74.2c-54.48,3.59-120.39,55-127.93,120.66a10,10,0,0,0,17.23,8h0C46.56,190.85,87,152.6,146,150.13V192a6,6,0,0,0,10.24,4.24l80-80A6,6,0,0,0,236.24,107.76ZM158,177.52V144a6,6,0,0,0-6-6c-27.73,0-54.76,7.25-80.32,21.55a193.38,193.38,0,0,0-40.81,30.65c4.7-26.56,20.16-52,44-72.27C98.47,97.94,127.29,86,152,86a6,6,0,0,0,6-6V46.49L223.51,112Z"/></svg>',
     shrimp: '<svg viewBox="0 0 256 256" fill="currentColor"><path d="M138,116a10,10,0,1,1,10,10A10,10,0,0,1,138,116Zm83.9-32A78.1,78.1,0,0,1,144,158H112a14,14,0,0,0,0,28h56a6,6,0,0,1,0,12H118v20h34a6,6,0,0,1,0,12H96A78,78,0,0,1,96,74H212a14,14,0,0,0,0-28H128a22,22,0,0,1-22-22,6,6,0,0,1,12,0,10,10,0,0,0,10,10h84a26,26,0,0,1,9.9,50ZM50.65,199.88l35.48-25.34A23.74,23.74,0,0,1,86,172a25.92,25.92,0,0,1,1.46-8.57L31.51,138a65.8,65.8,0,0,0,19.14,61.88ZM90.3,186.3,60.49,207.59A65.56,65.56,0,0,0,96,218h10V197.29A26.05,26.05,0,0,1,90.3,186.3ZM106,146.71V86H96a66.1,66.1,0,0,0-60.86,40.47L94,153.24A25.86,25.86,0,0,1,106,146.71ZM209.73,86H118v60h26A66.09,66.09,0,0,0,209.73,86Z"/></svg>',
