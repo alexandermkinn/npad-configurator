@@ -351,8 +351,8 @@ window.initDevice3D = function (host, { pick, icons }) {
   portRim.position.set(0, H * 0.5, -D / 2 + 0.78);
   scene.add(portRim, port);
 
-  // ---- pocket floor, switches and underglow ----
-  const floorMat = new T.MeshStandardMaterial({ color: 0x05060b, emissive: 0x1f45ff, emissiveIntensity: 0.75, roughness: 0.9, toneMapped: false });
+  // ---- pocket floor and switches (RGB off) ----
+  const floorMat = new T.MeshStandardMaterial({ color: 0x050506, roughness: 0.9 });
   const floor = new T.Mesh(new T.PlaneGeometry(WELL_W + 2, WELL_D + 2), floorMat);
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(0, FLOOR, WELL_Z);
@@ -481,12 +481,9 @@ window.initDevice3D = function (host, { pick, icons }) {
     group.add(body, legend);
     scene.add(group);
 
-    const light = new T.PointLight(0x2f55ff, 1.2, 34, 2);
-    light.position.set(x, FLOOR + 3.5, z);
-    scene.add(light);
 
     pickables.push(body, legend);
-    keys[id] = { group, mat, legendMat, light, down: false, t: 0 };
+    keys[id] = { group, mat, legendMat, down: false, t: 0 };
   });
 
   // ---- knob: knurled aluminium with a domed finger nub ----
@@ -576,11 +573,9 @@ window.initDevice3D = function (host, { pick, icons }) {
     Object.entries(keys).forEach(([id, k]) => {
       k.t += ((k.down ? 1 : 0) - k.t) * 0.45;
       k.group.position.y = CAP_Y - TRAVEL * k.t;
-      k.light.intensity = 1.2 + 3 * k.t;
       k.mat.emissiveIntensity = id === target ? pulse : 0;
       k.legendMat.color.copy(tested.has(id) ? GREEN : WHITE);
     });
-    floorMat.emissiveIntensity = 0.75 + 0.7 * Math.max(...Object.values(keys).map(k => k.t));
     knobShown += (knobAngle - knobShown) * 0.25;
     spinner.rotation.y = -knobShown;
     knobT += ((knobDown ? 1 : 0) - knobT) * 0.45;
