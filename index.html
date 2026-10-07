@@ -605,12 +605,12 @@ window.initDevice3D = function (host, { pick, icons }) {
   const look = new T.Vector3(0, 6, 0); // middle of the case, so it stays centred all the way round
   const HOME_YAW = -0.42, HOME_PITCH = 0.92;
   const view = { yaw: HOME_YAW, pitch: HOME_PITCH, dist: 268, zoom: 1 };
-  // The idle orbit climbs as it goes round: the front view at HOME_PITCH, rising to BACK_PITCH
-  // directly behind, so the keys stay visible over the knob instead of hiding behind it.
-  const BACK_PITCH = 1.12, BACK_ZOOM = 1.1;
+  // The idle orbit swoops low as it goes round: the front view at HOME_PITCH, dipping to
+  // BACK_PITCH directly behind so the back face and USB-C port are seen head-on.
+  const BACK_PITCH = 0.38, BACK_ZOOM = 0.96;
   const behind = yaw => (1 - Math.cos(yaw - HOME_YAW)) / 2;        // 0 at the front, 1 directly behind
   const orbitPitch = yaw => HOME_PITCH + (BACK_PITCH - HOME_PITCH) * behind(yaw);
-  const orbitZoom = yaw => 1 + (BACK_ZOOM - 1) * behind(yaw);       // pull back a little behind it
+  const orbitZoom = yaw => 1 + (BACK_ZOOM - 1) * behind(yaw);       // ease in a touch behind it
   // Idle turntable on load: eases in, stops when someone takes over. goHome swings back to the front view.
   const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const turntable = { on: !reduceMotion, speed: 0, goHome: false };
