@@ -254,12 +254,12 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 window.initDevice3D = function (host, { pick, icons }) {
   if (!window.THREE) throw new Error('three.js did not load');
   const T = THREE;
-  const W = 73, D = 98, H = 20, R = 5;                       // case
+  const W = 73, D = 98, H = 18, R = 5;                       // case
   // keycaps: 18.1 mm at the base on a 19.05 mm pitch, so neighbours sit about 1 mm apart
   const PITCH = 19.05, CAP_BASE = 18.1, CAP_Y = H - 2, TRAVEL = 3.5;
   // key pocket: caps span 56.2 × 37.2 mm, leaving about a 1 mm gap to the pocket wall
   const WELL_W = 58, WELL_D = 39, WELL_Z = 21, FLOOR = H - 10;
-  const KNOB_R = 15.5, KNOB_H = 12.5, KNOB_Z = -20, KNOB_SINK = 3; // knob sits in a round recess
+  const KNOB_R = 15.5, KNOB_H = 14, KNOB_Z = -20, KNOB_SINK = 3; // knob sits in a round recess
   const srgb = hex => new T.Color(hex).convertSRGBToLinear();
 
   const renderer = new T.WebGLRenderer({ antialias: true, alpha: true });
