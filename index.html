@@ -463,6 +463,8 @@ window.initDevice3D = function (host, { pick, icons }) {
 
   const pickables = [];
   const keys = {};
+  // LED positions on QMK's 224 × 64 grid, from the board's rgb_matrix layout
+  const LED_POS = { k1: [51, 38], k2: [102, 38], k3: [154, 38], k4: [51, 51], k5: [102, 51], k6: [154, 51] };
   const KEYS = [['k1', 'n', 0, 0], ['k2', 'globe', 1, 0], ['k3', 'share', 2, 0], ['k4', 'shrimp', 0, 1], ['k5', 'boat', 1, 1], ['k6', 'sparkle', 2, 1]];
   KEYS.forEach(([id, icon, col, row]) => {
     const x = (col - 1) * PITCH, z = WELL_Z + (row === 0 ? -PITCH / 2 : PITCH / 2);
@@ -479,9 +481,17 @@ window.initDevice3D = function (host, { pick, icons }) {
     group.add(body, legend);
     scene.add(group);
 
+    // south-facing RGB LED under the switch
+    const ledMat = new T.MeshBasicMaterial({ color: 0x000000, toneMapped: false });
+    const ledPatch = new T.Mesh(new T.PlaneGeometry(PITCH - 0.6, PITCH - 0.6), ledMat);
+    ledPatch.rotation.x = -Math.PI / 2;
+    ledPatch.position.set(x, FLOOR + 0.05, z);
+    const ledLight = new T.PointLight(0x000000, 0, 30, 2);
+    ledLight.position.set(x, FLOOR + 3, z + 5);
+    scene.add(ledPatch, ledLight);
 
     pickables.push(body, legend);
-    keys[id] = { group, mat, legendMat, down: false, t: 0 };
+    keys[id] = { group, mat, legendMat, ledMat, ledLight, led: LED_POS[id], down: false, t: 0, pressedAt: -1e9, heat: 0, rnd: { h: 0, s: 1, v: 0, next: 0 } };
   });
 
   // ---- knob: anodized aluminium, knurled sides, finger dimple ----
@@ -627,14 +637,79 @@ window.initDevice3D = function (host, { pick, icons }) {
   const tested = new Set();
   const clock = new T.Clock();
   const GREEN = srgb(0x7ce3a6), WHITE = srgb(0xf2ede0); // cream legends
+  // ---- RGB Matrix: approximations of the firmware's effects ----
+  let lighting = null;           // { effect, h, s, v, speed } with h/s/v/speed in 0..1, or null when off/unknown
+  const presses = [];            // recent key presses, for the reactive and splash effects
+  const frac = x => x - Math.floor(x);
+  function hsv(h, s, v) {
+    h = frac(h) * 6; const i = Math.floor(h), f = h - i;
+    const p = v * (1 - s), q = v * (1 - s * f), u = v * (1 - s * (1 - f));
+    return [[v, u, p], [q, v, p], [p, v, u], [p, q, v], [u, p, v], [v, p, q]][i % 6];
+  }
+  function ledColor(k, t) {
+    const L = lighting;
+    if (!L || L.v <= 0 || L.effect === 'none') return [0, 0, 0];
+    const T = t * (0.2 + L.speed * 1.6);            // effect clock, scaled by speed
+    const [x, y] = k.led, nx = x / 224, ny = y / 64;
+    const dx = (x - 112) / 112, dy = (y - 32) / 32, dist = Math.hypot(dx, dy), ang = Math.atan2(dy, dx) / (Math.PI * 2);
+    let { h, s, v } = L;
+    const since = t - k.pressedAt;
+    const fade = since < 0 ? 0 : Math.max(0, 1 - since * (0.6 + L.speed * 1.4)); // 1 → 0 after a press
+    const splash = () => presses.reduce((m, pr) => {
+      const age = t - pr.t, r = age * (60 + L.speed * 160), d = Math.hypot(x - pr.x, y - pr.y);
+      return Math.max(m, Math.max(0, 1 - Math.abs(d - r) / 30) * Math.max(0, 1 - age / 1.5));
+    }, 0);
+    const random = (every) => {
+      if (t > k.rnd.next) { k.rnd = { h: Math.random(), s: 0.6 + Math.random() * 0.4, v: Math.random(), next: t + every * (0.5 + Math.random()) }; }
+      return k.rnd;
+    };
+    switch (L.effect) {
+      case 'solid_color': break;
+      case 'breathing': v *= 0.15 + 0.85 * (0.5 + 0.5 * Math.sin(T * 2.5)); break;
+      case 'gradient_up_down': h += ny * 0.25; break;
+      case 'gradient_left_right': h += nx * 0.25; break;
+      case 'band_sat': s *= Math.min(1, Math.abs(nx - frac(T * 0.4)) * 3); break;
+      case 'band_val': v *= Math.max(0, 1 - Math.abs(nx - frac(T * 0.4)) * 3); break;
+      case 'band_pinwheel_sat': s *= frac(ang - T * 0.4); break;
+      case 'band_pinwheel_val': v *= frac(ang - T * 0.4); break;
+      case 'cycle_all': h += T * 0.25; break;
+      case 'cycle_left_right': h += nx - T * 0.25; break;
+      case 'cycle_up_down': h += ny - T * 0.25; break;
+      case 'cycle_out_in': h += dist * 0.5 - T * 0.25; break;
+      case 'cycle_spiral': h += ang - T * 0.25; break;
+      case 'hue_breathing': h += 0.06 * Math.sin(T * 2); break;
+      case 'hue_wave': h += 0.08 * Math.sin((nx - T * 0.4) * Math.PI * 2); break;
+      case 'raindrops': { const r = random(1.5); h += r.h > 0.5 ? 0.1 : -0.1; break; }
+      case 'jellybean_raindrops': { const r = random(1); h = r.h; s = r.s; v *= r.v; break; }
+      case 'pixel_rain': { const r = random(0.6); h = r.h; v *= r.v > 0.5 ? 1 : 0; break; }
+      case 'pixel_flow': h = frac(Math.floor((nx * 3 - T) * 2) * 0.37); break;
+      case 'digital_rain': h = 0.33; s = 1; v *= Math.max(0, 1 - frac(ny - T * 0.6) * 2.5); break;
+      case 'typing_heatmap': h = 0.66 * (1 - Math.min(1, k.heat)); s = 1; v *= Math.min(1, k.heat * 1.5); break;
+      case 'solid_reactive_simple': v *= fade; break;
+      case 'solid_reactive':
+      case 'solid_reactive_cross':
+      case 'solid_reactive_nexus': h += 0.5 * fade; break;
+      case 'splash': { const w = splash(); h += w * 0.5; v *= w; break; }
+      case 'solid_splash': v *= splash(); break;
+      default: break;                               // unknown effect: show the base colour
+    }
+    return hsv(h, Math.max(0, Math.min(1, s)), Math.max(0, Math.min(1, v)));
+  }
+
   function frame() {
     const t = clock.getElapsedTime();
+    while (presses.length && t - presses[0].t > 1.5) presses.shift();
     const pulse = 0.18 + 0.18 * Math.sin(t * 5);
     Object.entries(keys).forEach(([id, k]) => {
       k.t += ((k.down ? 1 : 0) - k.t) * 0.45;
       k.group.position.y = CAP_Y - TRAVEL * k.t;
       k.mat.emissiveIntensity = id === target ? pulse : 0;
       k.legendMat.color.copy(tested.has(id) ? GREEN : WHITE);
+      k.heat = Math.max(0, k.heat - 0.004);
+      const [r, g, b] = ledColor(k, t);
+      k.ledMat.color.setRGB(r, g, b).convertSRGBToLinear();
+      k.ledLight.color.setRGB(r, g, b);
+      k.ledLight.intensity = 3 * Math.max(r, g, b);
     });
     knobShown += (knobAngle - knobShown) * 0.25;
     spinner.rotation.y = -knobShown;
@@ -649,9 +724,17 @@ window.initDevice3D = function (host, { pick, icons }) {
 
   return {
     press(id, down) {
-      if (id === 'press') knobDown = down;
-      else if (keys[id]) keys[id].down = down;
+      if (id === 'press') { knobDown = down; return; }
+      const k = keys[id];
+      if (!k) return;
+      if (down && !k.down) {
+        const t = clock.getElapsedTime();
+        k.pressedAt = t; k.heat = Math.min(1.2, k.heat + 0.25);
+        presses.push({ t, x: k.led[0], y: k.led[1] });
+      }
+      k.down = down;
     },
+    setLighting(state) { lighting = state; },
     turn(dir) { knobAngle += dir * (Math.PI / 10); },
     reset() { knobAngle = 0; },
     setTarget(id) { target = id; },
@@ -779,7 +862,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     } else if (pendingSig) {
       setStatus('warn', `<b>${esc(pretty(pendingSig))}</b> isn't assigned to a control. Click the key or chip it belongs to.`, [['Ignore', () => { pendingSig = null; render(); }]]);
     } else if (hidDev && tested.size < INPUTS.length) {
-      setStatus('done', `<b>Connected to ${esc(hidDev.productName || 'npad')}.</b> Switch presses come straight from the firmware.`, [['Disconnect', hidDisconnect]]);
+      setStatus('done', `<b>Connected to ${esc(hidDev.productName || 'npad')}.</b> Switch presses come straight from the firmware. ${esc(lightingText)}`, [['Disconnect', hidDisconnect]]);
     } else if (tested.size === INPUTS.length) {
       setStatus('done', '<b>All 9 controls work.</b>', []);
     } else if (!Object.keys(map).length) {
@@ -920,8 +1003,40 @@ window.initDevice3D = function (host, { pick, icons }) {
   $('#btn-clear-log').addEventListener('click', () => { logEl.innerHTML = '<tr class="empty"><td colspan="5">Log cleared.</td></tr>'; });
 
   // ---- direct connection: QMK/VIA raw HID (usage page 0xFF60) ----
-  let hidDev = null, hidTimer = null, hidWait = null, lastMatrix = [0, 0, 0];
-  const VIA = { getKeycode: 0x04, getValue: 0x02, matrixState: 0x03, getEncoder: 0x14 };
+  let hidDev = null, hidTimer = null, hidWait = null, lastMatrix = [0, 0, 0], pollCount = 0;
+  const VIA = { getKeycode: 0x04, getValue: 0x02, matrixState: 0x03, getEncoder: 0x14, getCustom: 0x08, rgbMatrix: 3 };
+  // RGB Matrix effect ids: QMK numbers only the effects compiled in, in its own order.
+  // These are the ones the Aurora's board file enables.
+  const EFFECTS = ['none', 'solid_color', 'gradient_up_down', 'gradient_left_right', 'breathing', 'band_sat', 'band_val',
+    'band_pinwheel_sat', 'band_pinwheel_val', 'cycle_all', 'cycle_left_right', 'cycle_up_down', 'cycle_out_in', 'cycle_spiral',
+    'raindrops', 'jellybean_raindrops', 'hue_breathing', 'hue_wave', 'pixel_flow', 'pixel_rain', 'typing_heatmap', 'digital_rain',
+    'solid_reactive_simple', 'solid_reactive', 'solid_reactive_cross', 'solid_reactive_nexus', 'splash', 'solid_splash'];
+  let lightingText = '';
+  const effectLabel = e => e.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase());
+  function colorName(h, s) {
+    if (s < 0.2) return 'white';
+    const names = ['red', 'orange', 'yellow', 'green', 'green', 'cyan', 'blue', 'blue', 'purple', 'pink', 'red'];
+    return names[Math.round(h * 10)];
+  }
+  async function readLighting() {
+    const get = async id => (await hidQuery(VIA.getCustom, VIA.rgbMatrix, id));
+    const bright = await get(1);
+    if (bright[0] === 0xff) { dev3d?.setLighting(null); return ''; } // firmware has no RGB Matrix over VIA
+    const effect = await get(2), speed = await get(3), color = await get(4);
+    const state = {
+      effect: EFFECTS[effect[3]] || 'unknown', v: bright[3] / 255, speed: speed[3] / 255,
+      h: color[3] / 255, s: color[4] / 255,
+    };
+    dev3d?.setLighting(state);
+    if (state.effect === 'none' || state.v === 0) return 'Backlight off.';
+    return `Backlight: ${effectLabel(state.effect)}, ${colorName(state.h, state.s)}, ${Math.round(state.v * 100)}%.`;
+  }
+  async function refreshLighting() {
+    try {
+      const text = await readLighting();
+      if (text !== lightingText) { lightingText = text; render(); }
+    } catch {}
+  }
   function hidQuery(...bytes) {
     return new Promise((resolve, reject) => {
       const buf = new Uint8Array(32); buf.set(bytes);
@@ -971,6 +1086,7 @@ window.initDevice3D = function (host, { pick, icons }) {
       }
       Object.assign(map, learned); save();
       $('#btn-hid').textContent = 'Connected';
+      await refreshLighting();
       pollMatrix();
       render();
     } catch (err) {
@@ -991,6 +1107,7 @@ window.initDevice3D = function (host, { pick, icons }) {
         if (now !== was) { activate(i.id, !!now); log(now ? 'switch down' : 'switch up', '', `row ${row} col ${col}`, i.name); }
       });
       lastMatrix = rows;
+      if (++pollCount % 60 === 0) await refreshLighting(); // pick up lighting changes made on the device or in VIA
     } catch (err) {
       if (!hidDev?.opened) { hidDisconnect(); return; }
     }
@@ -1000,6 +1117,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     clearTimeout(hidTimer);
     if (hidDev?.opened) hidDev.close().catch(() => {});
     hidDev = null; lastMatrix = [0, 0, 0];
+    lightingText = ''; dev3d?.setLighting(null);
     $('#btn-hid').textContent = 'Connect directly';
     render();
   }
