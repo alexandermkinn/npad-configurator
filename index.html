@@ -505,6 +505,21 @@ window.initDevice3D = function (host, { pick, icons }) {
 
   const pickables = [];
   const keys = {};
+  // soft radial falloff for the LED glow, so light pools and blends instead of showing hard edges
+  const glowTex = (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const g = c.getContext('2d'), grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    grad.addColorStop(0, 'rgba(255,255,255,1)');
+    grad.addColorStop(0.35, 'rgba(255,255,255,0.6)');
+    grad.addColorStop(0.7, 'rgba(255,255,255,0.18)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grad; g.fillRect(0, 0, 128, 128);
+    return new T.CanvasTexture(c);
+  })();
+  const glowMaterial = () => new T.MeshBasicMaterial({
+    map: glowTex, color: 0x000000, transparent: true, blending: T.AdditiveBlending, depthWrite: false, toneMapped: false,
+  });
+
   // LED positions on QMK's 224 × 64 grid, from the board's rgb_matrix layout
   const LED_POS = { k1: [51, 38], k2: [102, 38], k3: [154, 38], k4: [51, 51], k5: [102, 51], k6: [154, 51] };
   const KEYS = [['k1', 'n', 0, 0], ['k2', 'globe', 1, 0], ['k3', 'share', 2, 0], ['k4', 'shrimp', 0, 1], ['k5', 'boat', 1, 1], ['k6', 'sparkle', 2, 1]];
@@ -523,17 +538,21 @@ window.initDevice3D = function (host, { pick, icons }) {
     group.add(body, legend);
     scene.add(group);
 
-    // south-facing RGB LED under the switch
-    const ledMat = new T.MeshBasicMaterial({ color: 0x000000, toneMapped: false });
-    const ledPatch = new T.Mesh(new T.PlaneGeometry(PITCH - 0.6, PITCH - 0.6), ledMat);
+    // south-facing RGB LED under the switch: a soft pool of light on the floor that overlaps its
+    // neighbours, a fainter haze higher up near the keycap skirts, and a light for the spill
+    const ledMat = glowMaterial(), hazeMat = glowMaterial();
+    const ledPatch = new T.Mesh(new T.PlaneGeometry(PITCH * 1.7, PITCH * 1.7), ledMat);
     ledPatch.rotation.x = -Math.PI / 2;
-    ledPatch.position.set(x, FLOOR + 0.05, z);
-    const ledLight = new T.PointLight(0x000000, 0, 30, 2);
+    ledPatch.position.set(x, FLOOR + 0.05, z + 2);
+    const haze = new T.Mesh(new T.PlaneGeometry(PITCH * 1.5, PITCH * 1.5), hazeMat);
+    haze.rotation.x = -Math.PI / 2;
+    haze.position.set(x, (FLOOR + CAP_Y) / 2, z + 2);
+    const ledLight = new T.PointLight(0x000000, 0, 42, 2);
     ledLight.position.set(x, FLOOR + 3, z + 5);
-    scene.add(ledPatch, ledLight);
+    scene.add(ledPatch, haze, ledLight);
 
     pickables.push(body, legend);
-    keys[id] = { group, mat, legendMat, ledMat, ledLight, led: LED_POS[id], down: false, t: 0, pressedAt: -1e9, heat: 0, rnd: { h: 0, s: 1, v: 0, next: 0 } };
+    keys[id] = { group, mat, legendMat, ledMat, hazeMat, ledLight, led: LED_POS[id], down: false, t: 0, pressedAt: -1e9, heat: 0, rnd: { h: 0, s: 1, v: 0, next: 0 } };
   });
 
   // ---- knob: anodized aluminium, knurled sides, finger dimple ----
@@ -843,9 +862,10 @@ window.initDevice3D = function (host, { pick, icons }) {
       k.legendMat.color.copy(tested.has(id) ? GREEN : WHITE);
       k.heat = Math.max(0, k.heat - 0.004);
       const [r, g, b] = ledColor(k, t);
-      k.ledMat.color.setRGB(r, g, b).convertSRGBToLinear();
+      k.ledMat.color.setRGB(r, g, b).convertSRGBToLinear().multiplyScalar(1.4);
+      k.hazeMat.color.copy(k.ledMat.color).multiplyScalar(0.3);
       k.ledLight.color.setRGB(r, g, b);
-      k.ledLight.intensity = 3 * Math.max(r, g, b);
+      k.ledLight.intensity = 3.5 * Math.max(r, g, b);
     });
     knobShown += (knobAngle - knobShown) * 0.25;
     spinner.rotation.y = -knobShown;
