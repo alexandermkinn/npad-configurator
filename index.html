@@ -459,7 +459,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   const CAP = {
     base: CAP_BASE / 2, baseExp: 10,                // base: superellipse exponent 10 ≈ square with tight corners
     topX: 6.4, topZ: 6.4, topExp: 4, topCz: 0,      // top: ≈12.8 mm squircle, centred
-    height: 9.1, tilt: 0, dish: 0.7, fillet: 0.7,
+    height: 9.1, tilt: 0, dish: 0.7, fillet: 0.4,     // fillet: radius of the edge where the walls meet the top
   };
   // Superellipse ring |x/a|^e + |z/b|^e = 1 in the xz-plane, resampled to evenly spaced points
   // (same count and start point at every size, so rings stitch cleanly). e = 2 is an ellipse,
