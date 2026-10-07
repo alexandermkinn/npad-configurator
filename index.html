@@ -602,9 +602,15 @@ window.initDevice3D = function (host, { pick, icons }) {
 
   // ---- camera with drag-to-turn ----
   const camera = new T.PerspectiveCamera(24, 1, 10, 2000);
-  const look = new T.Vector3(0, 6, 4);
-  const HOME_YAW = -0.42;
-  const view = { yaw: HOME_YAW, pitch: 0.92, dist: 268 };
+  const look = new T.Vector3(0, 6, 0); // middle of the case, so it stays centred all the way round
+  const HOME_YAW = -0.42, HOME_PITCH = 0.92;
+  const view = { yaw: HOME_YAW, pitch: HOME_PITCH, dist: 268, zoom: 1 };
+  // The idle orbit climbs as it goes round: the front view at HOME_PITCH, rising to BACK_PITCH
+  // directly behind, so the keys stay visible over the knob instead of hiding behind it.
+  const BACK_PITCH = 1.12, BACK_ZOOM = 1.1;
+  const behind = yaw => (1 - Math.cos(yaw - HOME_YAW)) / 2;        // 0 at the front, 1 directly behind
+  const orbitPitch = yaw => HOME_PITCH + (BACK_PITCH - HOME_PITCH) * behind(yaw);
+  const orbitZoom = yaw => 1 + (BACK_ZOOM - 1) * behind(yaw);       // pull back a little behind it
   // Idle turntable on load: eases in, stops when someone takes over. goHome swings back to the front view.
   const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const turntable = { on: !reduceMotion, speed: 0, goHome: false };
@@ -613,8 +619,8 @@ window.initDevice3D = function (host, { pick, icons }) {
     turntable.goHome = home;
   }
   function placeCamera() {
-    const cp = Math.cos(view.pitch);
-    camera.position.set(look.x + view.dist * cp * Math.sin(view.yaw), look.y + view.dist * Math.sin(view.pitch), look.z + view.dist * cp * Math.cos(view.yaw));
+    const cp = Math.cos(view.pitch), d = view.dist * view.zoom;
+    camera.position.set(look.x + d * cp * Math.sin(view.yaw), look.y + d * Math.sin(view.pitch), look.z + d * cp * Math.cos(view.yaw));
     camera.lookAt(look);
   }
   function resize() {
@@ -758,12 +764,21 @@ window.initDevice3D = function (host, { pick, icons }) {
     lastT = t;
     // turntable: about one turn every 40 s, with eased start and stop
     turntable.speed += ((turntable.on ? 0.16 : 0) - turntable.speed) * Math.min(1, dt * 1.2);
-    if (Math.abs(turntable.speed) > 1e-4) { view.yaw += turntable.speed * dt; placeCamera(); }
+    if (Math.abs(turntable.speed) > 1e-4) {
+      view.yaw += turntable.speed * dt;
+      if (turntable.on) { view.pitch = orbitPitch(view.yaw); view.zoom = orbitZoom(view.yaw); }
+      placeCamera();
+    }
     if (turntable.goHome) {
       // take the short way round to the front view
       const target = HOME_YAW + Math.round((view.yaw - HOME_YAW) / (Math.PI * 2)) * Math.PI * 2;
-      view.yaw += (target - view.yaw) * Math.min(1, dt * 3.5);
-      if (Math.abs(target - view.yaw) < 1e-3) { view.yaw = target; turntable.goHome = false; }
+      const k = Math.min(1, dt * 3.5);
+      view.yaw += (target - view.yaw) * k;
+      view.pitch += (HOME_PITCH - view.pitch) * k;
+      view.zoom += (1 - view.zoom) * k;
+      if (Math.abs(target - view.yaw) < 1e-3 && Math.abs(HOME_PITCH - view.pitch) < 1e-3) {
+        view.yaw = target; view.pitch = HOME_PITCH; view.zoom = 1; turntable.goHome = false;
+      }
       placeCamera();
     }
     while (presses.length && t - presses[0].t > 1.5) presses.shift();
