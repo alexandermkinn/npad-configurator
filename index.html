@@ -471,7 +471,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     const sw = new T.Mesh(switchGeo, switchMat); sw.position.set(x, FLOOR + 2.5, z); scene.add(sw);
 
     const group = new T.Group(); group.position.set(x, CAP_Y, z);
-    const mat = new T.MeshStandardMaterial({ color: srgb(0x2c2e4e), roughness: 0.62, metalness: 0.05, envMapIntensity: 0.5, emissive: 0x6f8cff, emissiveIntensity: 0 });
+    const mat = new T.MeshStandardMaterial({ color: srgb(0x15161c), roughness: 0.6, metalness: 0.05, envMapIntensity: 0.5, emissive: 0x6f8cff, emissiveIntensity: 0 });
     const body = new T.Mesh(cap.body, mat);
     body.castShadow = body.receiveShadow = true;
     body.userData.input = id;
