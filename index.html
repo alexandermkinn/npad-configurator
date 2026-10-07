@@ -617,6 +617,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   const spinning = () => turntable.on || turntable.speed > 0.01;
   function snapToIso() {
     turntable.on = false; turntable.speed = 0;
+    stopDemo();
     // the short way round to the iso yaw
     const yaw = ISO.yaw + Math.round((view.yaw - ISO.yaw) / (Math.PI * 2)) * Math.PI * 2;
     turntable.target = { yaw, pitch: ISO.pitch };
@@ -763,10 +764,52 @@ window.initDevice3D = function (host, { pick, icons }) {
     return hsv(h, Math.max(0, Math.min(1, s)), Math.max(0, Math.min(1, v)));
   }
 
+  // ---- idle demo: while the model spins, it "plays" itself: key taps, knob scrolls, a knob press.
+  // Purely visual: nothing here counts as a test or stops the spin.
+  const demo = { next: 2.5, events: [] };
+  function demoKey(id, down, t) {
+    const k = keys[id];
+    k.down = down; k.demo = down;
+    if (down) { k.pressedAt = t; presses.push({ t, x: k.led[0], y: k.led[1] }); } // lights react like real presses
+  }
+  function scheduleDemo(t) {
+    const r = Math.random(), ids = Object.keys(keys);
+    let at = t;
+    if (r < 0.62) {                                   // one to three key taps
+      for (let n = 1 + Math.floor(Math.random() * 3); n > 0; n--) {
+        const id = ids[Math.floor(Math.random() * ids.length)], start = at;
+        demo.events.push({ at: start, fn: tt => demoKey(id, true, tt) }, { at: start + 0.13, fn: tt => demoKey(id, false, tt) });
+        at += 0.24 + Math.random() * 0.18;
+      }
+    } else if (r < 0.92) {                            // scroll the knob a few detents
+      const dir = Math.random() < 0.5 ? 1 : -1;
+      for (let n = 2 + Math.floor(Math.random() * 5); n > 0; n--) {
+        demo.events.push({ at, fn: () => { knobAngle += dir * (Math.PI / 10); } });
+        at += 0.09;
+      }
+    } else {                                          // press the knob
+      demo.events.push({ at, fn: () => { knobDown = true; } }, { at: at + 0.18, fn: () => { knobDown = false; } });
+      at += 0.18;
+    }
+    return at;
+  }
+  function runDemo(t) {
+    if (!turntable.on || reduceMotion) return;
+    if (!demo.events.length && t >= demo.next) demo.next = scheduleDemo(t) + 0.9 + Math.random() * 1.6;
+    while (demo.events.length && demo.events[0].at <= t) demo.events.shift().fn(t);
+    demo.events.sort((a, b) => a.at - b.at);
+  }
+  function stopDemo() {
+    demo.events.length = 0;
+    Object.values(keys).forEach(k => { if (k.demo) { k.down = false; k.demo = false; } });
+    knobDown = false;
+  }
+
   let lastT = 0;
   function frame() {
     const t = clock.getElapsedTime(), dt = Math.min(0.1, t - lastT);
     lastT = t;
+    runDemo(t);
     // turntable: about one turn every 80 s, with eased start and stop
     turntable.speed += ((turntable.on ? 0.08 : 0) - turntable.speed) * Math.min(1, dt * 1.2);
     if (Math.abs(turntable.speed) > 1e-4) {
