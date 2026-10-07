@@ -742,7 +742,8 @@ window.initDevice3D = function (host, { pick, icons }) {
     return [[v, u, p], [q, v, p], [p, v, u], [p, q, v], [u, p, v], [v, p, q]][i % 6];
   }
   // While idle-spinning with no real lighting to show, run a demo backlight that fades in and out.
-  const DEMO_LIGHT = { effect: 'solid_color', h: 0, s: 0, v: 0.85, speed: 0.5 }; // plain white, like the stock firmware
+  // plain white like the stock firmware, with a pink splash rippling out from each key press
+  const DEMO_LIGHT = { effect: 'idle_splash', h: 0.93, s: 0, v: 0.85, speed: 0.4 };
   let idleGlow = 0;                                   // 0..1 fade for the demo backlight
   function ledColor(k, t) {
     const L = lighting || (idleGlow > 0.001 ? { ...DEMO_LIGHT, v: DEMO_LIGHT.v * idleGlow } : null);
@@ -789,6 +790,7 @@ window.initDevice3D = function (host, { pick, icons }) {
       case 'solid_reactive_nexus': h += 0.5 * fade; break;
       case 'splash': { const w = splash(); h += w * 0.5; v *= w; break; }
       case 'solid_splash': v *= splash(); break;
+      case 'idle_splash': s = 0.75 * Math.max(fade, splash()); break; // white, flushing pink where a press ripples through
       default: break;                               // unknown effect: show the base colour
     }
     return hsv(h, Math.max(0, Math.min(1, s)), Math.max(0, Math.min(1, v)));
