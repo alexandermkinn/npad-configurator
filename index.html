@@ -565,13 +565,24 @@ window.initDevice3D = function (host, { pick, icons }) {
   const pickables = [];
   const keys = {};
 
-  // Hover and selection are drawn graphically: hover outlines a control in light blue (a slightly
-  // larger back-face hull behind it, so only its silhouette shows), selection fills it with a
-  // steady blue highlight.
+  // Hover and selection are drawn graphically: hover rings a control's top edge in light blue (a
+  // flat band floating just outside it, so it reads the same from every angle and never touches the
+  // case), and selection fills the control with a steady blue highlight.
   const HILITE = 0x6f8cff;
   const outlineMaterial = () => new T.MeshBasicMaterial({
-    color: HILITE, side: T.BackSide, transparent: true, opacity: 0, depthWrite: false, toneMapped: false,
+    color: HILITE, side: T.DoubleSide, transparent: true, opacity: 0, depthWrite: false, toneMapped: false,
   });
+  // a flat band between two outlines given as point lists in the xz-plane, lying horizontal
+  function bandGeometry(outer, inner) {
+    const shape = new T.Shape(outer.map(p => new T.Vector2(p.x, -p.z)));
+    shape.holes.push(new T.Path(inner.map(p => new T.Vector2(p.x, -p.z))));
+    const g = new T.ShapeGeometry(shape);
+    g.rotateX(-Math.PI / 2);
+    return g;
+  }
+  const capEdge = CAP.topX + CAP.fillet * 0.8;                 // outermost extent of the cap's top edge
+  const capRingGeo = bandGeometry(squircleRing(capEdge + 1.4, capEdge + 1.4, CAP.topExp, 0, 0),
+                                  squircleRing(capEdge + 0.5, capEdge + 0.5, CAP.topExp, 0, 0));
 
   // LED positions on QMK's 224 × 64 grid, from the board's rgb_matrix layout
   const LED_POS = { k1: [51, 38], k2: [102, 38], k3: [154, 38], k4: [51, 51], k5: [102, 51], k6: [154, 51] };
@@ -600,9 +611,8 @@ window.initDevice3D = function (host, { pick, icons }) {
     const stem = new T.Mesh(stemGeo, stemMat);              // moves with the keycap
     stem.position.y = 0.5 - stemH / 2;
     const outlineMat = outlineMaterial();
-    const outline = new T.Mesh(cap.body, outlineMat);       // hover outline: the cap's silhouette, grown ~0.6 mm
-    outline.scale.set(1.09, 1.045, 1.09);
-    outline.position.y = -0.2;
+    const outline = new T.Mesh(capRingGeo, outlineMat);     // hover ring around the top edge
+    outline.position.y = CAP.height - 0.25;
     group.add(body, legend, stem, outline);
     scene.add(group);
 
@@ -674,8 +684,9 @@ window.initDevice3D = function (host, { pick, icons }) {
   [knobBody, lid, face].forEach(m => { m.castShadow = m.receiveShadow = true; m.userData.input = 'press'; pickables.push(m); });
   spinner.add(knobBody, lid, face);
   const knobOutlineMat = outlineMaterial();
-  const knobOutline = new T.Mesh(new T.CylinderGeometry(KNOB_R + 0.8, KNOB_R + 0.8, KNOB_H + 0.8, 96), knobOutlineMat);
-  knobOutline.position.y = KNOB_H / 2 + 0.2;
+  const knobOutline = new T.Mesh(new T.RingGeometry(KNOB_R + 0.6, KNOB_R + 1.5, 128), knobOutlineMat); // hover ring around the top
+  knobOutline.rotation.x = -Math.PI / 2;
+  knobOutline.position.y = KNOB_H - 0.25;
   knob.add(knobOutline);
   scene.add(knob);
   let knobAngle = 0, knobShown = 0, knobDown = false, knobT = 0, knobHoverT = 0, knobSelT = 0;
