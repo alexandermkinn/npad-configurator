@@ -569,6 +569,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   // flat band floating just outside it, so it reads the same from every angle and never touches the
   // case), and selection fills the control with a steady blue highlight.
   const HILITE = 0x6f8cff;
+  const CAP_COLOR = srgb(0x15161c), CAP_SELECTED = srgb(0x3a4f9c); // keycap plastic, and as tinted when selected
   const outlineMaterial = () => new T.MeshBasicMaterial({
     color: HILITE, side: T.DoubleSide, transparent: true, opacity: 0, depthWrite: false, toneMapped: false,
   });
@@ -581,8 +582,8 @@ window.initDevice3D = function (host, { pick, icons }) {
     return g;
   }
   const capEdge = CAP.topX + CAP.fillet * 0.8;                 // outermost extent of the cap's top edge
-  const capRingGeo = bandGeometry(squircleRing(capEdge + 1.4, capEdge + 1.4, CAP.topExp, 0, 0),
-                                  squircleRing(capEdge + 0.5, capEdge + 0.5, CAP.topExp, 0, 0));
+  const capRingGeo = bandGeometry(squircleRing(capEdge + 0.65, capEdge + 0.65, CAP.topExp, 0, 0),   // a fine 0.3 mm line
+                                  squircleRing(capEdge + 0.35, capEdge + 0.35, CAP.topExp, 0, 0));
 
   // LED positions on QMK's 224 × 64 grid, from the board's rgb_matrix layout
   const LED_POS = { k1: [51, 38], k2: [102, 38], k3: [154, 38], k4: [51, 51], k5: [102, 51], k6: [154, 51] };
@@ -601,7 +602,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     scene.add(housing, ledDot);
 
     const group = new T.Group(); group.position.set(x, CAP_Y, z);
-    const mat = new T.MeshStandardMaterial({ color: srgb(0x15161c), roughness: 0.6, metalness: 0.05, envMapIntensity: 0.5, emissive: 0x6f8cff, emissiveIntensity: 0 });
+    const mat = new T.MeshStandardMaterial({ color: CAP_COLOR.clone(), roughness: 0.6, metalness: 0.05, envMapIntensity: 0.5, emissive: 0x6f8cff, emissiveIntensity: 0 });
     const body = new T.Mesh(cap.body, mat);
     body.castShadow = body.receiveShadow = true;
     body.userData.input = id;
@@ -627,8 +628,9 @@ window.initDevice3D = function (host, { pick, icons }) {
   });
 
   // ---- knob: anodized aluminium, knurled sides, finger dimple ----
-  const knobSide = new T.MeshStandardMaterial({ color: srgb(0x1c1c20), metalness: 0.55, roughness: 0.38, envMapIntensity: 1.2, emissive: 0x6f8cff, emissiveIntensity: 0 });
-  const knobTop = new T.MeshStandardMaterial({ color: srgb(0x141416), metalness: 0.35, roughness: 0.5, envMapIntensity: 0.6, emissive: 0x6f8cff, emissiveIntensity: 0 });
+  const KNOB_SIDE_COLOR = srgb(0x1c1c20), KNOB_TOP_COLOR = srgb(0x141416), KNOB_SELECTED = srgb(0x34488f);
+  const knobSide = new T.MeshStandardMaterial({ color: KNOB_SIDE_COLOR.clone(), metalness: 0.55, roughness: 0.38, envMapIntensity: 1.2, emissive: 0x6f8cff, emissiveIntensity: 0 });
+  const knobTop = new T.MeshStandardMaterial({ color: KNOB_TOP_COLOR.clone(), metalness: 0.35, roughness: 0.5, envMapIntensity: 0.6, emissive: 0x6f8cff, emissiveIntensity: 0 });
   const knob = new T.Group(); knob.position.set(0, H - KNOB_SINK, KNOB_Z);
   const spinner = new T.Group(); knob.add(spinner);
   const CH = 0.6; // 45° chamfer on the top edge
@@ -684,7 +686,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   [knobBody, lid, face].forEach(m => { m.castShadow = m.receiveShadow = true; m.userData.input = 'press'; pickables.push(m); });
   spinner.add(knobBody, lid, face);
   const knobOutlineMat = outlineMaterial();
-  const knobOutline = new T.Mesh(new T.RingGeometry(KNOB_R + 0.6, KNOB_R + 1.5, 128), knobOutlineMat); // hover ring around the top
+  const knobOutline = new T.Mesh(new T.RingGeometry(KNOB_R + 0.35, KNOB_R + 0.7, 160), knobOutlineMat); // hover ring around the top
   knobOutline.rotation.x = -Math.PI / 2;
   knobOutline.position.y = KNOB_H - 0.25;
   knob.add(knobOutline);
@@ -947,7 +949,9 @@ window.initDevice3D = function (host, { pick, icons }) {
       placeCamera();
     }
     while (presses.length && t - presses[0].t > 1.5) presses.shift();
-    const SELECTED = 0.38;                          // emissive strength of the selection highlight
+    // selection: shift the material itself toward blue so lighting and shading still read, plus a
+    // whisper of glow; hover: a fine, slightly translucent ring
+    const SEL_GLOW = 0.07, OUTLINE = 0.85;
     const ease = Math.min(1, dt * 10);
     Object.entries(keys).forEach(([id, k]) => {
       k.t += ((k.down ? 1 : 0) - k.t) * 0.45;
@@ -956,8 +960,9 @@ window.initDevice3D = function (host, { pick, icons }) {
       k.hoverT = (k.hoverT || 0) + (hoverTo - (k.hoverT || 0)) * ease;
       k.selT = (k.selT || 0) + ((id === target ? 1 : 0) - (k.selT || 0)) * ease;
       k.group.position.y = CAP_Y - TRAVEL * k.t;
-      k.outlineMat.opacity = k.hoverT;
-      k.mat.emissiveIntensity = SELECTED * k.selT;
+      k.outlineMat.opacity = OUTLINE * k.hoverT;
+      k.mat.color.copy(CAP_COLOR).lerp(CAP_SELECTED, k.selT);
+      k.mat.emissiveIntensity = SEL_GLOW * k.selT;
       k.legendMat.color.copy(tested.has(id) ? GREEN : WHITE);
       k.heat = Math.max(0, k.heat - 0.004);
       const [r, g, b] = ledColor(k, t);
@@ -976,8 +981,10 @@ window.initDevice3D = function (host, { pick, icons }) {
     knobHoverT += (knobHoverTo - knobHoverT) * ease;
     knob.position.y = H - KNOB_SINK - 1.2 * knobT;
     knobSelT += ((['cw', 'ccw', 'press'].includes(target) ? 1 : 0) - knobSelT) * ease;
-    knobOutlineMat.opacity = knobHoverT;
-    knobSide.emissiveIntensity = knobTop.emissiveIntensity = SELECTED * knobSelT;
+    knobOutlineMat.opacity = OUTLINE * knobHoverT;
+    knobSide.color.copy(KNOB_SIDE_COLOR).lerp(KNOB_SELECTED, knobSelT);
+    knobTop.color.copy(KNOB_TOP_COLOR).lerp(KNOB_SELECTED, knobSelT);
+    knobSide.emissiveIntensity = knobTop.emissiveIntensity = SEL_GLOW * knobSelT;
     renderer.render(scene, camera);
     requestAnimationFrame(frame);
   }
