@@ -688,11 +688,15 @@ window.initDevice3D = function (host, { pick, icons }) {
   face.position.y = KNOB_H;
   [knobBody, lid, face].forEach(m => { m.castShadow = m.receiveShadow = true; m.userData.input = 'press'; pickables.push(m); });
   spinner.add(knobBody, lid, face);
-  // the knob's outline uses a plain cylinder grown 0.3 mm (the knurl is too fine to follow)
+  // the knob's outline: its profile (side, 45° chamfer, top) offset evenly by OUTLINE_W, turned into
+  // a solid of revolution; the knurl is too fine to follow
   [knobSide, knobTop].forEach(m => markStencil(m, 17));
   const knobOutlineMat = outlineMaterial(17);
-  const knobOutline = new T.Mesh(new T.CylinderGeometry(KNOB_R + OUTLINE_W, KNOB_R + OUTLINE_W, KNOB_H + OUTLINE_W, 128), knobOutlineMat);
-  knobOutline.position.y = (KNOB_H + OUTLINE_W) / 2;
+  const w = OUTLINE_W, t = w * Math.tan(Math.PI / 8);         // offset of a 45° corner along each face
+  const knobOutline = new T.Mesh(new T.LatheGeometry([
+    new T.Vector2(KNOB_R + w, 0), new T.Vector2(KNOB_R + w, KNOB_H - CH + t),
+    new T.Vector2(KNOB_R - CH + t, KNOB_H + w), new T.Vector2(0.001, KNOB_H + w),
+  ], 160), knobOutlineMat);
   knobOutline.renderOrder = 20;
   knob.add(knobOutline);
   scene.add(knob);
