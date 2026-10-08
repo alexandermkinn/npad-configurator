@@ -670,13 +670,14 @@ window.initDevice3D = function (host, { pick, icons }) {
     const legendMat = new T.MeshBasicMaterial({ map: legendTexture(icon), color: srgb(0xf2ede0), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }); // cream legends
     const legend = new T.Mesh(legendGeo, legendMat);
     legend.userData.input = id;
-    const stem = new T.Mesh(stemGeo, stemMat);              // moves with the keycap
-    stem.position.y = 0.5 - stemH / 2;
+    const stem = new T.Mesh(stemGeo, stemMat);              // stays in the switch; follows presses, not the explode
+    stem.position.set(x, CAP_Y + 0.5 - stemH / 2, z);
+    scene.add(stem);
     markStencil(mat, 11 + idx);
     const outlineMat = outlineMaterial(11 + idx);
     const outline = new T.Mesh(capOutlineGeo, outlineMat);  // hover outline: the cap grown 0.3 mm
     outline.renderOrder = 20;
-    group.add(body, legend, stem, outline);
+    group.add(body, legend, outline);
     scene.add(group);
 
 
@@ -686,7 +687,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     scene.add(ledLight);
 
     pickables.push(body, legend);
-    keys[id] = { group, mat, legendMat, outlineMat, ledDotMat, housingMat, ledLight, ledLin: new T.Color(), led: LED_POS[id], down: false, t: 0, pressedAt: -1e9, heat: 0, rnd: { h: 0, s: 1, v: 0, next: 0 } };
+    keys[id] = { group, stem, mat, legendMat, outlineMat, ledDotMat, housingMat, ledLight, ledLin: new T.Color(), led: LED_POS[id], down: false, t: 0, pressedAt: -1e9, heat: 0, rnd: { h: 0, s: 1, v: 0, next: 0 } };
   });
 
   // ---- knob: anodized aluminium, knurled sides, finger dimple ----
@@ -776,7 +777,13 @@ window.initDevice3D = function (host, { pick, icons }) {
   // The working view people land on once they take over: a standard isometric angle, turned 45°
   // with the knob at the back right, looking down at the true-isometric 35.3°.
   // (pulled back a little so the config-mode flags have room either side)
-  const ISO = { yaw: Math.PI / 4, pitch: Math.atan(1 / Math.SQRT2), zoom: 1.28 };
+  const ISO = { yaw: Math.PI / 4, pitch: Math.atan(1 / Math.SQRT2), zoom: 1.42 };
+  // Exploded view for config mode: keycaps lift off their switches in a staircase, highest at the
+  // back-left (n key) and stepping down toward the front, so each sits in its own band on screen and
+  // its flag can sit right beside it. The right-hand column stays low so it doesn't rise in front of
+  // the knob, which lifts out of its recess too.
+  const EXPLODE = { lift: { k1: 62, k2: 48, k4: 36, k5: 22, k3: 14, k6: 8 }, knob: 14, lookUp: 20 };
+  let explodeT = 0, explodeTo = 0;
   let viewLocked = false;                                      // config mode holds the camera at ISO
   // Two modes, switched by the page (the sidebar): preview (on load) runs the orbit, demo taps and
   // demo backlight; interaction snaps to ISO and leaves the camera to the user. turntable.on is
@@ -793,8 +800,9 @@ window.initDevice3D = function (host, { pick, icons }) {
   }
   function placeCamera() {
     const cp = Math.cos(view.pitch), d = view.dist * view.zoom;
-    camera.position.set(look.x + d * cp * Math.sin(view.yaw), look.y + d * Math.sin(view.pitch), look.z + d * cp * Math.cos(view.yaw));
-    camera.lookAt(look);
+    const ly = look.y + EXPLODE.lookUp * explodeT;              // aim a little higher while exploded
+    camera.position.set(look.x + d * cp * Math.sin(view.yaw), ly + d * Math.sin(view.pitch), look.z + d * cp * Math.cos(view.yaw));
+    camera.lookAt(look.x, ly, look.z);
   }
   function resize() {
     const w = host.clientWidth, h = host.clientHeight;
@@ -1019,6 +1027,12 @@ window.initDevice3D = function (host, { pick, icons }) {
       placeCamera();
     }
     while (presses.length && t - presses[0].t > 1.5) presses.shift();
+    // explode / reassemble, eased (~0.5 s), alongside the camera's turn to iso
+    if (explodeT !== explodeTo) {
+      explodeT += (explodeTo - explodeT) * Math.min(1, dt * 7);
+      if (Math.abs(explodeTo - explodeT) < 1e-3) explodeT = explodeTo;
+      placeCamera();
+    }
     // selection: shift the material itself toward blue so lighting and shading still read, plus a
     // whisper of glow; hover: a fine, slightly translucent ring
     const SEL_GLOW = 0.07, OUTLINE = 0.9;
@@ -1029,7 +1043,8 @@ window.initDevice3D = function (host, { pick, icons }) {
       const hoverTo = (!drag && hover.id === id) || hover.panel === id ? 1 : 0;
       k.hoverT = (k.hoverT || 0) + (hoverTo - (k.hoverT || 0)) * ease;
       k.selT = (k.selT || 0) + ((id === target ? 1 : 0) - (k.selT || 0)) * ease;
-      k.group.position.y = CAP_Y - TRAVEL * k.t;
+      k.group.position.y = CAP_Y - TRAVEL * k.t + explodeT * (EXPLODE.lift[id] || 0);
+      k.stem.position.y = CAP_Y + 0.5 - stemH / 2 - TRAVEL * k.t;
       k.outlineMat.opacity = OUTLINE * k.hoverT;
       k.mat.color.copy(CAP_COLOR).lerp(CAP_SELECTED, k.selT);
       k.mat.emissiveIntensity = SEL_GLOW * k.selT;
@@ -1048,7 +1063,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     knobT += ((knobDown ? 1 : 0) - knobT) * 0.45;
     const knobHoverTo = (!drag && hover.id === 'press') || ['cw', 'ccw', 'press'].includes(hover.panel) ? 1 : 0;
     knobHoverT += (knobHoverTo - knobHoverT) * ease;
-    knob.position.y = H - KNOB_SINK - 1.2 * knobT;
+    knob.position.y = H - KNOB_SINK - 1.2 * knobT + explodeT * EXPLODE.knob;
     knobSelT += ((['cw', 'ccw', 'press'].includes(target) ? 1 : 0) - knobSelT) * ease;
     knobOutlineMat.opacity = OUTLINE * knobHoverT;
     knobSide.color.copy(KNOB_SIDE_COLOR).lerp(KNOB_SELECTED, knobSelT);
@@ -1082,8 +1097,16 @@ window.initDevice3D = function (host, { pick, icons }) {
       const w = canvas.clientWidth, h = canvas.clientHeight, v = new T.Vector3();
       const toScreen = p => { p.project(camera); return { x: (p.x + 1) / 2 * w, y: (1 - p.y) / 2 * h }; };
       const out = {};
-      Object.entries(keys).forEach(([id, k]) => { out[id] = toScreen(k.group.localToWorld(v.set(0, CAP.height, 0))); });
-      out.knob = toScreen(knob.localToWorld(v.set(0, KNOB_H, 0)));
+      const capEdge = CAP.topX + CAP.fillet;
+      Object.entries(keys).forEach(([id, k]) => {
+        const c = toScreen(k.group.localToWorld(v.set(0, CAP.height, 0)));
+        const xs = [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => toScreen(k.group.localToWorld(v.set(sx * capEdge, CAP.height * 0.6, sz * capEdge))).x);
+        out[id] = { ...c, l: Math.min(...xs), r: Math.max(...xs) };
+      });
+      const kc = toScreen(knob.localToWorld(v.set(0, KNOB_H * 0.6, 0)));
+      const kxs = [0, Math.PI / 2, Math.PI, Math.PI * 1.5].map(a => toScreen(knob.localToWorld(v.set(Math.cos(a) * KNOB_R, KNOB_H * 0.6, Math.sin(a) * KNOB_R))).x);
+      out.knob = { ...kc, l: Math.min(...kxs), r: Math.max(...kxs) };
+      out.exploded = explodeT;
       const pts = [];
       for (const x of [-W / 2, W / 2]) for (const z of [-D / 2, D / 2]) for (const y of [0, H + KNOB_H]) pts.push(toScreen(v.set(x, y, z)));
       out.box = { l: Math.min(...pts.map(p => p.x)), r: Math.max(...pts.map(p => p.x)), t: Math.min(...pts.map(p => p.y)), b: Math.max(...pts.map(p => p.y)) };
@@ -1094,6 +1117,8 @@ window.initDevice3D = function (host, { pick, icons }) {
     // 'preview': orbit (gliding in from the current view), demo taps and demo backlight.
     setMode(mode) {
       viewLocked = mode === 'interaction';
+      explodeTo = mode === 'interaction' && !reduceMotion ? 1 : 0;
+      if (reduceMotion) { explodeT = mode === 'interaction' ? 1 : 0; explodeTo = explodeT; }
       if (mode === 'interaction') { snapToIso(); return; }
       if (reduceMotion || turntable.on) return;
       turntable.goHome = false;
@@ -1901,6 +1926,9 @@ window.initDevice3D = function (host, { pick, icons }) {
   // ---- flags: what each control sends, called out around the model in config mode ----
   const FLAGS = [['k1'], ['k2'], ['k3'], ['k4'], ['k5'], ['k6'], ['knob', ['ccw', 'press', 'cw']]];
   const FLAG_NAMES = { ccw: 'Turn left', press: 'Press', cw: 'Turn right' };
+  // which side of its control each flag sits on, at the iso view: the right-hand key column and the
+  // knob label to the right, the rest to the left
+  const FLAG_SIDE = { k1: 'left', k2: 'left', k4: 'left', k5: 'left', k3: 'right', k6: 'right', knob: 'right' };
   const flagsOn = () => !!(dev3d && hidDev && edit.ready && panelsOpen());
   function renderFlags() {
     const on = flagsOn();
@@ -1919,21 +1947,18 @@ window.initDevice3D = function (host, { pick, icons }) {
     if (!row) return;
     row.classList.add('hit'); clearTimeout(row._t); row._t = setTimeout(() => row.classList.remove('hit'), 180);
   }
-  // Radial callouts: each flag starts just outside the device, in the direction of its control from
-  // the device's centre, so leader lines fan outward and don't cross. Overlapping flags are then
+  // Flags sit right beside their control: with the model exploded, each keycap is in its own band on
+  // screen, so a flag goes level with it, on the outer side. Anything that would still overlap is
   // pushed apart, and everything is kept inside the stage.
   function layoutFlags() {
     if (!flagsOn()) return;
     const a = dev3d.anchors(), stage = $('#npad3d'), W = stage.clientWidth, Hh = stage.clientHeight;
-    const PAD = 8, GAP = 22, bottomLimit = Hh - 12;
+    const PAD = 6, GAP = 16, bottomLimit = Hh - 12;
     const c = { x: (a.box.l + a.box.r) / 2, y: (a.box.t + a.box.b) / 2 }, hw = (a.box.r - a.box.l) / 2, hh = (a.box.b - a.box.t) / 2;
     const items = FLAGS.map(([fid]) => {
       const el = document.querySelector(`#flags [data-flag="${fid}"]`), at = a[fid];
-      const w = el.offsetWidth, h = el.offsetHeight;
-      let dx = at.x - c.x, dy = at.y - c.y; const len = Math.hypot(dx, dy) || 1; dx /= len; dy /= len;
-      const t = Math.min(hw / (Math.abs(dx) || 1e-6), hh / (Math.abs(dy) || 1e-6));          // ray to the box edge
-      const reach = t + GAP + Math.abs(dx) * w / 2 + Math.abs(dy) * h / 2;                  // plus half the flag
-      return { fid, el, at, w, h, x: c.x + dx * reach - w / 2, y: c.y + dy * reach - h / 2 };
+      const w = el.offsetWidth, h = el.offsetHeight, left = FLAG_SIDE[fid] === 'left';
+      return { fid, el, at, w, h, x: left ? at.l - GAP - w : at.r + GAP, y: at.y - h / 2 };
     });
     const clamp = r => { r.x = Math.max(12, Math.min(W - 12 - r.w, r.x)); r.y = Math.max(12, Math.min(bottomLimit - r.h, r.y)); };
     items.forEach(clamp);
