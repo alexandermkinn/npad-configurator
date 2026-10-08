@@ -164,30 +164,12 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .side-tab[aria-expanded="true"] .pane { opacity: .55; }
 
 /* ---------- status chips ---------- */
-.strip { display: grid; gap: 1px; padding: 5px 6px; }
-.chip {
   all: unset; box-sizing: border-box; cursor: pointer;
   display: flex; align-items: center; gap: 10px;
   padding: 3px 10px; border-radius: 8px; border: 1px solid transparent; font-size: 13px;
 }
-.chip:hover { background: color-mix(in srgb, var(--fg) 5%, transparent); }
-.chip .chord { margin-left: auto; }
-.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.chip.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-.chip.ok { background: var(--ok-soft); border-color: transparent; }
-.chip .name { font-weight: 500; }
-.chip .chord { font-family: var(--font-mono); font-size: 12px; color: var(--muted); white-space: nowrap; }
-.chip .chord.none { font-style: italic; font-family: var(--font-body); }
-.pill { /* a status dot; the text stays for screen readers */
-  width: 8px; height: 8px; border-radius: 50%; flex: none; overflow: hidden; text-indent: 100%; white-space: nowrap;
-  background: color-mix(in srgb, var(--muted) 45%, transparent);
-}
-.pill.ok { background: var(--ok); }
 
 /* ---------- sidebar tabs ---------- */
-.tabs { display: flex; gap: 2px; padding: 3px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; flex: none; }
-.tabs button { flex: 1; border: 0; background: transparent; color: var(--muted); padding: 6px 8px; border-radius: 7px; }
-.tabs button[aria-selected="true"] { background: color-mix(in srgb, var(--fg) 10%, transparent); color: var(--fg); }
 .tabpanel { display: flex; flex-direction: column; gap: 10px; min-height: 0; flex: 1 1 auto; }
 .muted { color: var(--muted); font-size: 12px; margin: 0; padding: 10px 14px; }
 
@@ -218,11 +200,14 @@ button:disabled { opacity: .45; cursor: default; }
 .flag { position: absolute; display: grid; gap: 1px; padding: 3px; border-radius: 9px; background: var(--panel); border: 1px solid var(--line);
   box-shadow: 0 6px 18px rgba(0,0,0,.35); pointer-events: auto; }
 .flags:not(.on) .flag { pointer-events: none; }
-.flag-row { all: unset; box-sizing: border-box; cursor: pointer; display: grid; gap: 0; padding: 4px 8px; border-radius: 6px; min-width: 92px; max-width: 170px; }
+.flag-row { all: unset; box-sizing: border-box; cursor: pointer; display: grid; gap: 0; padding: 4px 18px 4px 8px; border-radius: 6px; min-width: 92px; max-width: 170px; }
 .flag-row:hover { background: color-mix(in srgb, var(--fg) 7%, transparent); }
 .flag-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .flag-row[aria-pressed="true"] { background: var(--accent); }
 .flag-row.hit { background: color-mix(in srgb, var(--accent) 35%, transparent); }
+.flag-row { position: relative; }
+.flag-dot { position: absolute; top: 6px; right: 6px; width: 6px; height: 6px; border-radius: 50%; background: color-mix(in srgb, var(--muted) 40%, transparent); }
+.flag-dot.ok { background: var(--ok); box-shadow: 0 0 5px var(--ok); }
 .flag-name { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
 .flag-code { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .flag-row[aria-pressed="true"] .flag-name { color: color-mix(in srgb, #fff 75%, transparent); }
@@ -262,15 +247,6 @@ button:disabled { opacity: .45; cursor: default; }
 .panel-head button { padding: 4px 10px; font-size: 12px; }
 .panel-foot { display: flex; gap: 8px; padding: 8px 10px; border-top: 1px solid var(--line); }
 .panel-foot button { flex: 1; padding: 5px 10px; font-size: 12px; }
-.log-panel { flex: 1 1 auto; min-height: 84px; display: flex; flex-direction: column; }
-.log { font-family: var(--font-mono); font-size: 11.5px; flex: 1 1 auto; min-height: 0; overflow: auto; }
-.log table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-.log th, .log td { text-align: left; padding: 4px 12px 4px 0; white-space: nowrap; }
-.log th:first-child, .log td:first-child { padding-left: 14px; }
-.log th { color: var(--muted); font-weight: 500; position: sticky; top: 0; background: var(--panel); border-bottom: 1px solid var(--line); }
-.log td.m { color: var(--accent); }
-.log td.u { color: var(--warn); }
-.log .empty td { color: var(--muted); font-family: var(--font-body); padding-block: 12px; white-space: normal; }
 [hidden] { display: none !important; }
 </style>
 </head>
@@ -306,6 +282,7 @@ button:disabled { opacity: .45; cursor: default; }
     <div class="stage-bar" id="stage-bar" hidden>
       <span class="bar-label">Layer</span><div class="seg" id="layer-seg" role="group" aria-label="Layer"></div>
       <span class="bar-sep" aria-hidden="true"></span>
+      <button type="button" id="btn-reset" title="Forget which controls have registered">Clear tested</button>
         <button type="button" id="btn-undo" disabled>Undo</button>
         <button type="button" id="btn-restore" title="Put back what was on the npad when you connected">Restore</button>
         <button type="button" id="btn-save-layout" title="Download a VIA-compatible layout file">Save file</button>
@@ -335,30 +312,8 @@ button:disabled { opacity: .45; cursor: default; }
 
   <aside class="side" id="side" inert>
    <div class="side-inner">
-    <nav class="tabs" id="tabs" role="tablist" aria-label="Sidebar">
-      <button type="button" role="tab" data-tab="test" aria-selected="true">Test</button>
-      <button type="button" role="tab" data-tab="macros" aria-selected="false">Macros</button>
-    </nav>
 
-    <div class="tabpanel" data-panel="test">
-      <section class="panel" aria-labelledby="h-controls">
-        <div class="panel-head"><h2 id="h-controls">Controls</h2></div>
-        <div class="strip" id="rows"></div>
-        <div class="panel-foot">
-          <button id="btn-reset" type="button">Clear results</button>
-        </div>
-      </section>
-
-      <section class="panel log-panel" aria-labelledby="h-log">
-        <div class="panel-head"><h2 id="h-log">Event log</h2><button type="button" id="btn-clear-log">Clear</button></div>
-        <div class="log"><table>
-          <thead><tr><th>Time</th><th>Event</th><th>key</th><th>code</th><th>Control</th></tr></thead>
-          <tbody id="log"><tr class="empty"><td colspan="5">Waiting for input. Every key event shows up here, including ones not assigned to a control.</td></tr></tbody>
-        </table></div>
-      </section>
-    </div>
-
-    <div class="tabpanel" data-panel="macros" hidden>
+    <div class="tabpanel" data-panel="macros">
       <section class="panel" aria-labelledby="h-macros">
         <div class="panel-head"><h2 id="h-macros">Macros</h2><span class="meter" id="macro-meter"></span></div>
         <div class="macro-list" id="macro-list"></div>
@@ -1198,17 +1153,6 @@ window.initDevice3D = function (host, { pick, icons }) {
     cell.innerHTML = `<button class="cap" type="button" data-input="${i.id}" aria-label="${i.name}">${ICONS[i.icon]}<span class="led" data-led="${i.id}"></span></button>`;
     well.appendChild(cell);
   });
-  const rows = $('#rows');
-  INPUTS.forEach(i => {
-    const r = document.createElement('button');
-    r.type = 'button'; r.className = 'chip'; r.dataset.input = i.id; r.title = i.name;
-    r.innerHTML = `<span class="pill" data-pill="${i.id}">Not tested</span><span class="name">${i.name}</span><span class="chord" data-chord="${i.id}"></span>`;
-    // hovering or focusing a row lights up that control on the model
-    const show = () => dev3d?.setHover(i.id), hide = () => dev3d?.setHover(null);
-    r.addEventListener('mouseenter', show); r.addEventListener('mouseleave', hide);
-    r.addEventListener('focus', show); r.addEventListener('blur', hide);
-    rows.appendChild(r);
-  });
 
   // ---- signatures ----
   const MODS = ['Control', 'Alt', 'Shift', 'Meta', 'OS', 'Hyper', 'Super', 'AltGraph', 'Fn'];
@@ -1229,21 +1173,12 @@ window.initDevice3D = function (host, { pick, icons }) {
 
   // ---- render ----
   function render() {
-    INPUTS.forEach(i => {
-      const ch = document.querySelector(`[data-chord="${i.id}"]`);
-      ch.textContent = map[i.id] ? pretty(map[i.id]) : 'not set';
-      ch.classList.toggle('none', !map[i.id]);
-      const ok = tested.has(i.id);
-      const pill = document.querySelector(`[data-pill="${i.id}"]`);
-      pill.textContent = ok ? 'Works' : 'Not tested'; pill.classList.toggle('ok', ok);
-      pill.parentElement.classList.toggle('ok', ok);
-    });
-    // the control being edited in the Keymap tab is highlighted on the model
+    // the control being edited is highlighted on the model
     const target = hidDev && edit.ready && panelsOpen() ? edit.ctrl || null : null;
     document.querySelectorAll('.cell').forEach(c => c.classList.toggle('target', c.dataset.cell === target));
     $('#knob').classList.toggle('target', ['cw', 'ccw', 'press'].includes(target));
-    document.querySelectorAll('.chip').forEach(r => r.classList.toggle('active', r.dataset.input === target));
     dev3d?.setTarget(target); dev3d?.setTested(tested);
+    if (typeof renderFlags === 'function') renderFlags();   // flags show which controls have registered
   }
 
   // ---- side panels: hidden at first (preview mode); opened by the toggle, by picking a key to
@@ -1275,30 +1210,19 @@ window.initDevice3D = function (host, { pick, icons }) {
     const t = $(id === 'cw' ? '#turn-cw' : '#turn-ccw');
     t.classList.add('flash'); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('flash'), 60);
     dev3d?.turn(dir * steps);
-    if (typeof flashFlag === 'function') flashFlag(id);
     if (!tested.has(id)) { tested.add(id); render(); }    // re-render only when something changes
+    if (typeof flashFlag === 'function') flashFlag(id);
   }
   function activate(id, down) {
     if (hidDev && !panelsOpen()) setPanels(true); // input from the connected npad: show the results
-    if (down && typeof flashFlag === 'function') flashFlag(id);
     if (id === 'cw' || id === 'ccw') { turnKnob(id); return; }
     dev3d?.press(id, down);
     const el = id === 'press' ? $('#knob') : document.querySelector(`[data-cell="${id}"]`);
     el.classList.toggle('down', down);
     if (down) { tested.add(id); render(); }
+    if (down && typeof flashFlag === 'function') flashFlag(id);   // after render, which rebuilds the flags
   }
 
-  // ---- log ----
-  const logEl = $('#log');
-  function log(type, key, code, control) {
-    if (logEl.querySelector('.empty')) logEl.innerHTML = '';
-    const tr = document.createElement('tr');
-    const t = new Date();
-    const ts = t.toLocaleTimeString([], { hour12: false }) + '.' + String(t.getMilliseconds()).padStart(3, '0');
-    tr.innerHTML = `<td>${ts}</td><td>${type}</td><td>${esc(key)}</td><td>${esc(code)}</td><td class="${control ? 'm' : 'u'}">${esc(control || '—')}</td>`;
-    logEl.prepend(tr);
-    while (logEl.children.length > 60) logEl.lastChild.remove();
-  }
 
   // ---- input handling ----
   function handle(sig, e) {
@@ -1330,13 +1254,11 @@ window.initDevice3D = function (host, { pick, icons }) {
       if (handle(sig, e)) e.preventDefault();
       matched = inputFor(sig);
     }
-    log('down', e.key, e.code, matched ? byId[matched].name : '');
   });
   window.addEventListener('keyup', e => {
     if (inField(e)) return;
     const id = downCodes.get(e.code);
     if (id) { downCodes.delete(e.code); if (id !== 'cw' && id !== 'ccw') activate(id, false); e.preventDefault(); }
-    log('up', e.key, e.code, id ? byId[id].name : '');
   });
 
   // A knob that scrolls sends one wheel event per detent. Count each one (no throttling, so fast
@@ -1347,7 +1269,6 @@ window.initDevice3D = function (host, { pick, icons }) {
     const sig = e.deltaY < 0 ? 'wheel:up' : 'wheel:down';
     const id = inputFor(sig);
     if (id) { turnKnob(id, 1); e.preventDefault(); }
-    if (id) log('scroll', sig === 'wheel:up' ? 'up' : 'down', `deltaY ${Math.round(e.deltaY)}`, id ? byId[id].name : '');
   }, { passive: false });
 
   window.addEventListener('blur', () => {
@@ -1375,7 +1296,6 @@ window.initDevice3D = function (host, { pick, icons }) {
 
   $('#btn-panels').addEventListener('click', () => setPanels(!panelsOpen()));
   $('#btn-reset').addEventListener('click', () => { tested.clear(); knobAngle = 0; $('#knob-face').style.transform = ''; dev3d?.reset(); render(); });
-  $('#btn-clear-log').addEventListener('click', () => { logEl.innerHTML = '<tr class="empty"><td colspan="5">Log cleared.</td></tr>'; });
 
   // ---- direct connection: QMK/VIA raw HID (usage page 0xFF60) ----
   let hidDev = null, hidTimer = null, hidWait = null, lastMatrix = [0, 0, 0], pollCount = 0;
@@ -1526,7 +1446,7 @@ window.initDevice3D = function (host, { pick, icons }) {
         if (!i.pos) return;
         const [row, col] = i.pos;
         const now = (rows[row] >> col) & 1, was = (lastMatrix[row] >> col) & 1;
-        if (now !== was) { activate(i.id, !!now); log(now ? 'switch down' : 'switch up', '', `row ${row} col ${col}`, i.name); }
+        if (now !== was) activate(i.id, !!now);
       });
       lastMatrix = rows;
       if (++pollCount % 60 === 0) await refreshLighting(); // pick up lighting changes made on the device or in VIA
@@ -1541,7 +1461,6 @@ window.initDevice3D = function (host, { pick, icons }) {
     hidDev = null; lastMatrix = [0, 0, 0]; pollGen++;
     lightingText = ''; dev3d?.setLighting(null);
     clearTimeout(edit.macroTimer); edit.ready = false;
-    setTab('test');
     setPanels(false);                             // nothing attached: back to preview, sidebar hidden
     setConnectedUI(false);
     render();
@@ -1703,7 +1622,7 @@ window.initDevice3D = function (host, { pick, icons }) {
 
   const edit = {
     ready: false, layers: 0, keymap: [], enc: [],               // keymap[layer][row * 3 + col]; enc[layer] = [ccw, cw]
-    original: null, undo: [], layer: 0, ctrl: null, tab: 'test', mods: 0, cat: 'Letters', query: '',
+    original: null, undo: [], layer: 0, ctrl: null, mods: 0, cat: 'Letters', query: '',
     macroCount: 0, macroSize: 0, macros: [], draft: [], macroSel: 0, macroTimer: null, macroState: '',
   };
   const idxOf = i => i.pos[0] * 3 + i.pos[1];
@@ -1953,12 +1872,6 @@ window.initDevice3D = function (host, { pick, icons }) {
   }
 
   // ---- editor UI ----
-  function setTab(tab) {
-    edit.tab = tab;
-    document.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
-    document.querySelectorAll('[data-panel]').forEach(p => { p.hidden = p.dataset.panel !== tab; });
-    renderEditor(); render();
-  }
   function renderEditor() { renderKeymap(); renderMacros(); }
 
   function renderKeymap() {
@@ -1996,6 +1909,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     if (!on) return;
     $('#flags').innerHTML = FLAGS.map(([fid, rows = [fid]]) => `<div class="flag" data-flag="${fid}">${rows.map(id =>
       `<button type="button" class="flag-row" data-input="${id}" aria-pressed="${id === edit.ctrl}">
+        <span class="flag-dot${tested.has(id) ? ' ok' : ''}" title="${tested.has(id) ? 'Works' : 'Not pressed yet'}"></span>
         <span class="flag-name">${esc(FLAG_NAMES[id] || byId[id].name.replace(/ key$/, ''))}</span>
         <span class="flag-code">${esc(labelFor(getCode(edit.layer, id)))}</span></button>`).join('')}</div>`).join('');
     layoutFlags();
@@ -2088,7 +2002,7 @@ window.initDevice3D = function (host, { pick, icons }) {
         + `<select data-field="key" aria-label="Key">${keyOptions(s.key)}</select>`;
       return `<div class="step" data-step="${i}"><span class="step-type">${STEP_TYPES.find(t => t[0] === s.t)[1]}</span>
         <div class="step-body">${body}</div><button type="button" class="step-del" data-del="${i}" aria-label="Remove step">×</button></div>`;
-    }).join('') : '<p class="muted">This macro is empty. Add a step below, then assign it to a key from the Macros group in the Keymap tab.</p>';
+    }).join('') : '<p class="muted">This macro is empty. Add a step below, then click a key's flag and pick it from the Macros group.</p>';
     renderMacroMeta();
   }
   function renderMacroMeta() {
@@ -2099,7 +2013,6 @@ window.initDevice3D = function (host, { pick, icons }) {
   }
 
   // events
-  $('#tabs').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b) setTab(b.dataset.tab); });
   $('#layer-seg').addEventListener('click', e => { const b = e.target.closest('[data-layer]'); if (b) { edit.layer = +b.dataset.layer; renderKeymap(); } });
   $('#pick-cats').addEventListener('click', e => { const b = e.target.closest('[data-cat]'); if (b) { edit.cat = b.dataset.cat; edit.query = ''; $('#pick-search').value = ''; renderKeymap(); } });
   $('#pick-search').addEventListener('input', e => { edit.query = e.target.value; renderKeymap(); });

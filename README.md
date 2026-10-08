@@ -26,11 +26,10 @@ docker build -t npad-keytester . && docker run --rm -p 8080:8080 npad-keytester
 
 ## Editing the npad
 
-With the npad connected, the sidebar has three tabs:
+With the npad connected, opening the sidebar switches to config mode: the model turns to a fixed view and each control gets a flag showing what it sends on the selected layer, with a dot that turns green once that control has registered.
 
-- **Test:** which controls have registered, plus a live event log.
-- **Keymap:** pick a layer (0–3) and a control, then choose what it sends: letters, editing keys, F-keys, media, mouse, modifiers, layer keys (hold/toggle/switch), macros or lighting keys, optionally with ⌃⌥⇧⌘ held. Each change is written to the npad straight away. **Undo** reverts the last change, and **Restore** puts back what was on the npad when it connected.
-- **Macros:** 16 macros made of steps (type text, press a key or shortcut, hold, release, wait), saved to the npad as you edit. Assign one to a key from the Macros group in the Keymap tab.
+- **Remap:** click a flag (or a key on the model) to open the keycode picker beside it: letters, editing keys, F-keys, media, mouse, modifiers, layer keys (hold/toggle/switch), macros or lighting keys, optionally with ⌃⌥⇧⌘ held. Each change is written to the npad straight away. The bar under the model has the layer switch, **Clear tested**, **Undo** (reverts the last change) and **Restore** (puts back what was on the npad when it connected).
+- **Macros** (sidebar): 16 macros made of steps (type text, press a key or shortcut, hold, release, wait), saved to the npad as you edit. Assign one to a key from the Macros group in the picker.
 
 **Save file** / **Load file** use VIA's `.layout.json` format (keycode names, layers, knob and macros), so layouts move between this page and the VIA app.
 
