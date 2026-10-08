@@ -78,6 +78,20 @@ button {
 button:hover { border-color: var(--muted); }
 button:focus-visible, .cap:focus-visible, .knob-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+/* the connect button once an npad is attached: a quiet status pill */
+#btn-hid.connected { display: inline-flex; align-items: center; gap: 8px; }
+#btn-hid.connected::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+/* draws the eye to the connect button when someone tries to remap without an npad */
+#btn-hid.nudge { animation: nudge .5s ease 2; }
+@keyframes nudge { 50% { transform: scale(1.06); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent); } }
+@media (prefers-reduced-motion: reduce) { #btn-hid.nudge { animation: none; } }
+/* short messages over the render: connection errors, browser support */
+.toast {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 3; margin: 0;
+  width: max-content; max-width: calc(100% - 32px); padding: 8px 14px; border-radius: 10px;
+  background: var(--panel); border: 1px solid var(--line); color: var(--fg); font-size: 13px; text-align: center;
+}
+.toast[data-kind="warn"] { background: var(--warn-soft); border-color: transparent; color: var(--warn); }
 
 
 /* status banner */
@@ -212,14 +226,15 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
   <header class="topbar">
     <h1>npad tester</h1>
     <div class="actions">
-      <button id="btn-hid" type="button" class="primary">Connect directly</button>
-      <button class="side-tab" id="btn-panels" type="button" aria-controls="side" aria-expanded="false" aria-label="Show panels">
+      <button id="btn-hid" type="button" class="primary">Connect npad</button>
+      <button class="side-tab" id="btn-panels" type="button" hidden aria-controls="side" aria-expanded="false" aria-label="Show panels">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M14.5 4.5v15"/><rect class="pane" x="14.5" y="4.5" width="6.5" height="15" rx="0" stroke="none"/></svg>
       </button>
     </div>
   </header>
 
   <main class="stage" aria-label="npad">
+    <p class="toast" id="toast" role="status" aria-live="polite" hidden></p>
     <div class="npad3d" id="npad3d" hidden aria-label="3D model of the npad. Drag to turn it; click a key to reassign it."></div>
     <div class="npad">
       <div class="cable" aria-hidden="true"></div>
@@ -1149,7 +1164,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   const panelsOpen = () => !document.querySelector('.app').classList.contains('collapsed');
 
   function setStatus(kind, html, actions = []) {
-    if (kind === 'learn' || kind === 'warn') setPanels(true);
+    if ((kind === 'learn' || kind === 'warn') && hidDev) setPanels(true);
     const s = $('#status'); s.dataset.kind = kind;
     $('#status-text').innerHTML = html;
     const a = $('#status-actions'); a.innerHTML = '';
@@ -1207,7 +1222,7 @@ window.initDevice3D = function (host, { pick, icons }) {
 
   // ---- activation visuals ----
   function activate(id, down) {
-    if (!panelsOpen()) setPanels(true); // first input from the npad: show the results
+    if (hidDev && !panelsOpen()) setPanels(true); // input from the connected npad: show the results
     if (id === 'cw' || id === 'ccw') {
       knobAngle += id === 'cw' ? 24 : -24;
       $('#knob-face').style.transform = `rotate(${knobAngle}deg)`;
@@ -1299,6 +1314,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     if (t) pick(t.dataset.input);
   });
   function pick(id) {
+    if (!hidDev) { nudgeConnect(); return; }      // remapping needs an attached npad
     if (mode === 'test' && pendingSig) { assign(id, pendingSig); pendingSig = null; tested.add(id); render(); return; }
     mode = 'assign'; assignId = id; render();
   }
@@ -1370,36 +1386,65 @@ window.initDevice3D = function (host, { pick, icons }) {
     if (mods & 0x01) m.push('Ctrl'); if (mods & 0x04) m.push('Alt'); if (mods & 0x02) m.push('Shift'); if (mods & 0x08) m.push('Meta');
     return 'key:' + [...m, code].join('+');
   }
+  // ---- toast and connect nudge (the sidebar is hidden until an npad is attached) ----
+  let toastTimer = null;
+  function toast(text, kind = '', ms = 4500) {
+    const t = $('#toast'); t.textContent = text; t.dataset.kind = kind; t.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, ms);
+  }
+  function nudgeConnect() {
+    const b = $('#btn-hid'); b.classList.remove('nudge'); void b.offsetWidth; b.classList.add('nudge');
+    toast('Connect your npad to remap its keys.');
+  }
+
+  // ---- connecting: the picker, or automatically for an npad this browser has connected before ----
   async function hidConnect() {
-    if (!('hid' in navigator)) {
-      setStatus('warn', 'This browser can\'t connect to USB devices directly. Open the page in Chrome or Edge.', [['OK', () => render()]]);
-      return;
-    }
+    if (!('hid' in navigator)) { toast('Connecting needs Chrome or Edge.', 'warn'); return; }
     try {
       const [dev] = await navigator.hid.requestDevice({ filters: [{ usagePage: 0xff60, usage: 0x61 }] });
-      if (!dev) return;
-      if (!dev.opened) await dev.open();
-      hidDev = dev;
-      dev.addEventListener('inputreport', e => hidWait && hidWait(new Uint8Array(e.data.buffer)));
-      // read the live keymap so key events line up with whatever the npad is set to
-      const learned = {};
-      for (const i of INPUTS) {
-        let r;
-        if (i.pos) r = await hidQuery(VIA.getKeycode, 0, i.pos[0], i.pos[1]);
-        else r = await hidQuery(VIA.getEncoder, 0, 0, i.id === 'cw' ? 1 : 0);
-        const sig = qmkToSig((r[4] << 8) | r[5]);
-        if (sig) learned[i.id] = sig;
-      }
-      Object.assign(map, learned); save();
-      $('#btn-hid').textContent = 'Connected';
-      await refreshLighting();
-      pollMatrix();
-      render();
+      if (dev) await attach(dev);
     } catch (err) {
-      if (err?.name === 'NotFoundError') return; // picker closed
-      hidDev = null;
-      setStatus('warn', `Couldn't connect: ${esc(err?.message || String(err))}. Close the VIA app or other tabs using the npad, then try again.`, [['OK', () => render()]]);
+      if (err?.name !== 'NotFoundError') connectFailed(err); // NotFoundError: picker closed
     }
+  }
+  const isNpadRaw = d => d.collections?.some(c => c.usagePage === 0xff60 && c.usage === 0x61);
+  async function autoConnect() {
+    if (!('hid' in navigator) || hidDev) return;
+    try {
+      const dev = (await navigator.hid.getDevices()).find(isNpadRaw);
+      if (dev) await attach(dev);
+    } catch (err) { connectFailed(err); }
+  }
+  function connectFailed(err) {
+    hidDev = null;
+    toast(`Couldn't connect: ${err?.message || err}. Close the VIA app or other tabs using the npad, then try again.`, 'warn', 8000);
+  }
+  async function attach(dev) {
+    if (!dev.opened) await dev.open();
+    hidDev = dev;
+    dev.addEventListener('inputreport', e => hidWait && hidWait(new Uint8Array(e.data.buffer)));
+    // read the live keymap so key events line up with whatever the npad is set to
+    const learned = {};
+    for (const i of INPUTS) {
+      let r;
+      if (i.pos) r = await hidQuery(VIA.getKeycode, 0, i.pos[0], i.pos[1]);
+      else r = await hidQuery(VIA.getEncoder, 0, 0, i.id === 'cw' ? 1 : 0);
+      const sig = qmkToSig((r[4] << 8) | r[5]);
+      if (sig) learned[i.id] = sig;
+    }
+    Object.assign(map, learned); save();
+    setConnectedUI(true);
+    await refreshLighting();
+    pollMatrix();
+    render();
+    setPanels(true);                              // an npad is attached: straight into interaction mode
+  }
+  function setConnectedUI(on) {
+    const b = $('#btn-hid');
+    b.textContent = on ? 'npad connected' : 'Connect npad';
+    b.classList.toggle('primary', !on); b.classList.toggle('connected', on);
+    b.title = on ? `${hidDev?.productName || 'npad'} is connected` : '';
+    $('#btn-panels').hidden = !on;
   }
   async function pollMatrix() {
     if (!hidDev) return;
@@ -1424,11 +1469,15 @@ window.initDevice3D = function (host, { pick, icons }) {
     if (hidDev?.opened) hidDev.close().catch(() => {});
     hidDev = null; lastMatrix = [0, 0, 0];
     lightingText = ''; dev3d?.setLighting(null);
-    $('#btn-hid').textContent = 'Connect directly';
+    setPanels(false);                             // nothing attached: back to preview, sidebar hidden
+    setConnectedUI(false);
     render();
   }
-  if ('hid' in navigator) navigator.hid.addEventListener('disconnect', e => { if (e.device === hidDev) hidDisconnect(); });
-  $('#btn-hid').addEventListener('click', () => hidDev ? hidDisconnect() : hidConnect());
+  if ('hid' in navigator) {
+    navigator.hid.addEventListener('disconnect', e => { if (e.device === hidDev) { hidDisconnect(); toast('npad disconnected.'); } });
+    navigator.hid.addEventListener('connect', e => { if (!hidDev && isNpadRaw(e.device)) attach(e.device).catch(connectFailed); });
+  }
+  $('#btn-hid').addEventListener('click', () => hidDev ? setPanels(true) : hidConnect());
 
   // ---- 3D model, with the flat drawing as a fallback ----
   try {
@@ -1443,6 +1492,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   }
 
   render();
+  autoConnect();                                  // an npad connected on an earlier visit reconnects by itself
 })();
 </script>
 </body>

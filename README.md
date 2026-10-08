@@ -22,7 +22,7 @@ docker build -t npad-keytester . && docker run --rm -p 8080:8080 npad-keytester
 ## Two ways it listens
 
 - **Key events (any browser):** matches what the npad types against the stock keymap below. You can remap controls in the page with "Set up keys" or by clicking a key, and the mapping is saved in the browser.
-- **Connect directly (Chrome/Edge, WebHID):** talks to the firmware over VIA's raw HID interface (usage page `0xFF60`), reads the live keymap and polls the switch matrix, like VIA's own tester. It also reads the RGB Matrix lighting (effect, color, brightness, speed) about once a second and shows it under the keys of the 3D model, with approximations of each effect. Needs HTTPS or localhost, and the VIA app has to be closed.
+- **Connect npad (Chrome/Edge, WebHID):** talks to the firmware over VIA's raw HID interface (usage page `0xFF60`), reads the live keymap and polls the switch matrix, like VIA's own tester. It also reads the RGB Matrix lighting (effect, color, brightness, speed) about once a second and shows it under the keys of the 3D model, with approximations of each effect. Needs HTTPS or localhost, and the VIA app has to be closed.
 
 ## Stock keymap (layer 0)
 
