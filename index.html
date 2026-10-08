@@ -664,7 +664,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   [knobBody, lid, face].forEach(m => { m.castShadow = m.receiveShadow = true; m.userData.input = 'press'; pickables.push(m); });
   spinner.add(knobBody, lid, face);
   scene.add(knob);
-  let knobAngle = 0, knobShown = 0, knobDown = false, knobT = 0;
+  let knobAngle = 0, knobShown = 0, knobDown = false, knobT = 0, knobHoverT = 0;
 
 
   // ---- camera with drag-to-turn ----
@@ -720,6 +720,15 @@ window.initDevice3D = function (host, { pick, icons }) {
     ray.setFromCamera(ndc, camera);
     return ray.intersectObjects(pickables, false)[0]?.object.userData.input || null;
   }
+  // hover state: which control is under the pointer (the case counts, so a key
+  // hidden behind it isn't highlighted)
+  const hover = { id: null };
+  function probe(e) {
+    const r = canvas.getBoundingClientRect();
+    ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    hover.id = ray.intersectObjects([caseMesh, ...pickables], false)[0]?.object.userData.input || null;
+  }
   // spinning the knob by hand: it snaps to the encoder's 20 detents
   const DETENT = Math.PI / 10;
   function knobScreenAngle(e) {
@@ -747,7 +756,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     canvas.setPointerCapture(e.pointerId);
   });
   canvas.addEventListener('pointermove', e => {
-    if (!drag) { const id = hit(e); canvas.style.cursor = id === 'press' ? 'grab' : id ? 'pointer' : 'grab'; return; }
+    if (!drag) { probe(e); canvas.style.cursor = hover.id && hover.id !== 'press' ? 'pointer' : 'grab'; return; }
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
     if (!drag.moved && Math.hypot(dx, dy) < 5) return;
     drag.moved = true; canvas.style.cursor = 'grabbing';
@@ -769,6 +778,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     drag = null; turntable.held = false; canvas.style.cursor = 'grab';
   });
   canvas.addEventListener('pointercancel', () => { drag = null; turntable.held = false; });
+  canvas.addEventListener('pointerleave', () => { if (!drag) hover.id = null; });
 
   // ---- animation ----
   let target = null;
@@ -916,7 +926,10 @@ window.initDevice3D = function (host, { pick, icons }) {
     Object.entries(keys).forEach(([id, k]) => {
       k.t += ((k.down ? 1 : 0) - k.t) * 0.45;
       k.group.position.y = CAP_Y - TRAVEL * k.t;
-      k.mat.emissiveIntensity = id === target ? pulse : 0;
+      // hover (both modes): the control under the pointer glows, showing it can be clicked
+      const hoverTo = !drag && hover.id === id ? 1 : 0;
+      k.hoverT = (k.hoverT || 0) + (hoverTo - (k.hoverT || 0)) * Math.min(1, dt * 8);
+      k.mat.emissiveIntensity = id === target ? pulse : 0.2 * k.hoverT;
       k.legendMat.color.copy(tested.has(id) ? GREEN : WHITE);
       k.heat = Math.max(0, k.heat - 0.004);
       const [r, g, b] = ledColor(k, t);
@@ -932,7 +945,9 @@ window.initDevice3D = function (host, { pick, icons }) {
     spinner.rotation.y = -knobShown;
     knobT += ((knobDown ? 1 : 0) - knobT) * 0.45;
     knob.position.y = H - KNOB_SINK - 1.2 * knobT;
-    const knobPulse = ['cw', 'ccw', 'press'].includes(target) ? pulse : 0;
+    const knobHoverTo = !drag && hover.id === 'press' ? 1 : 0;
+    knobHoverT += (knobHoverTo - knobHoverT) * Math.min(1, dt * 8);
+    const knobPulse = ['cw', 'ccw', 'press'].includes(target) ? pulse : 0.2 * knobHoverT;
     knobSide.emissiveIntensity = knobTop.emissiveIntensity = knobPulse;
     renderer.render(scene, camera);
     requestAnimationFrame(frame);
