@@ -194,13 +194,7 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 /* keymap */
 .seg { display: flex; gap: 2px; }
 .seg button, .mods button, .cats button, .macro-list button, .macro-add button { padding: 3px 9px; font-size: 12px; }
-[aria-pressed="true"]:is(.seg button, .mods button, .cats button, .macro-list button, .key, .km-row) { background: var(--accent); border-color: var(--accent); color: #fff; }
-.km-list { display: grid; gap: 1px; padding: 5px 6px; }
-.km-row { all: unset; box-sizing: border-box; cursor: pointer; display: flex; justify-content: space-between; gap: 10px; padding: 4px 10px; border-radius: 7px; font-size: 13px; }
-.km-row:hover { background: color-mix(in srgb, var(--fg) 6%, transparent); }
-.km-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.km-row .code { font-family: var(--font-mono); font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.km-row[aria-pressed="true"] .code { color: #fff; }
+[aria-pressed="true"]:is(.seg button, .mods button, .cats button, .macro-list button, .key) { background: var(--accent); border-color: var(--accent); color: #fff; }
 .panel.picker { flex: 1 1 0; min-height: 200px; display: flex; flex-direction: column; } /* fills what's left; its keys scroll */
 .pick-current { font-family: var(--font-mono); font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55%; }
 .pick-tools { display: flex; gap: 8px; padding: 8px 10px 0; }
@@ -211,9 +205,36 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .key { padding: 6px 4px; font-size: 12px; line-height: 1.2; min-height: 34px; display: grid; place-items: center; text-align: center; word-break: break-word; }
 .key small { display: block; font-size: 10px; color: var(--muted); font-family: var(--font-mono); }
 .key[aria-pressed="true"] small { color: #fff; }
-.km-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; flex: none; }
-.km-actions button { font-size: 12px; padding: 6px 8px; }
 button:disabled { opacity: .45; cursor: default; }
+
+/* ---------- config mode: flags over the model, picker popover, layer/actions bar ---------- */
+.flags, .flag-lines { position: absolute; inset: 0; z-index: 2; pointer-events: none; opacity: 0; transition: opacity .25s; }
+.flags.on, .flag-lines.on { opacity: 1; transition-delay: .2s; }
+.flag-lines { width: 100%; height: 100%; overflow: visible; }
+.flag-lines path { fill: none; stroke: color-mix(in srgb, var(--fg) 45%, transparent); stroke-width: 1; }
+.flag-lines circle { fill: var(--fg); }
+.flag-lines .sel path { stroke: var(--accent); }
+.flag-lines .sel circle { fill: var(--accent); }
+.flag { position: absolute; display: grid; gap: 1px; padding: 3px; border-radius: 9px; background: var(--panel); border: 1px solid var(--line);
+  box-shadow: 0 6px 18px rgba(0,0,0,.35); pointer-events: auto; }
+.flags:not(.on) .flag { pointer-events: none; }
+.flag-row { all: unset; box-sizing: border-box; cursor: pointer; display: grid; gap: 0; padding: 4px 8px; border-radius: 6px; min-width: 92px; max-width: 170px; }
+.flag-row:hover { background: color-mix(in srgb, var(--fg) 7%, transparent); }
+.flag-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.flag-row[aria-pressed="true"] { background: var(--accent); }
+.flag-row.hit { background: color-mix(in srgb, var(--accent) 35%, transparent); }
+.flag-name { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.flag-code { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.flag-row[aria-pressed="true"] .flag-name { color: color-mix(in srgb, #fff 75%, transparent); }
+.flag-row[aria-pressed="true"] .flag-code { color: #fff; }
+.popover { position: absolute; left: 0; top: 0; z-index: 4; width: 320px; max-width: calc(100% - 24px); height: min(430px, calc(100% - 90px));
+  display: flex; flex-direction: column; filter: drop-shadow(0 12px 28px rgba(0,0,0,.5)); }
+.popover .panel.picker { flex: 1 1 auto; min-height: 0; }
+.stage-bar { position: absolute; z-index: 3; left: 0; right: 0; bottom: 14px; width: max-content; margin-inline: auto; display: flex; align-items: center; gap: 6px;
+  padding: 6px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 6px 18px rgba(0,0,0,.35); max-width: calc(100% - 24px); flex-wrap: wrap; justify-content: center; }
+.stage-bar button { font-size: 12px; padding: 5px 10px; }
+.bar-label { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding-left: 6px; }
+.bar-sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 4px; }
 
 /* macros */
 .meter { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
@@ -267,6 +288,30 @@ button:disabled { opacity: .45; cursor: default; }
 
   <main class="stage" aria-label="npad">
     <p class="toast" id="toast" role="status" aria-live="polite" hidden></p>
+    <svg class="flag-lines" id="flag-lines" aria-hidden="true"></svg>
+    <div class="flags" id="flags" aria-label="What each control sends"></div>
+    <div class="popover" id="popover" hidden>
+      <section class="panel picker" aria-labelledby="pick-title">
+        <div class="panel-head"><h2 id="pick-title">n key</h2><span class="pick-current" id="pick-current"></span></div>
+        <div class="pick-tools">
+          <input type="search" id="pick-search" placeholder="Search keys" aria-label="Search keys" autocomplete="off">
+          <div class="mods" id="pick-mods" role="group" aria-label="Hold with">
+            <button type="button" data-mod="1" title="Control">⌃</button><button type="button" data-mod="4" title="Option">⌥</button><button type="button" data-mod="2" title="Shift">⇧</button><button type="button" data-mod="8" title="Command">⌘</button>
+          </div>
+        </div>
+        <div class="cats" id="pick-cats"></div>
+        <div class="keys" id="pick-keys"></div>
+      </section>
+    </div>
+    <div class="stage-bar" id="stage-bar" hidden>
+      <span class="bar-label">Layer</span><div class="seg" id="layer-seg" role="group" aria-label="Layer"></div>
+      <span class="bar-sep" aria-hidden="true"></span>
+        <button type="button" id="btn-undo" disabled>Undo</button>
+        <button type="button" id="btn-restore" title="Put back what was on the npad when you connected">Restore</button>
+        <button type="button" id="btn-save-layout" title="Download a VIA-compatible layout file">Save file</button>
+        <button type="button" id="btn-load-layout" title="Load a VIA layout file onto the npad">Load file</button>
+        <input type="file" id="layout-file" accept=".json,application/json" hidden>
+    </div>
     <div class="npad3d" id="npad3d" hidden aria-label="3D model of the npad. Drag to turn it; click a key to reassign it."></div>
     <div class="npad">
       <div class="cable" aria-hidden="true"></div>
@@ -292,7 +337,6 @@ button:disabled { opacity: .45; cursor: default; }
    <div class="side-inner">
     <nav class="tabs" id="tabs" role="tablist" aria-label="Sidebar">
       <button type="button" role="tab" data-tab="test" aria-selected="true">Test</button>
-      <button type="button" role="tab" data-tab="keymap" aria-selected="false">Keymap</button>
       <button type="button" role="tab" data-tab="macros" aria-selected="false">Macros</button>
     </nav>
 
@@ -312,31 +356,6 @@ button:disabled { opacity: .45; cursor: default; }
           <tbody id="log"><tr class="empty"><td colspan="5">Waiting for input. Every key event shows up here, including ones not assigned to a control.</td></tr></tbody>
         </table></div>
       </section>
-    </div>
-
-    <div class="tabpanel" data-panel="keymap" hidden>
-      <section class="panel" aria-labelledby="h-km">
-        <div class="panel-head"><h2 id="h-km">Layer</h2><div class="seg" id="layer-seg" role="group" aria-label="Layer"></div></div>
-        <div class="km-list" id="km-list"></div>
-      </section>
-      <section class="panel picker" aria-labelledby="pick-title">
-        <div class="panel-head"><h2 id="pick-title">n key</h2><span class="pick-current" id="pick-current"></span></div>
-        <div class="pick-tools">
-          <input type="search" id="pick-search" placeholder="Search keys" aria-label="Search keys" autocomplete="off">
-          <div class="mods" id="pick-mods" role="group" aria-label="Hold with">
-            <button type="button" data-mod="1" title="Control">⌃</button><button type="button" data-mod="4" title="Option">⌥</button><button type="button" data-mod="2" title="Shift">⇧</button><button type="button" data-mod="8" title="Command">⌘</button>
-          </div>
-        </div>
-        <div class="cats" id="pick-cats"></div>
-        <div class="keys" id="pick-keys"></div>
-      </section>
-      <div class="km-actions">
-        <button type="button" id="btn-undo" disabled>Undo</button>
-        <button type="button" id="btn-restore" title="Put back what was on the npad when you connected">Restore</button>
-        <button type="button" id="btn-save-layout" title="Download a VIA-compatible layout file">Save file</button>
-        <button type="button" id="btn-load-layout" title="Load a VIA layout file onto the npad">Load file</button>
-        <input type="file" id="layout-file" accept=".json,application/json" hidden>
-      </div>
     </div>
 
     <div class="tabpanel" data-panel="macros" hidden>
@@ -800,7 +819,9 @@ window.initDevice3D = function (host, { pick, icons }) {
   const orbitZoom = yaw => 1 + (BACK_ZOOM - 1) * behind(yaw);       // ease in a touch behind it
   // The working view people land on once they take over: a standard isometric angle, turned 45°
   // with the knob at the back right, looking down at the true-isometric 35.3°.
-  const ISO = { yaw: Math.PI / 4, pitch: Math.atan(1 / Math.SQRT2) };
+  // (pulled back a little so the config-mode flags have room either side)
+  const ISO = { yaw: Math.PI / 4, pitch: Math.atan(1 / Math.SQRT2), zoom: 1.28 };
+  let viewLocked = false;                                      // config mode holds the camera at ISO
   // Two modes, switched by the page (the sidebar): preview (on load) runs the orbit, demo taps and
   // demo backlight; interaction snaps to ISO and leaves the camera to the user. turntable.on is
   // "in preview"; turntable.held pauses the orbit while someone drags the model in preview.
@@ -811,7 +832,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     stopDemo();
     // the short way round to the iso yaw
     const yaw = ISO.yaw + Math.round((view.yaw - ISO.yaw) / (Math.PI * 2)) * Math.PI * 2;
-    turntable.target = { yaw, pitch: ISO.pitch };
+    turntable.target = { yaw, pitch: ISO.pitch, zoom: ISO.zoom };
     turntable.goHome = true;
   }
   function placeCamera() {
@@ -876,7 +897,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     canvas.setPointerCapture(e.pointerId);
   });
   canvas.addEventListener('pointermove', e => {
-    if (!drag) { probe(e); canvas.style.cursor = hover.id && hover.id !== 'press' ? 'pointer' : 'grab'; return; }
+    if (!drag) { probe(e); canvas.style.cursor = hover.id && hover.id !== 'press' ? 'pointer' : hover.id === 'press' || !viewLocked ? 'grab' : 'default'; return; }
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
     if (!drag.moved && Math.hypot(dx, dy) < 5) return;
     drag.moved = true; canvas.style.cursor = 'grabbing';
@@ -887,6 +908,7 @@ window.initDevice3D = function (host, { pick, icons }) {
       knobAngle = Math.round(drag.start / DETENT) * DETENT;
       return;
     }
+    if (viewLocked) return;                                 // config mode: the view stays at ISO
     const v = turntable.goHome ? turntable.target : view; // mid-snap, steer where it's heading
     v.yaw -= dx * 0.008;
     if (e.pointerType === 'mouse') v.pitch = Math.min(1.45, Math.max(0.3, v.pitch + dy * 0.006));
@@ -894,7 +916,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     placeCamera();
   });
   canvas.addEventListener('pointerup', e => {
-    if (drag && !drag.moved) { const id = hit(e); if (id) pick(id); }  // picking a key switches to interaction (via the page)
+    if (drag && !drag.moved) pick(hit(e));    // a control, or null for empty space (the page decides what that means)
     drag = null; turntable.held = false; canvas.style.cursor = 'grab';
   });
   canvas.addEventListener('pointercancel', () => { drag = null; turntable.held = false; });
@@ -1031,12 +1053,12 @@ window.initDevice3D = function (host, { pick, icons }) {
     }
     if (turntable.goHome) {
       // quick ease (settles in about a third of a second)
-      const { yaw, pitch } = turntable.target, k = Math.min(1, dt * 9);
+      const { yaw, pitch, zoom = 1 } = turntable.target, k = Math.min(1, dt * 9);
       view.yaw += (yaw - view.yaw) * k;
       view.pitch += (pitch - view.pitch) * k;
-      view.zoom += (1 - view.zoom) * k;
-      if (Math.abs(yaw - view.yaw) < 1e-3 && Math.abs(pitch - view.pitch) < 1e-3 && Math.abs(1 - view.zoom) < 1e-3) {
-        view.yaw = yaw; view.pitch = pitch; view.zoom = 1; turntable.goHome = false;
+      view.zoom += (zoom - view.zoom) * k;
+      if (Math.abs(yaw - view.yaw) < 1e-3 && Math.abs(pitch - view.pitch) < 1e-3 && Math.abs(zoom - view.zoom) < 1e-3) {
+        view.yaw = yaw; view.pitch = pitch; view.zoom = zoom; turntable.goHome = false;
       }
       placeCamera();
     }
@@ -1098,9 +1120,24 @@ window.initDevice3D = function (host, { pick, icons }) {
     reset() { knobAngle = 0; },
     setTarget(id) { target = id; },
     setHover(id) { hover.panel = id; },          // highlight a control from outside (the Controls list)
+    // where each control sits on screen (px within the canvas), for the config-mode flags, plus the
+    // device's on-screen bounds; anchors are the keycap tops and the knob's top edge facing the viewer
+    anchors() {
+      const w = canvas.clientWidth, h = canvas.clientHeight, v = new T.Vector3();
+      const toScreen = p => { p.project(camera); return { x: (p.x + 1) / 2 * w, y: (1 - p.y) / 2 * h }; };
+      const out = {};
+      Object.entries(keys).forEach(([id, k]) => { out[id] = toScreen(k.group.localToWorld(v.set(0, CAP.height, 0))); });
+      out.knob = toScreen(knob.localToWorld(v.set(0, KNOB_H, 0)));
+      const pts = [];
+      for (const x of [-W / 2, W / 2]) for (const z of [-D / 2, D / 2]) for (const y of [0, H + KNOB_H]) pts.push(toScreen(v.set(x, y, z)));
+      out.box = { l: Math.min(...pts.map(p => p.x)), r: Math.max(...pts.map(p => p.x)), t: Math.min(...pts.map(p => p.y)), b: Math.max(...pts.map(p => p.y)) };
+      out.settled = !turntable.goHome;
+      return out;
+    },
     // 'interaction': stop the preview and ease to the iso working view.
     // 'preview': orbit (gliding in from the current view), demo taps and demo backlight.
     setMode(mode) {
+      viewLocked = mode === 'interaction';
       if (mode === 'interaction') { snapToIso(); return; }
       if (reduceMotion || turntable.on) return;
       turntable.goHome = false;
@@ -1202,7 +1239,7 @@ window.initDevice3D = function (host, { pick, icons }) {
       pill.parentElement.classList.toggle('ok', ok);
     });
     // the control being edited in the Keymap tab is highlighted on the model
-    const target = hidDev && edit.ready && edit.tab === 'keymap' && panelsOpen() ? edit.ctrl || null : null;
+    const target = hidDev && edit.ready && panelsOpen() ? edit.ctrl || null : null;
     document.querySelectorAll('.cell').forEach(c => c.classList.toggle('target', c.dataset.cell === target));
     $('#knob').classList.toggle('target', ['cw', 'ccw', 'press'].includes(target));
     document.querySelectorAll('.chip').forEach(r => r.classList.toggle('active', r.dataset.input === target));
@@ -1215,8 +1252,10 @@ window.initDevice3D = function (host, { pick, icons }) {
     // The sidebar is the mode switch: open = interaction mode, closed = preview mode.
     if (open !== panelsOpen()) dev3d?.setMode(open ? 'interaction' : 'preview');
     if (!open) dev3d?.setHover(null); // the list slides away under the pointer without a mouseleave
+    if (!open && typeof edit !== 'undefined') edit.ctrl = null;   // back to preview: drop the selection
     document.querySelector('.app').classList.toggle('collapsed', !open);
     render(); // the edit highlight on the model only shows with the sidebar open
+    if (typeof renderFlags === 'function') renderFlags();
     $('#side').inert = !open;
     $('#btn-panels').setAttribute('aria-label', open ? 'Hide panels' : 'Show panels');
     $('#btn-panels').setAttribute('aria-expanded', String(open));
@@ -1236,10 +1275,12 @@ window.initDevice3D = function (host, { pick, icons }) {
     const t = $(id === 'cw' ? '#turn-cw' : '#turn-ccw');
     t.classList.add('flash'); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('flash'), 60);
     dev3d?.turn(dir * steps);
+    if (typeof flashFlag === 'function') flashFlag(id);
     if (!tested.has(id)) { tested.add(id); render(); }    // re-render only when something changes
   }
   function activate(id, down) {
     if (hidDev && !panelsOpen()) setPanels(true); // input from the connected npad: show the results
+    if (down && typeof flashFlag === 'function') flashFlag(id);
     if (id === 'cw' || id === 'ccw') { turnKnob(id); return; }
     dev3d?.press(id, down);
     const el = id === 'press' ? $('#knob') : document.querySelector(`[data-cell="${id}"]`);
@@ -1321,13 +1362,16 @@ window.initDevice3D = function (host, { pick, icons }) {
     if (t) pick(t.dataset.input);
   });
   function pick(id) {
+    if (!id) { if (edit.ctrl && panelsOpen()) { edit.ctrl = null; renderKeymap(); render(); } return; }  // click on empty space
     if (!hidDev || !edit.ready) { nudgeConnect(); return; }   // editing needs an attached npad
     // clicking the control that's already selected deselects it
-    const reclick = edit.ctrl === id && edit.tab === 'keymap' && panelsOpen();
+    const reclick = edit.ctrl === id && panelsOpen();
     edit.ctrl = reclick ? null : id;
+    edit.query = ''; $('#pick-search').value = '';
     setPanels(true);
-    setTab('keymap');
+    renderKeymap(); render();
   }
+  window.addEventListener('keydown', e => { if (e.key === 'Escape' && edit.ctrl) pick(null); });
 
   $('#btn-panels').addEventListener('click', () => setPanels(!panelsOpen()));
   $('#btn-reset').addEventListener('click', () => { tested.clear(); knobAngle = 0; $('#knob-face').style.transform = ''; dev3d?.reset(); render(); });
@@ -1659,7 +1703,7 @@ window.initDevice3D = function (host, { pick, icons }) {
 
   const edit = {
     ready: false, layers: 0, keymap: [], enc: [],               // keymap[layer][row * 3 + col]; enc[layer] = [ccw, cw]
-    original: null, undo: [], layer: 0, ctrl: 'k1', tab: 'test', mods: 0, cat: 'Letters', query: '',
+    original: null, undo: [], layer: 0, ctrl: null, tab: 'test', mods: 0, cat: 'Letters', query: '',
     macroCount: 0, macroSize: 0, macros: [], draft: [], macroSel: 0, macroTimer: null, macroState: '',
   };
   const idxOf = i => i.pos[0] * 3 + i.pos[1];
@@ -1921,11 +1965,6 @@ window.initDevice3D = function (host, { pick, icons }) {
     if (!edit.ready) return;
     $('#layer-seg').innerHTML = range(0, edit.layers - 1).map(l =>
       `<button type="button" data-layer="${l}" aria-pressed="${l === edit.layer}">${l}</button>`).join('');
-    $('#km-list').innerHTML = INPUTS.map(i => {
-      const c = getCode(edit.layer, i.id);
-      return `<button type="button" class="km-row" data-input="${i.id}" aria-pressed="${i.id === edit.ctrl}">
-        <span class="name">${esc(i.name)}</span><span class="code">${esc(labelFor(c))}</span></button>`;
-    }).join('');
     const cur = edit.ctrl ? getCode(edit.layer, edit.ctrl) : null;
     $('#pick-title').textContent = edit.ctrl ? byId[edit.ctrl].name : 'Keys';
     $('#pick-current').textContent = !edit.ctrl ? '' : edit.layer ? `Layer ${edit.layer}: ${labelFor(cur)}` : labelFor(cur);
@@ -1936,17 +1975,93 @@ window.initDevice3D = function (host, { pick, icons }) {
     const codes = q ? [...new Set(PICKER.flatMap(([, cs]) => cs))].filter(c => labelFor(c).toLowerCase().includes(q) || codeToVia(c).toLowerCase().includes(q))
       : (PICKER.find(([n]) => n === edit.cat)?.[1] || []);
     const withMods = c => edit.mods && c <= 0xff && c > 0x03 && !(c >= 0xe0 && c <= 0xe7) ? (edit.mods << 8) | c : c;
-    if (!edit.ctrl) {
-      $('#pick-keys').innerHTML = '<p class="muted">Choose a key or the knob, on the npad or in the list above, to change what it sends.</p>';
-      $('#btn-undo').disabled = !edit.undo.length;
-      return;
-    }
+    $('#btn-undo').disabled = !edit.undo.length;
+    renderFlags();
+    if (!edit.ctrl) return;
     $('#pick-keys').innerHTML = codes.length ? codes.map(c => {
       const code = withMods(c), macro = c >= QK_MACRO && c <= 0x777f ? macroPreview(c - QK_MACRO) : '';
       return `<button type="button" class="key" data-code="${code}" aria-pressed="${code === cur}" title="${esc(codeToVia(code))}">${esc(labelFor(code))}${macro ? `<small>${esc(macro)}</small>` : ''}</button>`;
     }).join('') : '<p class="muted">No keys match.</p>';
-    $('#btn-undo').disabled = !edit.undo.length;
   }
+
+  // ---- flags: what each control sends, called out around the model in config mode ----
+  const FLAGS = [['k1'], ['k2'], ['k3'], ['k4'], ['k5'], ['k6'], ['knob', ['ccw', 'press', 'cw']]];
+  const FLAG_NAMES = { ccw: 'Turn left', press: 'Press', cw: 'Turn right' };
+  const flagsOn = () => !!(dev3d && hidDev && edit.ready && panelsOpen());
+  function renderFlags() {
+    const on = flagsOn();
+    $('#flags').classList.toggle('on', on); $('#flag-lines').classList.toggle('on', on);
+    $('#stage-bar').hidden = !on;
+    $('#popover').hidden = !(on && edit.ctrl);
+    if (!on) return;
+    $('#flags').innerHTML = FLAGS.map(([fid, rows = [fid]]) => `<div class="flag" data-flag="${fid}">${rows.map(id =>
+      `<button type="button" class="flag-row" data-input="${id}" aria-pressed="${id === edit.ctrl}">
+        <span class="flag-name">${esc(FLAG_NAMES[id] || byId[id].name.replace(/ key$/, ''))}</span>
+        <span class="flag-code">${esc(labelFor(getCode(edit.layer, id)))}</span></button>`).join('')}</div>`).join('');
+    layoutFlags();
+  }
+  function flashFlag(id) {
+    const row = document.querySelector(`#flags [data-input="${id}"]`);
+    if (!row) return;
+    row.classList.add('hit'); clearTimeout(row._t); row._t = setTimeout(() => row.classList.remove('hit'), 180);
+  }
+  // Radial callouts: each flag starts just outside the device, in the direction of its control from
+  // the device's centre, so leader lines fan outward and don't cross. Overlapping flags are then
+  // pushed apart, and everything is kept inside the stage and clear of the layer bar.
+  function layoutFlags() {
+    if (!flagsOn()) return;
+    const a = dev3d.anchors(), stage = $('#npad3d'), W = stage.clientWidth, Hh = stage.clientHeight;
+    const PAD = 8, GAP = 22, bottomLimit = Hh - 66;
+    const c = { x: (a.box.l + a.box.r) / 2, y: (a.box.t + a.box.b) / 2 }, hw = (a.box.r - a.box.l) / 2, hh = (a.box.b - a.box.t) / 2;
+    const items = FLAGS.map(([fid]) => {
+      const el = document.querySelector(`#flags [data-flag="${fid}"]`), at = a[fid];
+      const w = el.offsetWidth, h = el.offsetHeight;
+      let dx = at.x - c.x, dy = at.y - c.y; const len = Math.hypot(dx, dy) || 1; dx /= len; dy /= len;
+      const t = Math.min(hw / (Math.abs(dx) || 1e-6), hh / (Math.abs(dy) || 1e-6));          // ray to the box edge
+      const reach = t + GAP + Math.abs(dx) * w / 2 + Math.abs(dy) * h / 2;                  // plus half the flag
+      return { fid, el, at, w, h, x: c.x + dx * reach - w / 2, y: c.y + dy * reach - h / 2 };
+    });
+    const clamp = r => { r.x = Math.max(12, Math.min(W - 12 - r.w, r.x)); r.y = Math.max(12, Math.min(bottomLimit - r.h, r.y)); };
+    items.forEach(clamp);
+    for (let iter = 0; iter < 60; iter++) {                    // separate overlapping flags
+      let moved = false;
+      for (let i = 0; i < items.length; i++) for (let j = i + 1; j < items.length; j++) {
+        const p = items[i], q = items[j];
+        const ox = Math.min(p.x + p.w, q.x + q.w) - Math.max(p.x, q.x) + PAD;
+        const oy = Math.min(p.y + p.h, q.y + q.h) - Math.max(p.y, q.y) + PAD;
+        if (ox <= 0 || oy <= 0) continue;
+        moved = true;
+        if (oy < ox) { const s = (p.y + p.h / 2 < q.y + q.h / 2 ? -1 : 1) * oy / 2; p.y += s; q.y -= s; }
+        else { const s = (p.x + p.w / 2 < q.x + q.w / 2 ? -1 : 1) * ox / 2; p.x += s; q.x -= s; }
+        clamp(p); clamp(q);
+      }
+      if (!moved) break;
+    }
+    let lines = '';
+    items.forEach(it => {
+      it.el.style.transform = `translate(${Math.round(it.x)}px, ${Math.round(it.y)}px)`;
+      const ex = Math.max(it.x, Math.min(it.x + it.w, it.at.x)), ey = Math.max(it.y, Math.min(it.y + it.h, it.at.y));
+      const sel = it.fid === edit.ctrl || (it.fid === 'knob' && ['ccw', 'press', 'cw'].includes(edit.ctrl));
+      lines += `<g class="${sel ? 'sel' : ''}"><path d="M${it.at.x},${it.at.y} L${ex},${ey}"/><circle cx="${it.at.x}" cy="${it.at.y}" r="2.5"/></g>`;
+    });
+    const cx = c.x;
+    $('#flag-lines').innerHTML = lines;
+    // the picker opens beside the selected flag, on the same side, clamped inside the stage
+    const selFlag = items.find(it => it.fid === edit.ctrl || (it.fid === 'knob' && ['ccw', 'press', 'cw'].includes(edit.ctrl)));
+    const pop = $('#popover');
+    if (selFlag && !pop.hidden) {
+      // beside the flag, toward the model, so the flag stays visible next to its picker
+      const pw = pop.offsetWidth, ph = pop.offsetHeight, left = selFlag.x + selFlag.w / 2 < cx;
+      let px = left ? selFlag.x + selFlag.w + 10 : selFlag.x - pw - 10;
+      let py = selFlag.y + selFlag.h / 2 - ph / 2;
+      py = Math.max(12, Math.min(Hh - 64 - ph, py));
+      px = Math.max(12, Math.min(W - 12 - pw, px));
+      pop.style.transform = `translate(${Math.round(px)}px, ${Math.round(py)}px)`;
+    }
+  }
+  (function followModel() { layoutFlags(); requestAnimationFrame(followModel); })();  // keeps up with the snap and resizes
+  $('#flags').addEventListener('mouseover', e => { const r = e.target.closest('[data-input]'); dev3d?.setHover(r ? r.dataset.input : null); });
+  $('#flags').addEventListener('mouseleave', () => dev3d?.setHover(null));
   function macroPreview(n) {
     const steps = edit.macros[n] || [];
     if (!steps.length) return 'empty';
