@@ -1202,7 +1202,7 @@ window.initDevice3D = function (host, { pick, icons }) {
       pill.parentElement.classList.toggle('ok', ok);
     });
     // the control being edited in the Keymap tab is highlighted on the model
-    const target = hidDev && edit.ready && edit.tab === 'keymap' && panelsOpen() ? edit.ctrl : null;
+    const target = hidDev && edit.ready && edit.tab === 'keymap' && panelsOpen() ? edit.ctrl || null : null;
     document.querySelectorAll('.cell').forEach(c => c.classList.toggle('target', c.dataset.cell === target));
     $('#knob').classList.toggle('target', ['cw', 'ccw', 'press'].includes(target));
     document.querySelectorAll('.chip').forEach(r => r.classList.toggle('active', r.dataset.input === target));
@@ -1322,7 +1322,9 @@ window.initDevice3D = function (host, { pick, icons }) {
   });
   function pick(id) {
     if (!hidDev || !edit.ready) { nudgeConnect(); return; }   // editing needs an attached npad
-    edit.ctrl = id;
+    // clicking the control that's already selected deselects it
+    const reclick = edit.ctrl === id && edit.tab === 'keymap' && panelsOpen();
+    edit.ctrl = reclick ? null : id;
     setPanels(true);
     setTab('keymap');
   }
@@ -1724,7 +1726,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   function afterEdit() { relearnMap(); renderEditor(); render(); }
   function setCode(layer, id, code) {
     return runEdit(async () => {
-      if (!hidDev || getCode(layer, id) === code) return;
+      if (!hidDev || !id || getCode(layer, id) === code) return;
       const op = opFor(layer, id, code);
       await writeOp(op, code);
       edit.undo.push([op]);
@@ -1924,9 +1926,9 @@ window.initDevice3D = function (host, { pick, icons }) {
       return `<button type="button" class="km-row" data-input="${i.id}" aria-pressed="${i.id === edit.ctrl}">
         <span class="name">${esc(i.name)}</span><span class="code">${esc(labelFor(c))}</span></button>`;
     }).join('');
-    const cur = getCode(edit.layer, edit.ctrl);
-    $('#pick-title').textContent = byId[edit.ctrl].name;
-    $('#pick-current').textContent = edit.layer ? `Layer ${edit.layer}: ${labelFor(cur)}` : labelFor(cur);
+    const cur = edit.ctrl ? getCode(edit.layer, edit.ctrl) : null;
+    $('#pick-title').textContent = edit.ctrl ? byId[edit.ctrl].name : 'Keys';
+    $('#pick-current').textContent = !edit.ctrl ? '' : edit.layer ? `Layer ${edit.layer}: ${labelFor(cur)}` : labelFor(cur);
     $('#pick-cats').innerHTML = PICKER.filter(([, codes]) => codes.length).map(([name]) =>
       `<button type="button" data-cat="${name}" aria-pressed="${!edit.query && name === edit.cat}">${name}</button>`).join('');
     $('#pick-mods').querySelectorAll('[data-mod]').forEach(b => b.setAttribute('aria-pressed', String(!!(edit.mods & +b.dataset.mod))));
@@ -1934,6 +1936,11 @@ window.initDevice3D = function (host, { pick, icons }) {
     const codes = q ? [...new Set(PICKER.flatMap(([, cs]) => cs))].filter(c => labelFor(c).toLowerCase().includes(q) || codeToVia(c).toLowerCase().includes(q))
       : (PICKER.find(([n]) => n === edit.cat)?.[1] || []);
     const withMods = c => edit.mods && c <= 0xff && c > 0x03 && !(c >= 0xe0 && c <= 0xe7) ? (edit.mods << 8) | c : c;
+    if (!edit.ctrl) {
+      $('#pick-keys').innerHTML = '<p class="muted">Choose a key or the knob, on the npad or in the list above, to change what it sends.</p>';
+      $('#btn-undo').disabled = !edit.undo.length;
+      return;
+    }
     $('#pick-keys').innerHTML = codes.length ? codes.map(c => {
       const code = withMods(c), macro = c >= QK_MACRO && c <= 0x777f ? macroPreview(c - QK_MACRO) : '';
       return `<button type="button" class="key" data-code="${code}" aria-pressed="${code === cur}" title="${esc(codeToVia(code))}">${esc(labelFor(code))}${macro ? `<small>${esc(macro)}</small>` : ''}</button>`;
