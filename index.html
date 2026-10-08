@@ -1074,6 +1074,11 @@ window.initDevice3D = function (host, { pick, icons }) {
   function setPanels(open) {
     // The sidebar is the mode switch: open = interaction mode, closed = preview mode.
     if (open !== panelsOpen()) dev3d?.setMode(open ? 'interaction' : 'preview');
+    if (!open && (mode !== 'test' || pendingSig)) {
+      // back to preview: drop any key that was selected for setup or remapping
+      mode = 'test'; assignId = null; pendingSig = null;
+      render(); // clears the highlight on the model and the controls list
+    }
     document.querySelector('.app').classList.toggle('collapsed', !open);
     $('#side').inert = !open;
     $('#btn-panels').setAttribute('aria-label', open ? 'Hide panels' : 'Show panels');
