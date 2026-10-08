@@ -1280,21 +1280,17 @@ window.initDevice3D = function (host, { pick, icons }) {
     log('up', e.key, e.code, id ? byId[id].name : '');
   });
 
-  // A knob that scrolls sends one wheel step per detent, but when it's spun fast macOS merges
-  // several steps into one event with a bigger delta (and accelerates them). So count detents from
-  // the delta, using the smallest step seen so far as one detent, rather than one per event.
-  let wheelUnit = Infinity;
+  // A knob that scrolls sends one wheel event per detent. Count each one (no throttling, so fast
+  // spins keep up); the delta size is ignored because macOS acceleration makes it unreliable.
   window.addEventListener('wheel', e => {
     if (!e.deltaY) return;
-    const d = Math.abs(e.deltaY) * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1); // lines/pages to px
-    wheelUnit = Math.min(wheelUnit, d);
-    const steps = Math.max(1, Math.min(12, Math.round(d / wheelUnit)));
+    const steps = 1;
     const sig = e.deltaY < 0 ? 'wheel:up' : 'wheel:down';
     const id = mode === 'test' ? inputFor(sig) : null;
     if (id) turnKnob(id, steps);
     else if (mode !== 'test') handle(sig, null, true);
     if (id || mode !== 'test') e.preventDefault();
-    if (id || mode !== 'test') log('scroll', `${sig === 'wheel:up' ? 'up' : 'down'}${steps > 1 ? ` ×${steps}` : ''}`, `deltaY ${Math.round(e.deltaY)}`, id ? byId[id].name : '');
+    if (id || mode !== 'test') log('scroll', sig === 'wheel:up' ? 'up' : 'down', `deltaY ${Math.round(e.deltaY)}`, id ? byId[id].name : '');
   }, { passive: false });
 
   window.addEventListener('blur', () => {
