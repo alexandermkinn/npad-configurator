@@ -24,6 +24,16 @@ docker build -t npad-keytester . && docker run --rm -p 8080:8080 npad-keytester
 - **Key events (any browser):** matches what the npad types against the stock keymap below. You can remap controls in the page with "Set up keys" or by clicking a key, and the mapping is saved in the browser.
 - **Connect npad (Chrome/Edge, WebHID):** talks to the firmware over VIA's raw HID interface (usage page `0xFF60`), reads the live keymap and polls the switch matrix, like VIA's own tester. It also reads the RGB Matrix lighting (effect, color, brightness, speed) about once a second and shows it under the keys of the 3D model, with approximations of each effect. Needs HTTPS or localhost, and the VIA app has to be closed.
 
+## Editing the npad
+
+With the npad connected, the sidebar has three tabs:
+
+- **Test:** which controls have registered, plus a live event log.
+- **Keymap:** pick a layer (0–3) and a control, then choose what it sends: letters, editing keys, F-keys, media, mouse, modifiers, layer keys (hold/toggle/switch), macros or lighting keys, optionally with ⌃⌥⇧⌘ held. Each change is written to the npad straight away. **Undo** reverts the last change, and **Restore** puts back what was on the npad when it connected.
+- **Macros:** 16 macros made of steps (type text, press a key or shortcut, hold, release, wait), saved to the npad as you edit. Assign one to a key from the Macros group in the Keymap tab.
+
+**Save file** / **Load file** use VIA's `.layout.json` format (keycode names, layers, knob and macros), so layouts move between this page and the VIA app.
+
 ## Stock keymap (layer 0)
 
 | Control | Matrix | Sends |

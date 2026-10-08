@@ -56,9 +56,7 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 24px; letter
   transition: width .5s cubic-bezier(.25, .8, .25, 1); }
 .side-inner { width: 340px; flex: none; display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow: auto; }
 .side-inner > * { transition: transform .5s cubic-bezier(.2, .9, .25, 1), opacity .35s ease; }
-.side-inner > :nth-child(2) { transition-delay: 50ms; }
-.side-inner > :nth-child(3) { transition-delay: 100ms; }
-.side-inner > :nth-child(4) { transition-delay: 150ms; }
+.side-inner > :nth-child(n+2) { transition-delay: 60ms; }
 .app.collapsed .side { width: 0; }
 .app.collapsed .side-inner > * { transform: translateX(48px); opacity: 0; transition-delay: 0s; transition-duration: .3s; }
 @media (max-width: 820px) {
@@ -91,17 +89,6 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .toast[data-kind="warn"] { background: var(--warn-soft); border-color: transparent; color: var(--warn); }
 
 
-/* status banner */
-.status {
-  flex: none;
-  border-radius: 12px; padding: 10px 14px; display: flex; gap: 12px; align-items: center; justify-content: space-between;
-  flex-wrap: wrap; background: var(--panel); border: 1px solid var(--line);
-}
-.status[data-kind="prompt"] { border-color: var(--accent); }
-.status[data-kind="warn"] { background: var(--warn-soft); border-color: transparent; color: var(--warn); }
-.status[data-kind="done"] { background: var(--ok-soft); border-color: transparent; color: var(--ok); }
-.status p { margin: 0; min-width: 0; }
-.status b { font-weight: 700; }
 
 /* ---------- the device ---------- */
 .stage { position: relative; min-height: 0; display: grid; place-items: center; border-radius: 16px; overflow: hidden;
@@ -197,6 +184,56 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 }
 .pill.ok { background: var(--ok); }
 
+/* ---------- sidebar tabs ---------- */
+.tabs { display: flex; gap: 2px; padding: 3px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; flex: none; }
+.tabs button { flex: 1; border: 0; background: transparent; color: var(--muted); padding: 6px 8px; border-radius: 7px; }
+.tabs button[aria-selected="true"] { background: color-mix(in srgb, var(--fg) 10%, transparent); color: var(--fg); }
+.tabpanel { display: flex; flex-direction: column; gap: 10px; min-height: 0; flex: 1 1 auto; }
+.muted { color: var(--muted); font-size: 12px; margin: 0; padding: 10px 14px; }
+
+/* keymap */
+.seg { display: flex; gap: 2px; }
+.seg button, .mods button, .cats button, .macro-list button, .macro-add button { padding: 3px 9px; font-size: 12px; }
+[aria-pressed="true"]:is(.seg button, .mods button, .cats button, .macro-list button, .key, .km-row) { background: var(--accent); border-color: var(--accent); color: #fff; }
+.km-list { display: grid; gap: 1px; padding: 5px 6px; }
+.km-row { all: unset; box-sizing: border-box; cursor: pointer; display: flex; justify-content: space-between; gap: 10px; padding: 4px 10px; border-radius: 7px; font-size: 13px; }
+.km-row:hover { background: color-mix(in srgb, var(--fg) 6%, transparent); }
+.km-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.km-row .code { font-family: var(--font-mono); font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.km-row[aria-pressed="true"] .code { color: #fff; }
+.panel.picker { flex: 1 1 0; min-height: 200px; display: flex; flex-direction: column; } /* fills what's left; its keys scroll */
+.pick-current { font-family: var(--font-mono); font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55%; }
+.pick-tools { display: flex; gap: 8px; padding: 8px 10px 0; }
+.pick-tools input { flex: 1; min-width: 0; font: inherit; font-size: 13px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 5px 9px; }
+.mods { display: flex; gap: 2px; }
+.cats { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.keys { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 4px; padding: 8px 10px 10px; overflow: auto; min-height: 0; flex: 1 1 auto; align-content: start; }
+.key { padding: 6px 4px; font-size: 12px; line-height: 1.2; min-height: 34px; display: grid; place-items: center; text-align: center; word-break: break-word; }
+.key small { display: block; font-size: 10px; color: var(--muted); font-family: var(--font-mono); }
+.key[aria-pressed="true"] small { color: #fff; }
+.km-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; flex: none; }
+.km-actions button { font-size: 12px; padding: 6px 8px; }
+button:disabled { opacity: .45; cursor: default; }
+
+/* macros */
+.meter { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+.meter.over { color: var(--warn); }
+.macro-list { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; padding: 8px 10px 10px; }
+.macro-list button { padding: 4px 0; font-family: var(--font-mono); }
+.macro-list button.used:not([aria-pressed="true"]) { border-color: var(--muted); color: var(--fg); }
+.panel.macro-editor { flex: 1 1 0; min-height: 160px; display: flex; flex-direction: column; }
+.macro-state { font-size: 12px; color: var(--muted); }
+.steps { display: grid; gap: 6px; padding: 8px 10px; overflow: auto; min-height: 0; flex: 1 1 auto; align-content: start; }
+.step { display: grid; grid-template-columns: 74px minmax(0, 1fr) 24px; gap: 6px; align-items: center; }
+.step-type { font-size: 12px; color: var(--muted); }
+.step-body { display: flex; gap: 4px; align-items: center; min-width: 0; }
+.step-body input, .step-body select { flex: 1; min-width: 0; font: inherit; font-size: 13px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 4px 7px; }
+.step-body input[type="number"] { max-width: 90px; }
+.step-body .unit { font-size: 12px; color: var(--muted); }
+.step .mods button { padding: 2px 6px; }
+.step-del { padding: 0; width: 24px; height: 24px; line-height: 1; color: var(--muted); }
+.macro-add { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 10px 10px; }
+
 /* ---------- panels ---------- */
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; min-width: 0; flex: none; }
 .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px 6px 14px; border-bottom: 1px solid var(--line); min-height: 36px; }
@@ -253,23 +290,69 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 
   <aside class="side" id="side" inert>
    <div class="side-inner">
-    <div class="status" id="status" role="status" aria-live="polite"><p id="status-text"></p><div id="status-actions" class="actions"></div></div>
+    <nav class="tabs" id="tabs" role="tablist" aria-label="Sidebar">
+      <button type="button" role="tab" data-tab="test" aria-selected="true">Test</button>
+      <button type="button" role="tab" data-tab="keymap" aria-selected="false">Keymap</button>
+      <button type="button" role="tab" data-tab="macros" aria-selected="false">Macros</button>
+    </nav>
 
-    <section class="panel" aria-labelledby="h-controls">
-      <div class="panel-head"><h2 id="h-controls">Controls</h2></div>
-      <div class="strip" id="rows"></div>
-      <div class="panel-foot">
-        <button id="btn-reset" type="button">Clear results</button>
+    <div class="tabpanel" data-panel="test">
+      <section class="panel" aria-labelledby="h-controls">
+        <div class="panel-head"><h2 id="h-controls">Controls</h2></div>
+        <div class="strip" id="rows"></div>
+        <div class="panel-foot">
+          <button id="btn-reset" type="button">Clear results</button>
+        </div>
+      </section>
+
+      <section class="panel log-panel" aria-labelledby="h-log">
+        <div class="panel-head"><h2 id="h-log">Event log</h2><button type="button" id="btn-clear-log">Clear</button></div>
+        <div class="log"><table>
+          <thead><tr><th>Time</th><th>Event</th><th>key</th><th>code</th><th>Control</th></tr></thead>
+          <tbody id="log"><tr class="empty"><td colspan="5">Waiting for input. Every key event shows up here, including ones not assigned to a control.</td></tr></tbody>
+        </table></div>
+      </section>
+    </div>
+
+    <div class="tabpanel" data-panel="keymap" hidden>
+      <section class="panel" aria-labelledby="h-km">
+        <div class="panel-head"><h2 id="h-km">Layer</h2><div class="seg" id="layer-seg" role="group" aria-label="Layer"></div></div>
+        <div class="km-list" id="km-list"></div>
+      </section>
+      <section class="panel picker" aria-labelledby="pick-title">
+        <div class="panel-head"><h2 id="pick-title">n key</h2><span class="pick-current" id="pick-current"></span></div>
+        <div class="pick-tools">
+          <input type="search" id="pick-search" placeholder="Search keys" aria-label="Search keys" autocomplete="off">
+          <div class="mods" id="pick-mods" role="group" aria-label="Hold with">
+            <button type="button" data-mod="1" title="Control">⌃</button><button type="button" data-mod="4" title="Option">⌥</button><button type="button" data-mod="2" title="Shift">⇧</button><button type="button" data-mod="8" title="Command">⌘</button>
+          </div>
+        </div>
+        <div class="cats" id="pick-cats"></div>
+        <div class="keys" id="pick-keys"></div>
+      </section>
+      <div class="km-actions">
+        <button type="button" id="btn-undo" disabled>Undo</button>
+        <button type="button" id="btn-restore" title="Put back what was on the npad when you connected">Restore</button>
+        <button type="button" id="btn-save-layout" title="Download a VIA-compatible layout file">Save file</button>
+        <button type="button" id="btn-load-layout" title="Load a VIA layout file onto the npad">Load file</button>
+        <input type="file" id="layout-file" accept=".json,application/json" hidden>
       </div>
-    </section>
+    </div>
 
-    <section class="panel log-panel" aria-labelledby="h-log">
-      <div class="panel-head"><h2 id="h-log">Event log</h2><button type="button" id="btn-clear-log">Clear</button></div>
-      <div class="log"><table>
-        <thead><tr><th>Time</th><th>Event</th><th>key</th><th>code</th><th>Control</th></tr></thead>
-        <tbody id="log"><tr class="empty"><td colspan="5">Waiting for input. Every key event shows up here, including ones not assigned to a control.</td></tr></tbody>
-      </table></div>
-    </section>
+    <div class="tabpanel" data-panel="macros" hidden>
+      <section class="panel" aria-labelledby="h-macros">
+        <div class="panel-head"><h2 id="h-macros">Macros</h2><span class="meter" id="macro-meter"></span></div>
+        <div class="macro-list" id="macro-list"></div>
+      </section>
+      <section class="panel macro-editor" aria-labelledby="macro-title">
+        <div class="panel-head"><h2 id="macro-title">Macro 0</h2><span class="macro-state" id="macro-state"></span></div>
+        <div class="steps" id="macro-steps"></div>
+        <div class="macro-add" id="macro-add">
+          <button type="button" data-add="text">+ Text</button><button type="button" data-add="key">+ Key</button><button type="button" data-add="down">+ Hold</button><button type="button" data-add="up">+ Release</button><button type="button" data-add="wait">+ Wait</button>
+        </div>
+        <div class="panel-foot"><button type="button" id="macro-clear">Clear macro</button></div>
+      </section>
+    </div>
    </div>
   </aside>
 </div>
@@ -1063,10 +1146,6 @@ window.initDevice3D = function (host, { pick, icons }) {
   let map = { ...DEFAULT_MAP };  // inputId -> signature
   try { const saved = JSON.parse(localStorage.getItem(STORE) || 'null'); if (saved) map = saved; } catch {}
   const tested = new Set();
-  let mode = 'test';       // 'test' | 'assign' (waiting for a press to bind to assignId)
-  let assignId = null;
-  let pendingSig = null;   // last unassigned signature, so a click can assign it
-  let ignoreUntil = 0;     // swallow the rest of a multi-key macro burst after capturing
   const downCodes = new Map(); // code -> inputId currently held
   let knobAngle = 0;
   let dev3d = null;
@@ -1122,12 +1201,12 @@ window.initDevice3D = function (host, { pick, icons }) {
       pill.textContent = ok ? 'Works' : 'Not tested'; pill.classList.toggle('ok', ok);
       pill.parentElement.classList.toggle('ok', ok);
     });
-    const target = mode === 'assign' ? assignId : null;
+    // the control being edited in the Keymap tab is highlighted on the model
+    const target = hidDev && edit.ready && edit.tab === 'keymap' && panelsOpen() ? edit.ctrl : null;
     document.querySelectorAll('.cell').forEach(c => c.classList.toggle('target', c.dataset.cell === target));
     $('#knob').classList.toggle('target', ['cw', 'ccw', 'press'].includes(target));
     document.querySelectorAll('.chip').forEach(r => r.classList.toggle('active', r.dataset.input === target));
     dev3d?.setTarget(target); dev3d?.setTested(tested);
-    renderStatus(target);
   }
 
   // ---- side panels: hidden at first (preview mode); opened by the toggle, by picking a key to
@@ -1136,52 +1215,16 @@ window.initDevice3D = function (host, { pick, icons }) {
     // The sidebar is the mode switch: open = interaction mode, closed = preview mode.
     if (open !== panelsOpen()) dev3d?.setMode(open ? 'interaction' : 'preview');
     if (!open) dev3d?.setHover(null); // the list slides away under the pointer without a mouseleave
-    if (!open && (mode !== 'test' || pendingSig)) {
-      // back to preview: drop any key that was selected for setup or remapping
-      mode = 'test'; assignId = null; pendingSig = null;
-      render(); // clears the highlight on the model and the controls list
-    }
     document.querySelector('.app').classList.toggle('collapsed', !open);
+    render(); // the edit highlight on the model only shows with the sidebar open
     $('#side').inert = !open;
     $('#btn-panels').setAttribute('aria-label', open ? 'Hide panels' : 'Show panels');
     $('#btn-panels').setAttribute('aria-expanded', String(open));
   }
   const panelsOpen = () => !document.querySelector('.app').classList.contains('collapsed');
 
-  function setStatus(kind, html, actions = []) {
-    if ((kind === 'prompt' || kind === 'warn') && hidDev) setPanels(true);
-    const s = $('#status'); s.dataset.kind = kind;
-    s.hidden = !html;                             // the status panel only appears for prompts
-    $('#status-text').innerHTML = html;
-    const a = $('#status-actions'); a.innerHTML = '';
-    actions.forEach(([label, fn, primary]) => {
-      const b = document.createElement('button'); b.type = 'button'; b.textContent = label;
-      if (primary) b.className = 'primary';
-      b.addEventListener('click', fn); a.appendChild(b);
-    });
-  }
-  function renderStatus(target) {
-    if (mode === 'assign') {
-      setStatus('prompt', `<b>${verb(byId[assignId])}</b> on your npad to assign it.`, [['Cancel', () => { mode = 'test'; assignId = null; render(); }]]);
-    } else if (pendingSig) {
-      setStatus('warn', `<b>${esc(pretty(pendingSig))}</b> isn't assigned to a control. Click the key or control it belongs to.`, [['Ignore', () => { pendingSig = null; render(); }]]);
-    } else {
-      setStatus('', '');                          // nothing to ask: hide the panel
-    }
-  }
-  const verb = i => i.id === 'cw' ? 'Turn the knob one click right' : i.id === 'ccw' ? 'Turn the knob one click left' : i.id === 'press' ? 'Press the knob' : `Press the ${i.name}`;
   const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-  // ---- assign: click a control, then press what it should be bound to ----
-  function assign(id, sig) {
-    const prev = inputFor(sig);
-    if (prev && prev !== id) delete map[prev];
-    map[id] = sig; save();
-  }
-  function capture(sig) {
-    assign(assignId, sig); mode = 'test'; assignId = null; render();
-    ignoreUntil = performance.now() + 350;
-  }
 
   // ---- activation visuals ----
   // turn the knob by a number of detents in one go (a fast spin can deliver several at once)
@@ -1217,12 +1260,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   }
 
   // ---- input handling ----
-  function handle(sig, e, isDown) {
-    const now = performance.now();
-    if (mode !== 'test') {
-      if (isDown && now >= ignoreUntil) capture(sig);
-      return true;
-    }
+  function handle(sig, e) {
     const id = inputFor(sig);
     if (id) {
       // connected directly: switch presses come from the matrix, so don't count the typed key again
@@ -1231,29 +1269,30 @@ window.initDevice3D = function (host, { pick, icons }) {
       if (e?.code) downCodes.set(e.code, id);
       activate(id, true); return true;
     }
-    if (now >= ignoreUntil) { pendingSig = sig; render(); }
     return false;
   }
+  // typing into the sidebar's fields (search, macro text) isn't npad input
+  const inField = e => e.target instanceof Element && e.target.closest('input, textarea, select, [contenteditable]');
 
   window.addEventListener('keydown', e => {
+    if (inField(e)) return;
     const modOnly = isModOnly(e);
     let matched = null;
     if (!modOnly) {
       const sig = keySig(e);
       if (e.repeat) {
         matched = inputFor(sig);
-        if (matched && (matched === 'cw' || matched === 'ccw') && mode === 'test') activate(matched, true);
-        if (matched || mode !== 'test') e.preventDefault();
+        if (matched === 'cw' || matched === 'ccw') activate(matched, true);
+        if (matched) e.preventDefault();
         return;
       }
-      const hit = handle(sig, e, true);
-      matched = mode === 'test' ? inputFor(sig) : null;
-      if (hit) e.preventDefault();
-      if (mode === 'test' && matched) ignoreUntil = performance.now() + 60;
+      if (handle(sig, e)) e.preventDefault();
+      matched = inputFor(sig);
     }
     log('down', e.key, e.code, matched ? byId[matched].name : '');
   });
   window.addEventListener('keyup', e => {
+    if (inField(e)) return;
     const id = downCodes.get(e.code);
     if (id) { downCodes.delete(e.code); if (id !== 'cw' && id !== 'ccw') activate(id, false); e.preventDefault(); }
     log('up', e.key, e.code, id ? byId[id].name : '');
@@ -1261,15 +1300,13 @@ window.initDevice3D = function (host, { pick, icons }) {
 
   // A knob that scrolls sends one wheel event per detent. Count each one (no throttling, so fast
   // spins keep up); the delta size is ignored because macOS acceleration makes it unreliable.
+  // Scrolling over the sidebar scrolls it, rather than counting as knob turns.
   window.addEventListener('wheel', e => {
-    if (!e.deltaY) return;
-    const steps = 1;
+    if (!e.deltaY || (e.target instanceof Element && e.target.closest('.side'))) return;
     const sig = e.deltaY < 0 ? 'wheel:up' : 'wheel:down';
-    const id = mode === 'test' ? inputFor(sig) : null;
-    if (id) turnKnob(id, steps);
-    else if (mode !== 'test') handle(sig, null, true);
-    if (id || mode !== 'test') e.preventDefault();
-    if (id || mode !== 'test') log('scroll', sig === 'wheel:up' ? 'up' : 'down', `deltaY ${Math.round(e.deltaY)}`, id ? byId[id].name : '');
+    const id = inputFor(sig);
+    if (id) { turnKnob(id, 1); e.preventDefault(); }
+    if (id) log('scroll', sig === 'wheel:up' ? 'up' : 'down', `deltaY ${Math.round(e.deltaY)}`, id ? byId[id].name : '');
   }, { passive: false });
 
   window.addEventListener('blur', () => {
@@ -1278,15 +1315,16 @@ window.initDevice3D = function (host, { pick, icons }) {
     document.querySelectorAll('.down').forEach(el => el.classList.remove('down'));
   });
 
-  // click a key/row: assign the pending unknown signature, or wait for the next press
+  // click a control (on the model, or a row in the sidebar): edit it in the Keymap tab
   document.addEventListener('click', e => {
     const t = e.target.closest('[data-input]');
     if (t) pick(t.dataset.input);
   });
   function pick(id) {
-    if (!hidDev) { nudgeConnect(); return; }      // remapping needs an attached npad
-    if (mode === 'test' && pendingSig) { assign(id, pendingSig); pendingSig = null; tested.add(id); render(); return; }
-    mode = 'assign'; assignId = id; render();
+    if (!hidDev || !edit.ready) { nudgeConnect(); return; }   // editing needs an attached npad
+    edit.ctrl = id;
+    setPanels(true);
+    setTab('keymap');
   }
 
   $('#btn-panels').addEventListener('click', () => setPanels(!panelsOpen()));
@@ -1413,16 +1451,11 @@ window.initDevice3D = function (host, { pick, icons }) {
     dev.addEventListener('inputreport', e => hidWait && hidWait(new Uint8Array(e.data.buffer)));
     const pv = await hidQuery(0x01);                // VIA protocol version: decides the matrix reply layout
     viaProtocol = (pv[1] << 8) | pv[2];
-    // read the live keymap so key events line up with whatever the npad is set to
-    const learned = {};
-    for (const i of INPUTS) {
-      let r;
-      if (i.pos) r = await hidQuery(VIA.getKeycode, 0, i.pos[0], i.pos[1]);
-      else r = await hidQuery(VIA.getEncoder, 0, 0, i.id === 'cw' ? 1 : 0);
-      const sig = qmkToSig((r[4] << 8) | r[5]);
-      if (sig) learned[i.id] = sig;
-    }
-    Object.assign(map, learned); save();
+    // read the keymap (all layers), knob and macros, so key events line up with the npad and the
+    // Keymap and Macros tabs can edit them
+    await loadDeviceState();
+    relearnMap();
+    renderEditor();
     setConnectedUI(true);
     await refreshLighting();
     pollMatrix(++pollGen);
@@ -1461,6 +1494,8 @@ window.initDevice3D = function (host, { pick, icons }) {
     if (hidDev?.opened) hidDev.close().catch(() => {});
     hidDev = null; lastMatrix = [0, 0, 0]; pollGen++;
     lightingText = ''; dev3d?.setLighting(null);
+    clearTimeout(edit.macroTimer); edit.ready = false;
+    setTab('test');
     setPanels(false);                             // nothing attached: back to preview, sidebar hidden
     setConnectedUI(false);
     render();
@@ -1482,6 +1517,500 @@ window.initDevice3D = function (host, { pick, icons }) {
     $('#npad3d').hidden = true;
     dev3d = null;
   }
+
+  // ======================================================================
+  // ---- Editing the npad: keymap (4 layers), macros, VIA layout files ----
+  // Changes are written to the npad as they're made, like the VIA app. Keycode numbers and the
+  // names used in files follow VIA's protocol-12 tables, so layouts load in VIA too.
+  // ======================================================================
+  const KC_NAMES = [
+    [0x00,'KC_NO'],[0x01,'KC_TRNS'],[0x04,'KC_A'],[0x05,'KC_B'],[0x06,'KC_C'],[0x07,'KC_D'],[0x08,'KC_E'],
+    [0x09,'KC_F'],[0x0a,'KC_G'],[0x0b,'KC_H'],[0x0c,'KC_I'],[0x0d,'KC_J'],[0x0e,'KC_K'],[0x0f,'KC_L'],
+    [0x10,'KC_M'],[0x11,'KC_N'],[0x12,'KC_O'],[0x13,'KC_P'],[0x14,'KC_Q'],[0x15,'KC_R'],[0x16,'KC_S'],
+    [0x17,'KC_T'],[0x18,'KC_U'],[0x19,'KC_V'],[0x1a,'KC_W'],[0x1b,'KC_X'],[0x1c,'KC_Y'],[0x1d,'KC_Z'],
+    [0x1e,'KC_1'],[0x1f,'KC_2'],[0x20,'KC_3'],[0x21,'KC_4'],[0x22,'KC_5'],[0x23,'KC_6'],[0x24,'KC_7'],
+    [0x25,'KC_8'],[0x26,'KC_9'],[0x27,'KC_0'],[0x28,'KC_ENT'],[0x29,'KC_ESC'],[0x2a,'KC_BSPC'],[0x2b,'KC_TAB'],
+    [0x2c,'KC_SPC'],[0x2d,'KC_MINS'],[0x2e,'KC_EQL'],[0x2f,'KC_LBRC'],[0x30,'KC_RBRC'],[0x31,'KC_BSLS'],
+    [0x32,'KC_NUHS'],[0x33,'KC_SCLN'],[0x34,'KC_QUOT'],[0x35,'KC_GRV'],[0x36,'KC_COMM'],[0x37,'KC_DOT'],
+    [0x38,'KC_SLSH'],[0x39,'KC_CAPS'],[0x3a,'KC_F1'],[0x3b,'KC_F2'],[0x3c,'KC_F3'],[0x3d,'KC_F4'],[0x3e,'KC_F5'],
+    [0x3f,'KC_F6'],[0x40,'KC_F7'],[0x41,'KC_F8'],[0x42,'KC_F9'],[0x43,'KC_F10'],[0x44,'KC_F11'],[0x45,'KC_F12'],
+    [0x46,'KC_PSCR'],[0x47,'KC_SLCK'],[0x48,'KC_PAUS'],[0x49,'KC_INS'],[0x4a,'KC_HOME'],[0x4b,'KC_PGUP'],
+    [0x4c,'KC_DEL'],[0x4d,'KC_END'],[0x4e,'KC_PGDN'],[0x4f,'KC_RGHT'],[0x50,'KC_LEFT'],[0x51,'KC_DOWN'],
+    [0x52,'KC_UP'],[0x53,'KC_NLCK'],[0x54,'KC_PSLS'],[0x55,'KC_PAST'],[0x56,'KC_PMNS'],[0x57,'KC_PPLS'],
+    [0x58,'KC_PENT'],[0x59,'KC_P1'],[0x5a,'KC_P2'],[0x5b,'KC_P3'],[0x5c,'KC_P4'],[0x5d,'KC_P5'],[0x5e,'KC_P6'],
+    [0x5f,'KC_P7'],[0x60,'KC_P8'],[0x61,'KC_P9'],[0x62,'KC_P0'],[0x63,'KC_PDOT'],[0x64,'KC_NUBS'],[0x65,'KC_APP'],
+    [0x66,'KC_POWER'],[0x67,'KC_PEQL'],[0x68,'KC_F13'],[0x69,'KC_F14'],[0x6a,'KC_F15'],[0x6b,'KC_F16'],
+    [0x6c,'KC_F17'],[0x6d,'KC_F18'],[0x6e,'KC_F19'],[0x6f,'KC_F20'],[0x70,'KC_F21'],[0x71,'KC_F22'],
+    [0x72,'KC_F23'],[0x73,'KC_F24'],[0x74,'KC_EXECUTE'],[0x75,'KC_HELP'],[0x76,'KC_MENU'],[0x77,'KC_SELECT'],
+    [0x78,'KC_STOP'],[0x79,'KC_AGAIN'],[0x7a,'KC_UNDO'],[0x7b,'KC_CUT'],[0x7c,'KC_COPY'],[0x7d,'KC_PASTE'],
+    [0x7e,'KC_FIND'],[0x82,'KC_LCAP'],[0x83,'KC_LNUM'],[0x84,'KC_LSCR'],[0x85,'KC_PCMM'],
+    [0x86,'KC_KP_EQUAL_AS400'],[0x87,'KC_RO'],[0x88,'KC_KANA'],[0x89,'KC_JYEN'],[0x8a,'KC_HENK'],[0x8b,'KC_MHEN'],
+    [0x8c,'KC_INT6'],[0x8d,'KC_INT7'],[0x8e,'KC_INT8'],[0x8f,'KC_INT9'],[0x90,'KC_HAEN'],[0x91,'KC_HANJ'],
+    [0x92,'KC_LANG3'],[0x93,'KC_LANG4'],[0x94,'KC_LANG5'],[0x95,'KC_LANG6'],[0x96,'KC_LANG7'],[0x97,'KC_LANG8'],
+    [0x98,'KC_LANG9'],[0x99,'KC_ERAS'],[0x9a,'KC_SYSREQ'],[0x9b,'KC_CANCEL'],[0x9c,'KC_CLR'],[0x9d,'KC_PRIOR'],
+    [0xa0,'KC_OUT'],[0xa1,'KC_OPER'],[0xa2,'KC_CLEAR_AGAIN'],[0xa3,'KC_CRSEL'],[0xa4,'KC_EXSEL'],[0xa5,'KC_PWR'],
+    [0xa6,'KC_SLEP'],[0xa7,'KC_WAKE'],[0xa8,'KC_MUTE'],[0xa9,'KC_VOLU'],[0xaa,'KC_VOLD'],[0xab,'KC_MNXT'],
+    [0xac,'KC_MPRV'],[0xad,'KC_MSTP'],[0xae,'KC_MPLY'],[0xaf,'KC_MSEL'],[0xb0,'KC_EJCT'],[0xb1,'KC_MAIL'],
+    [0xb2,'KC_CALC'],[0xb3,'KC_MYCM'],[0xb4,'KC_WWW_SEARCH'],[0xb5,'KC_WWW_HOME'],[0xb6,'KC_WWW_BACK'],
+    [0xb7,'KC_WWW_FORWARD'],[0xb8,'KC_WWW_STOP'],[0xb9,'KC_WWW_REFRESH'],[0xba,'KC_WWW_FAVORITES'],
+    [0xbb,'KC_MFFD'],[0xbc,'KC_MRWD'],[0xbd,'KC_BRIU'],[0xbe,'KC_BRID'],[0xc1,'KC_MCTL'],[0xc2,'KC_LPAD'],
+    [0xcd,'KC_MS_UP'],[0xce,'KC_MS_DOWN'],[0xcf,'KC_MS_LEFT'],[0xd0,'KC_MS_RIGHT'],[0xd1,'KC_MS_BTN1'],
+    [0xd2,'KC_MS_BTN2'],[0xd3,'KC_MS_BTN3'],[0xd4,'KC_MS_BTN4'],[0xd5,'KC_MS_BTN5'],[0xd6,'KC_MS_BTN6'],
+    [0xd7,'KC_MS_BTN7'],[0xd8,'KC_MS_BTN8'],[0xd9,'KC_MS_WH_UP'],[0xda,'KC_MS_WH_DOWN'],[0xdb,'KC_MS_WH_LEFT'],
+    [0xdc,'KC_MS_WH_RIGHT'],[0xdd,'KC_MS_ACCEL0'],[0xde,'KC_MS_ACCEL1'],[0xdf,'KC_MS_ACCEL2'],[0xe0,'KC_LCTL'],
+    [0xe1,'KC_LSFT'],[0xe2,'KC_LALT'],[0xe3,'KC_LGUI'],[0xe4,'KC_RCTL'],[0xe5,'KC_RSFT'],[0xe6,'KC_RALT'],
+    [0xe7,'KC_RGUI'],
+  ];
+  const KC = Object.fromEntries(KC_NAMES.map(([c, n]) => [n, c]));
+  KC.KC_CLEAR = 0x9c;                                           // VIA's one alias
+  const KC_NAME = Object.fromEntries(KC_NAMES);
+  const RGB_KEYS = [['RGB_TOG', 0x7820, 'Lights on/off'], ['RGB_MOD', 0x7821, 'Next effect'], ['RGB_RMOD', 0x7822, 'Previous effect'],
+    ['RGB_HUI', 0x7823, 'Hue +'], ['RGB_HUD', 0x7824, 'Hue −'], ['RGB_SAI', 0x7825, 'Saturation +'], ['RGB_SAD', 0x7826, 'Saturation −'],
+    ['RGB_VAI', 0x7827, 'Brightness +'], ['RGB_VAD', 0x7828, 'Brightness −'], ['RGB_SPI', 0x7829, 'Speed +'], ['RGB_SPD', 0x782a, 'Speed −']];
+  RGB_KEYS.forEach(([n, c]) => { KC[n] = c; KC_NAME[c] = n; });
+  const LAYER_FNS = { TO: 0x5200, MO: 0x5220, DF: 0x5240, TG: 0x5260, OSL: 0x5280, TT: 0x52c0 };
+  const LAYER_LABEL = { MO: 'Hold for layer', TG: 'Toggle layer', TO: 'Switch to layer', OSL: 'One-shot layer', TT: 'Tap-toggle layer', DF: 'Default layer' };
+  const QK_LT = 0x4000, QK_MACRO = 0x7700;
+  // modifier wrappers as VIA names them (in VIA's order: when several names fit, the last one is used)
+  const MOD_NAMES = [['LCTL', 0x01], ['C', 0x01], ['LSFT', 0x02], ['S', 0x02], ['LALT', 0x04], ['A', 0x04], ['LGUI', 0x08], ['LCMD', 0x08],
+    ['LWIN', 0x08], ['G', 0x08], ['RCTL', 0x11], ['RSFT', 0x12], ['ALGR', 0x14], ['RALT', 0x14], ['RCMD', 0x18], ['RWIN', 0x18], ['RGUI', 0x18],
+    ['SCMD', 0x0a], ['SWIN', 0x0a], ['SGUI', 0x0a], ['LSG', 0x0a], ['LAG', 0x0c], ['RSG', 0x1a], ['RAG', 0x1c], ['LCA', 0x05], ['LSA', 0x06],
+    ['SAGR', 0x16], ['RSA', 0x16], ['RCS', 0x13], ['LCAG', 0x0d], ['MEH', 0x07], ['HYPR', 0x0f]];
+  const MOD_KEYS = ['KC_LCTL', 'KC_LSFT', 'KC_LALT', 'KC_LGUI', 'KC_RCTL', 'KC_RSFT', 'KC_RALT', 'KC_RGUI'];
+  const hex4 = c => '0x' + c.toString(16).padStart(4, '0');
+
+  function codeToVia(c) {                                       // number -> VIA keycode string
+    if (KC_NAME[c]) return KC_NAME[c];
+    if (c >= 0x0100 && c <= 0x1fff) {
+      const m = c >> 8, kc = KC_NAME[c & 0xff] || '0x' + (c & 0xff).toString(16);
+      const exact = MOD_NAMES.filter(([, v]) => v === m).pop();
+      if (exact) return `${exact[0]}(${kc})`;
+      const singles = m & 0x10 ? [['RCTL', 0x11], ['RSFT', 0x12], ['RALT', 0x14], ['RGUI', 0x18]] : [['C', 0x01], ['S', 0x02], ['A', 0x04], ['G', 0x08]];
+      const on = singles.filter(([, v]) => (v & m) === v).map(([n]) => n);
+      return on.join('(') + '(' + kc + ')'.repeat(on.length);
+    }
+    for (const [fn, base] of Object.entries(LAYER_FNS)) if (c >= base && c <= base + 0x1f) return `${fn}(${c - base})`;
+    if (c >= QK_LT && c <= 0x4fff) return `LT(${(c >> 8) & 0xf},${KC_NAME[c & 0xff] || 'KC_NO'})`;
+    if (c >= QK_MACRO && c <= 0x777f) return `MACRO(${c - QK_MACRO})`;
+    return '0x' + c.toString(16);
+  }
+  function viaToCode(s) {                                       // VIA keycode string -> number (or null)
+    s = String(s ?? '').trim();
+    if (s in KC) return KC[s];
+    if (/^0x[0-9a-f]+$/i.test(s)) return parseInt(s, 16);
+    const m = s.match(/^([A-Z_]+)\((.*)\)$/i);
+    if (!m) return null;
+    const [, fn, arg] = m;
+    const mod = MOD_NAMES.find(([n]) => n === fn);
+    if (mod) { const inner = viaToCode(arg); return inner == null ? null : (mod[1] << 8) | inner; }
+    if (fn in LAYER_FNS) return LAYER_FNS[fn] + (parseInt(arg, 10) & 0x1f);
+    if (fn === 'LT') { const [l, k] = arg.split(','); const kc = viaToCode(k); return kc == null ? null : QK_LT | ((parseInt(l, 10) & 0xf) << 8) | (kc & 0xff); }
+    if (fn === 'MACRO') return QK_MACRO + (parseInt(arg, 10) & 0x7f);
+    return null;
+  }
+
+  const KEY_LABELS = { KC_NO: 'None', KC_TRNS: 'Transparent', KC_ENT: 'Enter', KC_ESC: 'Esc', KC_BSPC: 'Backspace', KC_TAB: 'Tab', KC_SPC: 'Space',
+    KC_MINS: '-', KC_EQL: '=', KC_LBRC: '[', KC_RBRC: ']', KC_BSLS: '\\', KC_SCLN: ';', KC_QUOT: "'", KC_GRV: '`', KC_COMM: ',', KC_DOT: '.',
+    KC_SLSH: '/', KC_CAPS: 'Caps Lock', KC_PSCR: 'Print Screen', KC_SLCK: 'Scroll Lock', KC_PAUS: 'Pause', KC_INS: 'Insert', KC_HOME: 'Home',
+    KC_PGUP: 'Page Up', KC_DEL: 'Delete', KC_END: 'End', KC_PGDN: 'Page Down', KC_RGHT: '→', KC_LEFT: '←', KC_DOWN: '↓', KC_UP: '↑',
+    KC_APP: 'Menu', KC_MUTE: 'Mute', KC_VOLU: 'Volume +', KC_VOLD: 'Volume −', KC_MNXT: 'Next track', KC_MPRV: 'Previous track',
+    KC_MSTP: 'Stop', KC_MPLY: 'Play/Pause', KC_MFFD: 'Fast-forward', KC_MRWD: 'Rewind', KC_EJCT: 'Eject', KC_BRIU: 'Display +',
+    KC_BRID: 'Display −', KC_MCTL: 'Mission Control', KC_LPAD: 'Launchpad', KC_CALC: 'Calculator', KC_MAIL: 'Mail', KC_WWW_SEARCH: 'Search',
+    KC_WWW_HOME: 'Browser home', KC_WWW_BACK: 'Back', KC_WWW_FORWARD: 'Forward', KC_WWW_REFRESH: 'Refresh', KC_PWR: 'Power',
+    KC_SLEP: 'Sleep', KC_WAKE: 'Wake', KC_MS_UP: 'Mouse ↑', KC_MS_DOWN: 'Mouse ↓', KC_MS_LEFT: 'Mouse ←', KC_MS_RIGHT: 'Mouse →',
+    KC_MS_BTN1: 'Left click', KC_MS_BTN2: 'Right click', KC_MS_BTN3: 'Middle click', KC_MS_BTN4: 'Mouse back', KC_MS_BTN5: 'Mouse forward',
+    KC_MS_WH_UP: 'Scroll up', KC_MS_WH_DOWN: 'Scroll down', KC_MS_WH_LEFT: 'Scroll left', KC_MS_WH_RIGHT: 'Scroll right',
+    KC_LCTL: 'Control', KC_LSFT: 'Shift', KC_LALT: 'Option', KC_LGUI: 'Command', KC_RCTL: 'Right Control', KC_RSFT: 'Right Shift',
+    KC_RALT: 'Right Option', KC_RGUI: 'Right Command' };
+  const modSymbols = m => (m & 1 ? '⌃' : '') + (m & 4 ? '⌥' : '') + (m & 2 ? '⇧' : '') + (m & 8 ? '⌘' : '');
+  const keyLabel = name => KEY_LABELS[name] || name.replace(/^KC_P(\d)$/, 'Num $1').replace(/^KC_/, '');
+  function labelFor(c) {                                        // number -> what people see
+    if (c == null) return '…';
+    const rgb = RGB_KEYS.find(r => r[1] === c); if (rgb) return rgb[2];
+    if (KC_NAME[c]) return keyLabel(KC_NAME[c]);
+    if (c >= 0x0100 && c <= 0x1fff) return modSymbols(c >> 8) + labelFor(c & 0xff);
+    for (const [fn, base] of Object.entries(LAYER_FNS)) if (c >= base && c <= base + 0x1f) return `${LAYER_LABEL[fn]} ${c - base}`;
+    if (c >= QK_LT && c <= 0x4fff) return `Layer ${(c >> 8) & 0xf} / ${labelFor(c & 0xff)}`;
+    if (c >= QK_MACRO && c <= 0x777f) return `Macro ${c - QK_MACRO}`;
+    return hex4(c);
+  }
+
+  const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
+  const k = (...names) => names.map(n => KC[n]);
+  const PICKER = [
+    ['Letters', range(0x04, 0x1d)],
+    ['Numbers', range(0x1e, 0x27)],
+    ['Editing', k('KC_ENT', 'KC_ESC', 'KC_BSPC', 'KC_TAB', 'KC_SPC', 'KC_DEL', 'KC_LEFT', 'KC_RGHT', 'KC_UP', 'KC_DOWN', 'KC_HOME', 'KC_END',
+      'KC_PGUP', 'KC_PGDN', 'KC_INS', 'KC_CAPS', 'KC_MINS', 'KC_EQL', 'KC_LBRC', 'KC_RBRC', 'KC_BSLS', 'KC_SCLN', 'KC_QUOT', 'KC_GRV',
+      'KC_COMM', 'KC_DOT', 'KC_SLSH', 'KC_PSCR', 'KC_APP')],
+    ['F-keys', [...range(0x3a, 0x45), ...range(0x68, 0x73)]],
+    ['Media', k('KC_MUTE', 'KC_VOLD', 'KC_VOLU', 'KC_MPLY', 'KC_MPRV', 'KC_MNXT', 'KC_MSTP', 'KC_MRWD', 'KC_MFFD', 'KC_BRID', 'KC_BRIU',
+      'KC_MCTL', 'KC_LPAD', 'KC_CALC', 'KC_MAIL', 'KC_WWW_SEARCH', 'KC_WWW_BACK', 'KC_WWW_FORWARD', 'KC_WWW_REFRESH', 'KC_EJCT', 'KC_SLEP')],
+    ['Mouse', k('KC_MS_BTN1', 'KC_MS_BTN2', 'KC_MS_BTN3', 'KC_MS_BTN4', 'KC_MS_BTN5', 'KC_MS_WH_UP', 'KC_MS_WH_DOWN', 'KC_MS_WH_LEFT',
+      'KC_MS_WH_RIGHT', 'KC_MS_UP', 'KC_MS_DOWN', 'KC_MS_LEFT', 'KC_MS_RIGHT')],
+    ['Modifiers', k(...MOD_KEYS)],
+    ['Layers', []],                                             // filled per layer count once connected
+    ['Macros', []],
+    ['Lighting', RGB_KEYS.map(r => r[1])],
+    ['Special', k('KC_NO', 'KC_TRNS')],
+  ];
+
+  const edit = {
+    ready: false, layers: 0, keymap: [], enc: [],               // keymap[layer][row * 3 + col]; enc[layer] = [ccw, cw]
+    original: null, undo: [], layer: 0, ctrl: 'k1', tab: 'test', mods: 0, cat: 'Letters', query: '',
+    macroCount: 0, macroSize: 0, macros: [], draft: [], macroSel: 0, macroTimer: null, macroState: '',
+  };
+  const idxOf = i => i.pos[0] * 3 + i.pos[1];
+  const getCode = (layer, id) => byId[id].pos ? edit.keymap[layer]?.[idxOf(byId[id])] : edit.enc[layer]?.[id === 'cw' ? 1 : 0];
+  const clone = v => JSON.parse(JSON.stringify(v));
+
+  // ---- reading everything off the npad on connect ----
+  async function loadDeviceState() {
+    edit.ready = false;
+    const layers = (await hidQuery(0x11))[1];
+    edit.keymap = []; edit.enc = [];
+    for (let l = 0; l < layers; l++) {
+      const row = [];
+      for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) { const d = await hidQuery(0x04, l, r, c); row.push((d[4] << 8) | d[5]); }
+      edit.keymap.push(row);
+      const ccw = await hidQuery(0x14, l, 0, 0), cw = await hidQuery(0x14, l, 0, 1);
+      edit.enc.push([(ccw[4] << 8) | ccw[5], (cw[4] << 8) | cw[5]]);
+    }
+    edit.layers = layers;
+    edit.macroCount = (await hidQuery(0x0c))[1];
+    const sz = await hidQuery(0x0d); edit.macroSize = (sz[1] << 8) | sz[2];
+    const bytes = [];
+    for (let off = 0; edit.macroCount && off < edit.macroSize; off += 28) {
+      const n = Math.min(28, edit.macroSize - off);
+      const d = await hidQuery(0x0e, off >> 8, off & 0xff, n);
+      bytes.push(...d.slice(4, 4 + n));
+    }
+    edit.macros = parseMacroBytes(bytes, edit.macroCount);
+    edit.draft = clone(edit.macros);
+    edit.original = { keymap: clone(edit.keymap), enc: clone(edit.enc), macros: clone(edit.macros) };
+    edit.undo = []; edit.layer = Math.min(edit.layer, layers - 1);
+    PICKER.find(p => p[0] === 'Layers')[1] = Object.keys(LAYER_LABEL).flatMap(fn => range(0, layers - 1).map(n => LAYER_FNS[fn] + n));
+    PICKER.find(p => p[0] === 'Macros')[1] = range(0, edit.macroCount - 1).map(n => QK_MACRO + n);
+    edit.ready = true;
+  }
+  // the tester's key-event bindings follow the npad's base layer
+  function relearnMap() {
+    if (!edit.ready) return;
+    INPUTS.forEach(i => { const sig = qmkToSig(getCode(0, i.id)); if (sig) map[i.id] = sig; else delete map[i.id]; });
+    save();
+  }
+
+  // ---- writing: each change is an op that can be undone ----
+  async function writeOp(op, value) {
+    if (op.kind === 'mx') {
+      await hidQuery(0x05, op.layer, Math.floor(op.idx / 3), op.idx % 3, value >> 8, value & 0xff);
+      edit.keymap[op.layer][op.idx] = value;
+    } else if (op.kind === 'enc') {
+      await hidQuery(0x15, op.layer, 0, op.cw, value >> 8, value & 0xff);
+      edit.enc[op.layer][op.cw] = value;
+    } else if (op.kind === 'macros') {
+      await writeMacros(value);
+    }
+  }
+  let editQueue = Promise.resolve();
+  function runEdit(fn) {                                        // one change at a time; failures become a toast
+    editQueue = editQueue.then(fn).catch(err => toast(`Couldn't write to the npad: ${err?.message || err}`, 'warn', 7000));
+    return editQueue;
+  }
+  function opFor(layer, id, to) {
+    const i = byId[id], from = getCode(layer, id);
+    return i.pos ? { kind: 'mx', layer, idx: idxOf(i), from, to } : { kind: 'enc', layer, cw: id === 'cw' ? 1 : 0, from, to };
+  }
+  function afterEdit() { relearnMap(); renderEditor(); render(); }
+  function setCode(layer, id, code) {
+    return runEdit(async () => {
+      if (!hidDev || getCode(layer, id) === code) return;
+      const op = opFor(layer, id, code);
+      await writeOp(op, code);
+      edit.undo.push([op]);
+      afterEdit();
+    });
+  }
+  function undo() {
+    return runEdit(async () => {
+      const ops = edit.undo.pop();
+      if (!ops) return;
+      for (const op of ops.slice().reverse()) await writeOp(op, op.from);
+      if (ops.some(o => o.kind === 'macros')) edit.draft = clone(edit.macros);
+      afterEdit(); toast('Undone.');
+    });
+  }
+  function restoreOriginal() {
+    return runEdit(async () => {
+      const o = edit.original, ops = [];
+      o.keymap.forEach((layer, l) => layer.forEach((to, idx) => { const from = edit.keymap[l][idx]; if (from !== to) ops.push({ kind: 'mx', layer: l, idx, from, to }); }));
+      o.enc.forEach((pair, l) => pair.forEach((to, cw) => { const from = edit.enc[l][cw]; if (from !== to) ops.push({ kind: 'enc', layer: l, cw, from, to }); }));
+      if (JSON.stringify(o.macros) !== JSON.stringify(edit.macros)) ops.push({ kind: 'macros', from: clone(edit.macros), to: clone(o.macros) });
+      if (!ops.length) { toast('Nothing to restore: the npad is as it was when you connected.'); return; }
+      for (const op of ops) await writeOp(op, op.to);
+      edit.draft = clone(edit.macros);
+      edit.undo.push(ops); afterEdit(); toast('Restored the layout from when you connected.');
+    });
+  }
+
+  // ---- macros: QMK dynamic macro buffer (VIA protocol 11+) ----
+  // In the buffer, macros are NUL-terminated; plain bytes are typed as text, and 0x01 starts an action:
+  // 01 01 kc = tap, 01 02 kc = press, 01 03 kc = release, 01 04 <digits> '|' = wait in ms.
+  // In the editor a macro is a list of steps: text, key (a tap, with optional modifiers held), hold,
+  // release, wait.
+  function parseMacroBytes(bytes, count) {
+    const out = []; let cur = [], i = 0;
+    while (i < bytes.length && out.length < count) {
+      const b = bytes[i];
+      if (b === 0) { out.push(foldChords(cur)); cur = []; }
+      else if (b === 1) {
+        const a = bytes[++i];
+        if (a >= 1 && a <= 3) cur.push({ t: ['', 'tap', 'down', 'up'][a], key: KC_NAME[bytes[++i]] || 'KC_NO' });
+        else if (a === 4) { let s = ''; while (++i < bytes.length && bytes[i] !== 124) s += String.fromCharCode(bytes[i]); cur.push({ t: 'wait', ms: parseInt(s, 10) || 0 }); }
+      } else {
+        const ch = String.fromCharCode(b), last = cur[cur.length - 1];
+        if (last && last.t === 'text') last.v += ch; else cur.push({ t: 'text', v: ch });
+      }
+      i++;
+    }
+    while (out.length < count) out.push([]);
+    return out;
+  }
+  function foldChords(seq) {                                    // press mods, tap a key, release mods -> one key step
+    const out = [];
+    for (let i = 0; i < seq.length; i++) {
+      const s = seq[i];
+      if (s.t === 'tap') { out.push({ t: 'key', key: s.key, mods: [] }); continue; }
+      if (s.t === 'down' && MOD_KEYS.includes(s.key)) {
+        let j = i; const mods = [];
+        while (seq[j]?.t === 'down' && MOD_KEYS.includes(seq[j].key)) mods.push(seq[j++].key);
+        let key = null;
+        if (seq[j]?.t === 'tap') { key = seq[j].key; j++; }
+        else if (seq[j]?.t === 'down' && seq[j + 1]?.t === 'up' && seq[j + 1].key === seq[j].key) { key = seq[j].key; j += 2; }
+        const ups = mods.slice().reverse();
+        if (key && ups.every((m, x) => seq[j + x]?.t === 'up' && seq[j + x].key === m)) { out.push({ t: 'key', key, mods }); i = j + ups.length - 1; continue; }
+      }
+      out.push({ ...s });
+    }
+    return out;
+  }
+  function macroToBytes(steps) {
+    const b = [], act = (a, name) => b.push(1, a, KC[name] ?? 0);
+    for (const s of steps) {
+      if (s.t === 'text') { for (const ch of s.v) { const c = ch.charCodeAt(0); if ((c >= 32 && c < 127) || c === 10 || c === 9) b.push(c); } }
+      else if (s.t === 'key') { s.mods.forEach(m => act(2, m)); act(1, s.key); s.mods.slice().reverse().forEach(m => act(3, m)); }
+      else if (s.t === 'down') act(2, s.key);
+      else if (s.t === 'up') act(3, s.key);
+      else if (s.t === 'wait') b.push(1, 4, ...String(Math.max(0, Math.min(9999, s.ms | 0))).split('').map(c => c.charCodeAt(0)), 124);
+    }
+    b.push(0);
+    return b;
+  }
+  const macroBytesUsed = macros => macros.reduce((n, m) => n + macroToBytes(m).length, 0);
+  async function writeMacros(macros) {
+    const bytes = macros.flatMap(macroToBytes);
+    if (bytes.length > edit.macroSize) throw new Error(`the macros need ${bytes.length} bytes and the npad has room for ${edit.macroSize}`);
+    const last = edit.macroSize - 1;
+    await hidQuery(0x10);                                       // clear, then mark "write in progress" like VIA does
+    await hidQuery(0x0f, last >> 8, last & 0xff, 1, 0xff);
+    try {
+      for (let off = 0; off < bytes.length; off += 28) {
+        const chunk = bytes.slice(off, off + 28);
+        await hidQuery(0x0f, off >> 8, off & 0xff, chunk.length, ...chunk);
+      }
+    } finally {
+      await hidQuery(0x0f, last >> 8, last & 0xff, 1, 0x00);
+    }
+    edit.macros = clone(macros);
+  }
+  // VIA's text form, used in layout files: text, {KC_A}, {KC_LGUI,KC_S}, {+KC_X}, {-KC_X}, {100}
+  function macroToExpression(steps) {
+    return steps.map(s => s.t === 'text' ? s.v.replace(/{/g, '\\{') : s.t === 'key' ? `{${[...s.mods, s.key].join(',')}}`
+      : s.t === 'down' ? `{+${s.key}}` : s.t === 'up' ? `{-${s.key}}` : `{${s.ms}}`).join('');
+  }
+  function expressionToMacro(str) {
+    const out = [];
+    for (const p of String(str || '').split(/(?<!\\)({.*?})/g).filter(Boolean)) {
+      if (/^{.*}$/.test(p)) {
+        const inner = p.slice(1, -1).replace(/\s+/g, '');
+        if (/^\d+$/.test(inner)) out.push({ t: 'wait', ms: +inner });
+        else if (/^[+-]/.test(inner)) out.push({ t: inner[0] === '+' ? 'down' : 'up', key: inner.slice(1).toUpperCase() });
+        else {
+          const keys = inner.split(',').filter(Boolean).map(x => x.toUpperCase()), key = keys.pop();
+          if (!key) continue;
+          if (keys.every(x => MOD_KEYS.includes(x))) out.push({ t: 'key', key, mods: keys });
+          else { [...keys, key].forEach(x => out.push({ t: 'down', key: x })); [...keys, key].reverse().forEach(x => out.push({ t: 'up', key: x })); }
+        }
+      } else out.push({ t: 'text', v: p.replace(/\\{/g, '{') });
+    }
+    return out;
+  }
+  // edits to the draft are written to the npad after a short pause (each save is one undo step)
+  function macroChanged() {
+    edit.macroState = 'Saving…'; renderMacroMeta();
+    clearTimeout(edit.macroTimer);
+    edit.macroTimer = setTimeout(() => runEdit(async () => {
+      if (JSON.stringify(edit.draft) === JSON.stringify(edit.macros)) { edit.macroState = 'Saved to npad'; renderMacroMeta(); return; }
+      if (macroBytesUsed(edit.draft) > edit.macroSize) { edit.macroState = 'Too long to save'; renderMacroMeta(); return; }
+      const op = { kind: 'macros', from: clone(edit.macros), to: clone(edit.draft) };
+      await writeMacros(op.to);
+      edit.undo.push([op]);
+      edit.macroState = 'Saved to npad'; renderMacroMeta(); renderKeymap();
+    }), 700);
+  }
+
+  // ---- VIA layout files ----
+  const vendorProductId = () => hidDev.vendorId * 65536 + hidDev.productId;
+  function saveLayoutFile() {
+    if (!edit.ready) return;
+    const file = {
+      name: hidDev.productName || 'npad',
+      vendorProductId: vendorProductId(),
+      macros: edit.macros.map(macroToExpression),
+      layers: edit.keymap.map(l => l.map(codeToVia)),
+      encoders: [edit.enc.map(([ccw, cw]) => [codeToVia(ccw), codeToVia(cw)])],
+    };
+    const blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${file.name.replace(/[^a-z0-9]+/gi, '_').toLowerCase()}.layout.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    toast('Layout saved.');
+  }
+  function loadLayoutFile(file) {
+    return runEdit(async () => {
+      let data;
+      try { data = JSON.parse(await file.text()); } catch { toast("That file couldn't be read as a layout.", 'warn'); return; }
+      if (!data || !Array.isArray(data.layers) || !data.vendorProductId) { toast("That file isn't a VIA layout.", 'warn'); return; }
+      if (data.vendorProductId !== vendorProductId()) { toast(`That layout is for a different keyboard${data.name ? ` (${data.name})` : ''}.`, 'warn'); return; }
+      if (data.layers.length > edit.layers || data.layers.some(l => !Array.isArray(l) || l.length !== 9)) { toast("That layout doesn't match the npad's keys.", 'warn'); return; }
+      const ops = [];
+      data.layers.forEach((layer, l) => layer.forEach((name, idx) => {
+        const to = viaToCode(name), from = edit.keymap[l][idx];
+        if (to != null && to !== from) ops.push({ kind: 'mx', layer: l, idx, from, to });
+      }));
+      (data.encoders?.[0] || []).forEach((pair, l) => l < edit.layers && pair.forEach((name, cw) => {
+        const to = viaToCode(name), from = edit.enc[l][cw];
+        if (to != null && to !== from) ops.push({ kind: 'enc', layer: l, cw, from, to });
+      }));
+      if (Array.isArray(data.macros) && edit.macroCount) {
+        const next = Array.from({ length: edit.macroCount }, (_, i) => expressionToMacro(data.macros[i]));
+        if (JSON.stringify(next) !== JSON.stringify(edit.macros)) ops.push({ kind: 'macros', from: clone(edit.macros), to: next });
+      }
+      if (!ops.length) { toast('That layout is already on the npad.'); return; }
+      for (const op of ops) await writeOp(op, op.to);
+      edit.draft = clone(edit.macros);
+      edit.undo.push(ops); afterEdit();
+      toast(`Loaded ${data.name || 'the layout'} onto the npad.`);
+    });
+  }
+
+  // ---- editor UI ----
+  function setTab(tab) {
+    edit.tab = tab;
+    document.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
+    document.querySelectorAll('[data-panel]').forEach(p => { p.hidden = p.dataset.panel !== tab; });
+    renderEditor(); render();
+  }
+  function renderEditor() { renderKeymap(); renderMacros(); }
+
+  function renderKeymap() {
+    if (!edit.ready) return;
+    $('#layer-seg').innerHTML = range(0, edit.layers - 1).map(l =>
+      `<button type="button" data-layer="${l}" aria-pressed="${l === edit.layer}">${l}</button>`).join('');
+    $('#km-list').innerHTML = INPUTS.map(i => {
+      const c = getCode(edit.layer, i.id);
+      return `<button type="button" class="km-row" data-input="${i.id}" aria-pressed="${i.id === edit.ctrl}">
+        <span class="name">${esc(i.name)}</span><span class="code">${esc(labelFor(c))}</span></button>`;
+    }).join('');
+    const cur = getCode(edit.layer, edit.ctrl);
+    $('#pick-title').textContent = byId[edit.ctrl].name;
+    $('#pick-current').textContent = edit.layer ? `Layer ${edit.layer}: ${labelFor(cur)}` : labelFor(cur);
+    $('#pick-cats').innerHTML = PICKER.filter(([, codes]) => codes.length).map(([name]) =>
+      `<button type="button" data-cat="${name}" aria-pressed="${!edit.query && name === edit.cat}">${name}</button>`).join('');
+    $('#pick-mods').querySelectorAll('[data-mod]').forEach(b => b.setAttribute('aria-pressed', String(!!(edit.mods & +b.dataset.mod))));
+    const q = edit.query.trim().toLowerCase();
+    const codes = q ? [...new Set(PICKER.flatMap(([, cs]) => cs))].filter(c => labelFor(c).toLowerCase().includes(q) || codeToVia(c).toLowerCase().includes(q))
+      : (PICKER.find(([n]) => n === edit.cat)?.[1] || []);
+    const withMods = c => edit.mods && c <= 0xff && c > 0x03 && !(c >= 0xe0 && c <= 0xe7) ? (edit.mods << 8) | c : c;
+    $('#pick-keys').innerHTML = codes.length ? codes.map(c => {
+      const code = withMods(c), macro = c >= QK_MACRO && c <= 0x777f ? macroPreview(c - QK_MACRO) : '';
+      return `<button type="button" class="key" data-code="${code}" aria-pressed="${code === cur}" title="${esc(codeToVia(code))}">${esc(labelFor(code))}${macro ? `<small>${esc(macro)}</small>` : ''}</button>`;
+    }).join('') : '<p class="muted">No keys match.</p>';
+    $('#btn-undo').disabled = !edit.undo.length;
+  }
+  function macroPreview(n) {
+    const steps = edit.macros[n] || [];
+    if (!steps.length) return 'empty';
+    return macroToExpression(steps).replace(/\{KC_/g, '{').slice(0, 18);
+  }
+
+  // macro editor
+  const STEP_TYPES = [['text', 'Type text'], ['key', 'Press a key'], ['down', 'Hold'], ['up', 'Release'], ['wait', 'Wait']];
+  const keyOptions = selected => PICKER.filter(([n]) => !['Layers', 'Macros', 'Lighting', 'Special'].includes(n)).map(([n, cs]) =>
+    `<optgroup label="${n}">${cs.filter(c => c <= 0xff).map(c => `<option value="${KC_NAME[c]}"${KC_NAME[c] === selected ? ' selected' : ''}>${esc(labelFor(c))}</option>`).join('')}</optgroup>`).join('');
+  function renderMacros() {
+    if (!edit.ready) return;
+    if (!edit.macroCount) { $('#macro-list').innerHTML = '<p class="muted">This firmware has macros turned off.</p>'; return; }
+    $('#macro-list').innerHTML = range(0, edit.macroCount - 1).map(n =>
+      `<button type="button" data-macro="${n}" aria-pressed="${n === edit.macroSel}" class="${edit.draft[n]?.length ? 'used' : ''}">M${n}</button>`).join('');
+    $('#macro-title').textContent = `Macro ${edit.macroSel}`;
+    const steps = edit.draft[edit.macroSel] || [];
+    $('#macro-steps').innerHTML = steps.length ? steps.map((s, i) => {
+      let body = '';
+      if (s.t === 'text') body = `<input type="text" data-field="v" value="${esc(s.v)}" placeholder="Text to type" aria-label="Text to type">`;
+      else if (s.t === 'wait') body = `<input type="number" min="0" max="9999" step="10" data-field="ms" value="${s.ms}" aria-label="Milliseconds"><span class="unit">ms</span>`;
+      else body = (s.t === 'key' ? `<span class="mods">${[['KC_LCTL', '⌃'], ['KC_LALT', '⌥'], ['KC_LSFT', '⇧'], ['KC_LGUI', '⌘']].map(([m, sym]) =>
+          `<button type="button" data-step-mod="${m}" aria-pressed="${s.mods.includes(m)}" title="${KEY_LABELS[m]}">${sym}</button>`).join('')}</span>` : '')
+        + `<select data-field="key" aria-label="Key">${keyOptions(s.key)}</select>`;
+      return `<div class="step" data-step="${i}"><span class="step-type">${STEP_TYPES.find(t => t[0] === s.t)[1]}</span>
+        <div class="step-body">${body}</div><button type="button" class="step-del" data-del="${i}" aria-label="Remove step">×</button></div>`;
+    }).join('') : '<p class="muted">This macro is empty. Add a step below, then assign it to a key from the Macros group in the Keymap tab.</p>';
+    renderMacroMeta();
+  }
+  function renderMacroMeta() {
+    const used = macroBytesUsed(edit.draft);
+    $('#macro-meter').textContent = `${used} / ${edit.macroSize} bytes`;
+    $('#macro-meter').classList.toggle('over', used > edit.macroSize);
+    $('#macro-state').textContent = edit.macroState;
+  }
+
+  // events
+  $('#tabs').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b) setTab(b.dataset.tab); });
+  $('#layer-seg').addEventListener('click', e => { const b = e.target.closest('[data-layer]'); if (b) { edit.layer = +b.dataset.layer; renderKeymap(); } });
+  $('#pick-cats').addEventListener('click', e => { const b = e.target.closest('[data-cat]'); if (b) { edit.cat = b.dataset.cat; edit.query = ''; $('#pick-search').value = ''; renderKeymap(); } });
+  $('#pick-search').addEventListener('input', e => { edit.query = e.target.value; renderKeymap(); });
+  $('#pick-mods').addEventListener('click', e => { const b = e.target.closest('[data-mod]'); if (b) { edit.mods ^= +b.dataset.mod; renderKeymap(); } });
+  $('#pick-keys').addEventListener('click', e => {
+    const b = e.target.closest('[data-code]'); if (!b) return;
+    setCode(edit.layer, edit.ctrl, +b.dataset.code).then(() => { if (edit.mods) { edit.mods = 0; renderKeymap(); } });
+  });
+  $('#btn-undo').addEventListener('click', undo);
+  $('#btn-restore').addEventListener('click', restoreOriginal);
+  $('#btn-save-layout').addEventListener('click', saveLayoutFile);
+  $('#btn-load-layout').addEventListener('click', () => $('#layout-file').click());
+  $('#layout-file').addEventListener('change', e => { const f = e.target.files?.[0]; if (f) loadLayoutFile(f); e.target.value = ''; });
+  $('#macro-list').addEventListener('click', e => { const b = e.target.closest('[data-macro]'); if (b) { edit.macroSel = +b.dataset.macro; renderMacros(); } });
+  $('#macro-add').addEventListener('click', e => {
+    const b = e.target.closest('[data-add]'); if (!b) return;
+    const t = b.dataset.add, step = t === 'text' ? { t, v: '' } : t === 'wait' ? { t, ms: 100 } : t === 'key' ? { t, key: 'KC_A', mods: [] } : { t, key: 'KC_LSFT' };
+    edit.draft[edit.macroSel].push(step); renderMacros(); macroChanged();
+    if (t === 'text') $(`#macro-steps [data-step="${edit.draft[edit.macroSel].length - 1}"] input`)?.focus();
+  });
+  const stepAt = el => edit.draft[edit.macroSel][+el.closest('[data-step]').dataset.step];
+  $('#macro-steps').addEventListener('input', e => {
+    const f = e.target.dataset.field; if (!f) return;
+    const s = stepAt(e.target); s[f] = f === 'ms' ? Math.max(0, Math.min(9999, parseInt(e.target.value, 10) || 0)) : e.target.value;
+    renderMacroMeta(); macroChanged();
+  });
+  $('#macro-steps').addEventListener('click', e => {
+    const del = e.target.closest('[data-del]');
+    if (del) { edit.draft[edit.macroSel].splice(+del.dataset.del, 1); renderMacros(); macroChanged(); return; }
+    const mod = e.target.closest('[data-step-mod]');
+    if (mod) { const s = stepAt(mod), m = mod.dataset.stepMod; s.mods = s.mods.includes(m) ? s.mods.filter(x => x !== m) : [...s.mods, m]; renderMacros(); macroChanged(); }
+  });
+  $('#macro-clear').addEventListener('click', () => { edit.draft[edit.macroSel] = []; renderMacros(); macroChanged(); });
 
   render();
   autoConnect();                                  // an npad connected on an earlier visit reconnects by itself
