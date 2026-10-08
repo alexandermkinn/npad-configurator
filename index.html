@@ -984,7 +984,7 @@ window.initDevice3D = function (host, { pick, icons }) {
       k.ledLight.color.setRGB(r, g, b);
       k.ledLight.intensity = 8 * lit;
     });
-    knobShown += (knobAngle - knobShown) * 0.25;
+    knobShown += (knobAngle - knobShown) * Math.min(1, dt * 22);   // catches up within ~0.1 s, even on fast spins
     spinner.rotation.y = -knobShown;
     knobT += ((knobDown ? 1 : 0) - knobT) * 0.45;
     const knobHoverTo = (!drag && hover.id === 'press') || ['cw', 'ccw', 'press'].includes(hover.panel) ? 1 : 0;
@@ -1205,16 +1205,20 @@ window.initDevice3D = function (host, { pick, icons }) {
   }
 
   // ---- activation visuals ----
+  // turn the knob by a number of detents in one go (a fast spin can deliver several at once)
+  function turnKnob(id, steps = 1) {
+    if (hidDev && !panelsOpen()) setPanels(true);
+    const dir = id === 'cw' ? 1 : -1;
+    knobAngle += dir * 24 * steps;
+    $('#knob-face').style.transform = `rotate(${knobAngle}deg)`;
+    const t = $(id === 'cw' ? '#turn-cw' : '#turn-ccw');
+    t.classList.add('flash'); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('flash'), 60);
+    dev3d?.turn(dir * steps);
+    if (!tested.has(id)) { tested.add(id); render(); }    // re-render only when something changes
+  }
   function activate(id, down) {
     if (hidDev && !panelsOpen()) setPanels(true); // input from the connected npad: show the results
-    if (id === 'cw' || id === 'ccw') {
-      knobAngle += id === 'cw' ? 24 : -24;
-      $('#knob-face').style.transform = `rotate(${knobAngle}deg)`;
-      const t = $(id === 'cw' ? '#turn-cw' : '#turn-ccw');
-      t.classList.add('flash'); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('flash'), 60);
-      dev3d?.turn(id === 'cw' ? 1 : -1);
-      tested.add(id); render(); return;
-    }
+    if (id === 'cw' || id === 'ccw') { turnKnob(id); return; }
     dev3d?.press(id, down);
     const el = id === 'press' ? $('#knob') : document.querySelector(`[data-cell="${id}"]`);
     el.classList.toggle('down', down);
@@ -1276,17 +1280,21 @@ window.initDevice3D = function (host, { pick, icons }) {
     log('up', e.key, e.code, id ? byId[id].name : '');
   });
 
-  let lastWheel = 0;
+  // A knob that scrolls sends one wheel step per detent, but when it's spun fast macOS merges
+  // several steps into one event with a bigger delta (and accelerates them). So count detents from
+  // the delta, using the smallest step seen so far as one detent, rather than one per event.
+  let wheelUnit = Infinity;
   window.addEventListener('wheel', e => {
     if (!e.deltaY) return;
-    const now = performance.now();
-    if (now - lastWheel < 45) return;  // one event per detent
-    lastWheel = now;
+    const d = Math.abs(e.deltaY) * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1); // lines/pages to px
+    wheelUnit = Math.min(wheelUnit, d);
+    const steps = Math.max(1, Math.min(12, Math.round(d / wheelUnit)));
     const sig = e.deltaY < 0 ? 'wheel:up' : 'wheel:down';
     const id = mode === 'test' ? inputFor(sig) : null;
-    if (mode !== 'test' || id) handle(sig, null, true);
+    if (id) turnKnob(id, steps);
+    else if (mode !== 'test') handle(sig, null, true);
     if (id || mode !== 'test') e.preventDefault();
-    if (id || mode !== 'test') log('scroll', sig === 'wheel:up' ? 'up' : 'down', `deltaY ${Math.round(e.deltaY)}`, id ? byId[id].name : '');
+    if (id || mode !== 'test') log('scroll', `${sig === 'wheel:up' ? 'up' : 'down'}${steps > 1 ? ` ×${steps}` : ''}`, `deltaY ${Math.round(e.deltaY)}`, id ? byId[id].name : '');
   }, { passive: false });
 
   window.addEventListener('blur', () => {
@@ -1380,6 +1388,8 @@ window.initDevice3D = function (host, { pick, icons }) {
       0x2f: 'BracketLeft', 0x30: 'BracketRight', 0x31: 'Backslash', 0x33: 'Semicolon', 0x34: 'Quote', 0x35: 'Backquote',
       0x36: 'Comma', 0x37: 'Period', 0x38: 'Slash', 0x4f: 'ArrowRight', 0x50: 'ArrowLeft', 0x51: 'ArrowDown', 0x52: 'ArrowUp',
       0xa8: 'AudioVolumeMute', 0xa9: 'AudioVolumeUp', 0xaa: 'AudioVolumeDown' })[base];
+    if (kc === 0xd9) return 'wheel:up';               // KC_MS_WH_UP: a knob set to scroll
+    if (kc === 0xda) return 'wheel:down';             // KC_MS_WH_DOWN
     if (!code || (mods && base >= 0xa8)) return null;
     const m = [];
     if (mods & 0x01) m.push('Ctrl'); if (mods & 0x04) m.push('Alt'); if (mods & 0x02) m.push('Shift'); if (mods & 0x08) m.push('Meta');
