@@ -217,7 +217,6 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .log td.m { color: var(--accent); }
 .log td.u { color: var(--warn); }
 .log .empty td { color: var(--muted); font-family: var(--font-body); padding-block: 12px; white-space: normal; }
-.foot { color: var(--muted); font-size: 12px; margin: 0; padding: 8px 14px; text-wrap: pretty; }
 [hidden] { display: none !important; }
 </style>
 </head>
@@ -275,10 +274,6 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
         <thead><tr><th>Time</th><th>Event</th><th>key</th><th>code</th><th>Control</th></tr></thead>
         <tbody id="log"><tr class="empty"><td colspan="5">Waiting for input. Every key event shows up here, including ones not assigned to a control.</td></tr></tbody>
       </table></div>
-    </section>
-
-    <section class="panel" aria-label="Notes">
-      <p class="foot">Keys register only while this tab has focus. macOS often swallows the knob's volume and mute keys; a direct connection still catches the knob press.</p>
     </section>
    </div>
   </aside>
