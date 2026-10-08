@@ -97,7 +97,7 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
   border-radius: 12px; padding: 10px 14px; display: flex; gap: 12px; align-items: center; justify-content: space-between;
   flex-wrap: wrap; background: var(--panel); border: 1px solid var(--line);
 }
-.status[data-kind="learn"] { border-color: var(--accent); }
+.status[data-kind="prompt"] { border-color: var(--accent); }
 .status[data-kind="warn"] { background: var(--warn-soft); border-color: transparent; color: var(--warn); }
 .status[data-kind="done"] { background: var(--ok-soft); border-color: transparent; color: var(--ok); }
 .status p { margin: 0; min-width: 0; }
@@ -260,7 +260,6 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
       <div class="panel-head"><h2 id="h-controls">Controls</h2><span class="count" id="count">0 / 9 working</span></div>
       <div class="strip" id="rows"></div>
       <div class="panel-foot">
-        <button id="btn-learn" type="button">Set up keys</button>
         <button id="btn-reset" type="button">Clear results</button>
       </div>
     </section>
@@ -1065,8 +1064,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   let map = { ...DEFAULT_MAP };  // inputId -> signature
   try { const saved = JSON.parse(localStorage.getItem(STORE) || 'null'); if (saved) map = saved; } catch {}
   const tested = new Set();
-  let mode = 'test';       // 'test' | 'learn' | 'assign'
-  let learnIdx = 0;
+  let mode = 'test';       // 'test' | 'assign' (waiting for a press to bind to assignId)
   let assignId = null;
   let pendingSig = null;   // last unassigned signature, so a click can assign it
   let ignoreUntil = 0;     // swallow the rest of a multi-key macro burst after capturing
@@ -1125,7 +1123,7 @@ window.initDevice3D = function (host, { pick, icons }) {
       pill.textContent = ok ? 'Works' : 'Not tested'; pill.classList.toggle('ok', ok);
       pill.parentElement.classList.toggle('ok', ok);
     });
-    const target = mode === 'learn' ? INPUTS[learnIdx]?.id : mode === 'assign' ? assignId : null;
+    const target = mode === 'assign' ? assignId : null;
     document.querySelectorAll('.cell').forEach(c => c.classList.toggle('target', c.dataset.cell === target));
     $('#knob').classList.toggle('target', ['cw', 'ccw', 'press'].includes(target));
     document.querySelectorAll('.chip').forEach(r => r.classList.toggle('active', r.dataset.input === target));
@@ -1153,7 +1151,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   const panelsOpen = () => !document.querySelector('.app').classList.contains('collapsed');
 
   function setStatus(kind, html, actions = []) {
-    if ((kind === 'learn' || kind === 'warn') && hidDev) setPanels(true);
+    if ((kind === 'prompt' || kind === 'warn') && hidDev) setPanels(true);
     const s = $('#status'); s.dataset.kind = kind;
     s.hidden = !html;                             // the status panel only appears for prompts
     $('#status-text').innerHTML = html;
@@ -1165,12 +1163,8 @@ window.initDevice3D = function (host, { pick, icons }) {
     });
   }
   function renderStatus(target) {
-    if (mode === 'learn') {
-      const i = INPUTS[learnIdx];
-      setStatus('learn', `Setup ${learnIdx + 1} of ${INPUTS.length}: <b>${verb(i)}</b> on your npad.`,
-        [['Skip', () => { learnIdx++; afterLearnStep(); }], ['Finish setup', endLearn]]);
-    } else if (mode === 'assign') {
-      setStatus('learn', `<b>${verb(byId[assignId])}</b> on your npad to assign it.`, [['Cancel', () => { mode = 'test'; assignId = null; render(); }]]);
+    if (mode === 'assign') {
+      setStatus('prompt', `<b>${verb(byId[assignId])}</b> on your npad to assign it.`, [['Cancel', () => { mode = 'test'; assignId = null; render(); }]]);
     } else if (pendingSig) {
       setStatus('warn', `<b>${esc(pretty(pendingSig))}</b> isn't assigned to a control. Click the key or control it belongs to.`, [['Ignore', () => { pendingSig = null; render(); }]]);
     } else {
@@ -1180,27 +1174,14 @@ window.initDevice3D = function (host, { pick, icons }) {
   const verb = i => i.id === 'cw' ? 'Turn the knob one click right' : i.id === 'ccw' ? 'Turn the knob one click left' : i.id === 'press' ? 'Press the knob' : `Press the ${i.name}`;
   const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-  // ---- learn / assign ----
-  function startLearn() { mode = 'learn'; learnIdx = 0; pendingSig = null; render(); }
-  function endLearn() { mode = 'test'; render(); }
-  function afterLearnStep() { if (learnIdx >= INPUTS.length) endLearn(); else render(); }
+  // ---- assign: click a control, then press what it should be bound to ----
   function assign(id, sig) {
     const prev = inputFor(sig);
     if (prev && prev !== id) delete map[prev];
     map[id] = sig; save();
   }
   function capture(sig) {
-    if (mode === 'learn') {
-      const id = INPUTS[learnIdx].id;
-      const prev = inputFor(sig);
-      if (prev && prev !== id) {
-        setStatus('warn', `That's already the <b>${byId[prev].name}</b>. ${verb(byId[id])}.`, [['Skip', () => { learnIdx++; afterLearnStep(); }], ['Finish setup', endLearn]]);
-        return;
-      }
-      assign(id, sig); learnIdx++; afterLearnStep();
-    } else {
-      assign(assignId, sig); mode = 'test'; assignId = null; render();
-    }
+    assign(assignId, sig); mode = 'test'; assignId = null; render();
     ignoreUntil = performance.now() + 350;
   }
 
@@ -1310,7 +1291,6 @@ window.initDevice3D = function (host, { pick, icons }) {
     mode = 'assign'; assignId = id; render();
   }
 
-  $('#btn-learn').addEventListener('click', startLearn);
   $('#btn-panels').addEventListener('click', () => setPanels(!panelsOpen()));
   $('#btn-reset').addEventListener('click', () => { tested.clear(); knobAngle = 0; $('#knob-face').style.transform = ''; dev3d?.reset(); render(); });
   $('#btn-clear-log').addEventListener('click', () => { logEl.innerHTML = '<tr class="empty"><td colspan="5">Log cleared.</td></tr>'; });
