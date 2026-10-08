@@ -565,6 +565,14 @@ window.initDevice3D = function (host, { pick, icons }) {
   const pickables = [];
   const keys = {};
 
+  // Hover and selection are drawn graphically: hover outlines a control in light blue (a slightly
+  // larger back-face hull behind it, so only its silhouette shows), selection fills it with a
+  // steady blue highlight.
+  const HILITE = 0x6f8cff;
+  const outlineMaterial = () => new T.MeshBasicMaterial({
+    color: HILITE, side: T.BackSide, transparent: true, opacity: 0, depthWrite: false, toneMapped: false,
+  });
+
   // LED positions on QMK's 224 × 64 grid, from the board's rgb_matrix layout
   const LED_POS = { k1: [51, 38], k2: [102, 38], k3: [154, 38], k4: [51, 51], k5: [102, 51], k6: [154, 51] };
   const KEYS = [['k1', 'n', 0, 0], ['k2', 'globe', 1, 0], ['k3', 'share', 2, 0], ['k4', 'shrimp', 0, 1], ['k5', 'boat', 1, 1], ['k6', 'sparkle', 2, 1]];
@@ -591,7 +599,11 @@ window.initDevice3D = function (host, { pick, icons }) {
     legend.userData.input = id;
     const stem = new T.Mesh(stemGeo, stemMat);              // moves with the keycap
     stem.position.y = 0.5 - stemH / 2;
-    group.add(body, legend, stem);
+    const outlineMat = outlineMaterial();
+    const outline = new T.Mesh(cap.body, outlineMat);       // hover outline: the cap's silhouette, grown ~0.6 mm
+    outline.scale.set(1.09, 1.045, 1.09);
+    outline.position.y = -0.2;
+    group.add(body, legend, stem, outline);
     scene.add(group);
 
 
@@ -601,7 +613,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     scene.add(ledLight);
 
     pickables.push(body, legend);
-    keys[id] = { group, mat, legendMat, ledDotMat, housingMat, ledLight, ledLin: new T.Color(), led: LED_POS[id], down: false, t: 0, pressedAt: -1e9, heat: 0, rnd: { h: 0, s: 1, v: 0, next: 0 } };
+    keys[id] = { group, mat, legendMat, outlineMat, ledDotMat, housingMat, ledLight, ledLin: new T.Color(), led: LED_POS[id], down: false, t: 0, pressedAt: -1e9, heat: 0, rnd: { h: 0, s: 1, v: 0, next: 0 } };
   });
 
   // ---- knob: anodized aluminium, knurled sides, finger dimple ----
@@ -661,8 +673,12 @@ window.initDevice3D = function (host, { pick, icons }) {
   face.position.y = KNOB_H;
   [knobBody, lid, face].forEach(m => { m.castShadow = m.receiveShadow = true; m.userData.input = 'press'; pickables.push(m); });
   spinner.add(knobBody, lid, face);
+  const knobOutlineMat = outlineMaterial();
+  const knobOutline = new T.Mesh(new T.CylinderGeometry(KNOB_R + 0.8, KNOB_R + 0.8, KNOB_H + 0.8, 96), knobOutlineMat);
+  knobOutline.position.y = KNOB_H / 2 + 0.2;
+  knob.add(knobOutline);
   scene.add(knob);
-  let knobAngle = 0, knobShown = 0, knobDown = false, knobT = 0, knobHoverT = 0;
+  let knobAngle = 0, knobShown = 0, knobDown = false, knobT = 0, knobHoverT = 0, knobSelT = 0;
 
 
   // ---- camera with drag-to-turn ----
@@ -920,14 +936,17 @@ window.initDevice3D = function (host, { pick, icons }) {
       placeCamera();
     }
     while (presses.length && t - presses[0].t > 1.5) presses.shift();
-    const SELECTED = 0.38; // steady glow on the selected control: brighter than hover (0.2), no flashing
+    const SELECTED = 0.38;                          // emissive strength of the selection highlight
+    const ease = Math.min(1, dt * 10);
     Object.entries(keys).forEach(([id, k]) => {
       k.t += ((k.down ? 1 : 0) - k.t) * 0.45;
-      k.group.position.y = CAP_Y - TRAVEL * k.t;
-      // hover (both modes): the control under the pointer glows, showing it can be clicked
+      // hover (both modes, from the model or the Controls list) outlines; selection fills
       const hoverTo = (!drag && hover.id === id) || hover.panel === id ? 1 : 0;
-      k.hoverT = (k.hoverT || 0) + (hoverTo - (k.hoverT || 0)) * Math.min(1, dt * 8);
-      k.mat.emissiveIntensity = id === target ? SELECTED : 0.2 * k.hoverT;
+      k.hoverT = (k.hoverT || 0) + (hoverTo - (k.hoverT || 0)) * ease;
+      k.selT = (k.selT || 0) + ((id === target ? 1 : 0) - (k.selT || 0)) * ease;
+      k.group.position.y = CAP_Y - TRAVEL * k.t;
+      k.outlineMat.opacity = k.hoverT;
+      k.mat.emissiveIntensity = SELECTED * k.selT;
       k.legendMat.color.copy(tested.has(id) ? GREEN : WHITE);
       k.heat = Math.max(0, k.heat - 0.004);
       const [r, g, b] = ledColor(k, t);
@@ -942,11 +961,12 @@ window.initDevice3D = function (host, { pick, icons }) {
     knobShown += (knobAngle - knobShown) * 0.25;
     spinner.rotation.y = -knobShown;
     knobT += ((knobDown ? 1 : 0) - knobT) * 0.45;
-    knob.position.y = H - KNOB_SINK - 1.2 * knobT;
     const knobHoverTo = (!drag && hover.id === 'press') || ['cw', 'ccw', 'press'].includes(hover.panel) ? 1 : 0;
-    knobHoverT += (knobHoverTo - knobHoverT) * Math.min(1, dt * 8);
-    const knobPulse = ['cw', 'ccw', 'press'].includes(target) ? SELECTED : 0.2 * knobHoverT;
-    knobSide.emissiveIntensity = knobTop.emissiveIntensity = knobPulse;
+    knobHoverT += (knobHoverTo - knobHoverT) * ease;
+    knob.position.y = H - KNOB_SINK - 1.2 * knobT;
+    knobSelT += ((['cw', 'ccw', 'press'].includes(target) ? 1 : 0) - knobSelT) * ease;
+    knobOutlineMat.opacity = knobHoverT;
+    knobSide.emissiveIntensity = knobTop.emissiveIntensity = SELECTED * knobSelT;
     renderer.render(scene, camera);
     requestAnimationFrame(frame);
   }
