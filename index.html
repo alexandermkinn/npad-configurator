@@ -1242,6 +1242,9 @@ window.initDevice3D = function (host, { pick, icons }) {
     }
     const id = inputFor(sig);
     if (id) {
+      // connected directly: switch presses come from the matrix, so don't count the typed key again
+      // (the knob's turns aren't in the matrix, so those still come from key events)
+      if (hidDev && byId[id].pos) return true;
       if (e?.code) downCodes.set(e.code, id);
       activate(id, true); return true;
     }
@@ -1310,6 +1313,7 @@ window.initDevice3D = function (host, { pick, icons }) {
 
   // ---- direct connection: QMK/VIA raw HID (usage page 0xFF60) ----
   let hidDev = null, hidTimer = null, hidWait = null, lastMatrix = [0, 0, 0], pollCount = 0;
+  let connecting = false, pollGen = 0;              // guard against attaching twice / two poll loops
   const VIA = { getKeycode: 0x04, getValue: 0x02, matrixState: 0x03, getEncoder: 0x14, getCustom: 0x08, rgbMatrix: 3 };
   // RGB Matrix effect ids: QMK numbers only the effects compiled in, in its own order.
   // These are the ones the Aurora's board file enables.
@@ -1343,13 +1347,24 @@ window.initDevice3D = function (host, { pick, icons }) {
       if (text !== lightingText) { lightingText = text; render(); }
     } catch {}
   }
+  // One query at a time, and only the reply to *this* query resolves it: VIA echoes the request's
+  // leading bytes (command, then the ids/rows it was asked about), so anything else (a late reply,
+  // or one meant for another app or tab talking to the npad) is ignored rather than misread.
+  let hidQueue = Promise.resolve();
   function hidQuery(...bytes) {
-    return new Promise((resolve, reject) => {
+    const run = () => new Promise((resolve, reject) => {
       const buf = new Uint8Array(32); buf.set(bytes);
       const t = setTimeout(() => { hidWait = null; reject(new Error('timeout')); }, 500);
-      hidWait = d => { clearTimeout(t); hidWait = null; resolve(d); };
+      hidWait = d => {
+        const ours = bytes.every((b, i) => d[i] === b) || d[0] === 0xff;   // 0xff: command not supported
+        if (!ours) return;
+        clearTimeout(t); hidWait = null; resolve(d);
+      };
       hidDev.sendReport(0, buf).catch(err => { clearTimeout(t); hidWait = null; reject(err); });
     });
+    const p = hidQueue.then(run, run);
+    hidQueue = p.catch(() => {});
+    return p;
   }
   // QMK basic keycodes -> KeyboardEvent.code
   function qmkToSig(kc) {
@@ -1404,6 +1419,11 @@ window.initDevice3D = function (host, { pick, icons }) {
     toast(`Couldn't connect: ${err?.message || err}. Close the VIA app or other tabs using the npad, then try again.`, 'warn', 8000);
   }
   async function attach(dev) {
+    if (connecting || hidDev) return;               // auto-reconnect, plug-in and the button can race
+    connecting = true;
+    try { await attachNow(dev); } finally { connecting = false; }
+  }
+  async function attachNow(dev) {
     if (!dev.opened) await dev.open();
     hidDev = dev;
     dev.addEventListener('inputreport', e => hidWait && hidWait(new Uint8Array(e.data.buffer)));
@@ -1419,7 +1439,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     Object.assign(map, learned); save();
     setConnectedUI(true);
     await refreshLighting();
-    pollMatrix();
+    pollMatrix(++pollGen);
     render();
     setPanels(true);                              // an npad is attached: straight into interaction mode
   }
@@ -1429,8 +1449,8 @@ window.initDevice3D = function (host, { pick, icons }) {
     b.classList.toggle('primary', !on);
     $('#btn-panels').hidden = !on;
   }
-  async function pollMatrix() {
-    if (!hidDev) return;
+  async function pollMatrix(gen) {
+    if (!hidDev || gen !== pollGen) return;         // only the latest connection's loop keeps polling
     try {
       const r = await hidQuery(VIA.getValue, VIA.matrixState);
       const rows = [r[2], r[3], r[4]];
@@ -1445,12 +1465,12 @@ window.initDevice3D = function (host, { pick, icons }) {
     } catch (err) {
       if (!hidDev?.opened) { hidDisconnect(); return; }
     }
-    hidTimer = setTimeout(pollMatrix, 15);
+    hidTimer = setTimeout(() => pollMatrix(gen), 15);
   }
   function hidDisconnect() {
     clearTimeout(hidTimer);
     if (hidDev?.opened) hidDev.close().catch(() => {});
-    hidDev = null; lastMatrix = [0, 0, 0];
+    hidDev = null; lastMatrix = [0, 0, 0]; pollGen++;
     lightingText = ''; dev3d?.setLighting(null);
     setPanels(false);                             // nothing attached: back to preview, sidebar hidden
     setConnectedUI(false);
