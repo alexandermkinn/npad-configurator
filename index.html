@@ -565,30 +565,32 @@ window.initDevice3D = function (host, { pick, icons }) {
   const pickables = [];
   const keys = {};
 
-  // Hover and selection are drawn graphically: hover rings a control's top edge in light blue (a
-  // flat band floating just outside it, so it reads the same from every angle and never touches the
-  // case), and selection fills the control with a steady blue highlight.
-  const HILITE = 0x6f8cff;
+  // Hover outlines a control's full silhouette; selection tints it blue.
+  // The outline is a stencil outline: each control marks the pixels where it is visible with its own
+  // stencil value, and a copy of it grown 0.3 mm along its normals is drawn in blue only where that
+  // value isn't present. Depth testing stays on, so whatever is physically in front of the control
+  // (a neighbouring key, the case, the knob) hides the outline exactly as it hides the control.
+  // Values 11-17 keep clear of the USB pocket's stencil window, which uses 1.
+  const HILITE = 0x6f8cff, OUTLINE_W = 0.3;
   const CAP_COLOR = srgb(0x15161c), CAP_SELECTED = srgb(0x3a4f9c); // keycap plastic, and as tinted when selected
-  const outlineMaterial = () => new T.MeshBasicMaterial({
-    color: HILITE, side: T.DoubleSide, transparent: true, opacity: 0, depthWrite: false, toneMapped: false,
+  const markStencil = (material, ref) => Object.assign(material, {
+    stencilWrite: true, stencilRef: ref, stencilFunc: T.AlwaysStencilFunc, stencilZPass: T.ReplaceStencilOp,
   });
-  // a flat band between two outlines given as point lists in the xz-plane, lying horizontal
-  function bandGeometry(outer, inner) {
-    const shape = new T.Shape(outer.map(p => new T.Vector2(p.x, -p.z)));
-    shape.holes.push(new T.Path(inner.map(p => new T.Vector2(p.x, -p.z))));
-    const g = new T.ShapeGeometry(shape);
-    g.rotateX(-Math.PI / 2);
+  const outlineMaterial = ref => new T.MeshBasicMaterial({
+    color: HILITE, transparent: true, opacity: 0, depthWrite: false, toneMapped: false,
+    stencilWrite: true, stencilRef: ref, stencilFunc: T.NotEqualStencilFunc,   // only outside the control itself
+  });
+  function inflate(geometry, w) {                              // grow a surface along its vertex normals
+    const g = geometry.clone(), p = g.attributes.position, n = g.attributes.normal;
+    for (let i = 0; i < p.count; i++) p.setXYZ(i, p.getX(i) + n.getX(i) * w, p.getY(i) + n.getY(i) * w, p.getZ(i) + n.getZ(i) * w);
     return g;
   }
-  const capEdge = CAP.topX + CAP.fillet * 0.8;                 // outermost extent of the cap's top edge
-  const capRingGeo = bandGeometry(squircleRing(capEdge + 0.65, capEdge + 0.65, CAP.topExp, 0, 0),   // a fine 0.3 mm line
-                                  squircleRing(capEdge + 0.35, capEdge + 0.35, CAP.topExp, 0, 0));
+  const capOutlineGeo = inflate(cap.body, OUTLINE_W);
 
   // LED positions on QMK's 224 × 64 grid, from the board's rgb_matrix layout
   const LED_POS = { k1: [51, 38], k2: [102, 38], k3: [154, 38], k4: [51, 51], k5: [102, 51], k6: [154, 51] };
   const KEYS = [['k1', 'n', 0, 0], ['k2', 'globe', 1, 0], ['k3', 'share', 2, 0], ['k4', 'shrimp', 0, 1], ['k5', 'boat', 1, 1], ['k6', 'sparkle', 2, 1]];
-  KEYS.forEach(([id, icon, col, row]) => {
+  KEYS.forEach(([id, icon, col, row], idx) => {
     const x = (col - 1) * PITCH, z = WELL_Z + (row === 0 ? -PITCH / 2 : PITCH / 2);
     // clear upper casing: glossy plastic that glows with the LED shining up through it
     const housingMat = new T.MeshStandardMaterial({
@@ -611,9 +613,10 @@ window.initDevice3D = function (host, { pick, icons }) {
     legend.userData.input = id;
     const stem = new T.Mesh(stemGeo, stemMat);              // moves with the keycap
     stem.position.y = 0.5 - stemH / 2;
-    const outlineMat = outlineMaterial();
-    const outline = new T.Mesh(capRingGeo, outlineMat);     // hover ring around the top edge
-    outline.position.y = CAP.height - 0.25;
+    markStencil(mat, 11 + idx);
+    const outlineMat = outlineMaterial(11 + idx);
+    const outline = new T.Mesh(capOutlineGeo, outlineMat);  // hover outline: the cap grown 0.3 mm
+    outline.renderOrder = 20;
     group.add(body, legend, stem, outline);
     scene.add(group);
 
@@ -685,10 +688,12 @@ window.initDevice3D = function (host, { pick, icons }) {
   face.position.y = KNOB_H;
   [knobBody, lid, face].forEach(m => { m.castShadow = m.receiveShadow = true; m.userData.input = 'press'; pickables.push(m); });
   spinner.add(knobBody, lid, face);
-  const knobOutlineMat = outlineMaterial();
-  const knobOutline = new T.Mesh(new T.RingGeometry(KNOB_R + 0.35, KNOB_R + 0.7, 160), knobOutlineMat); // hover ring around the top
-  knobOutline.rotation.x = -Math.PI / 2;
-  knobOutline.position.y = KNOB_H - 0.25;
+  // the knob's outline uses a plain cylinder grown 0.3 mm (the knurl is too fine to follow)
+  [knobSide, knobTop].forEach(m => markStencil(m, 17));
+  const knobOutlineMat = outlineMaterial(17);
+  const knobOutline = new T.Mesh(new T.CylinderGeometry(KNOB_R + OUTLINE_W, KNOB_R + OUTLINE_W, KNOB_H + OUTLINE_W, 128), knobOutlineMat);
+  knobOutline.position.y = (KNOB_H + OUTLINE_W) / 2;
+  knobOutline.renderOrder = 20;
   knob.add(knobOutline);
   scene.add(knob);
   let knobAngle = 0, knobShown = 0, knobDown = false, knobT = 0, knobHoverT = 0, knobSelT = 0;
@@ -951,7 +956,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     while (presses.length && t - presses[0].t > 1.5) presses.shift();
     // selection: shift the material itself toward blue so lighting and shading still read, plus a
     // whisper of glow; hover: a fine, slightly translucent ring
-    const SEL_GLOW = 0.07, OUTLINE = 0.85;
+    const SEL_GLOW = 0.07, OUTLINE = 0.9;
     const ease = Math.min(1, dt * 10);
     Object.entries(keys).forEach(([id, k]) => {
       k.t += ((k.down ? 1 : 0) - k.t) * 0.45;
