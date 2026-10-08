@@ -1313,7 +1313,7 @@ window.initDevice3D = function (host, { pick, icons }) {
 
   // ---- direct connection: QMK/VIA raw HID (usage page 0xFF60) ----
   let hidDev = null, hidTimer = null, hidWait = null, lastMatrix = [0, 0, 0], pollCount = 0;
-  let connecting = false, pollGen = 0;              // guard against attaching twice / two poll loops
+  let connecting = false, pollGen = 0, viaProtocol = 0;              // guard against attaching twice / two poll loops
   const VIA = { getKeycode: 0x04, getValue: 0x02, matrixState: 0x03, getEncoder: 0x14, getCustom: 0x08, rgbMatrix: 3 };
   // RGB Matrix effect ids: QMK numbers only the effects compiled in, in its own order.
   // These are the ones the Aurora's board file enables.
@@ -1427,6 +1427,8 @@ window.initDevice3D = function (host, { pick, icons }) {
     if (!dev.opened) await dev.open();
     hidDev = dev;
     dev.addEventListener('inputreport', e => hidWait && hidWait(new Uint8Array(e.data.buffer)));
+    const pv = await hidQuery(0x01);                // VIA protocol version: decides the matrix reply layout
+    viaProtocol = (pv[1] << 8) | pv[2];
     // read the live keymap so key events line up with whatever the npad is set to
     const learned = {};
     for (const i of INPUTS) {
@@ -1452,8 +1454,11 @@ window.initDevice3D = function (host, { pick, icons }) {
   async function pollMatrix(gen) {
     if (!hidDev || gen !== pollGen) return;         // only the latest connection's loop keeps polling
     try {
-      const r = await hidQuery(VIA.getValue, VIA.matrixState);
-      const rows = [r[2], r[3], r[4]];
+      // VIA protocol 12+ pages the matrix: the request carries a row offset (0 here), echoed back
+      // before the row bytes, so rows start one byte later than in older firmware
+      const r = await hidQuery(VIA.getValue, VIA.matrixState, 0);
+      const at = viaProtocol >= 12 ? 3 : 2;
+      const rows = [r[at], r[at + 1], r[at + 2]];
       INPUTS.forEach(i => {
         if (!i.pos) return;
         const [row, col] = i.pos;
