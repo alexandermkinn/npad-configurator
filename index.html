@@ -78,9 +78,6 @@ button {
 button:hover { border-color: var(--muted); }
 button:focus-visible, .cap:focus-visible, .knob-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-/* the connect button once an npad is attached: a quiet status pill */
-#btn-hid.connected { display: inline-flex; align-items: center; gap: 8px; }
-#btn-hid.connected::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 6px var(--ok); }
 /* draws the eye to the connect button when someone tries to remap without an npad */
 #btn-hid.nudge { animation: nudge .5s ease 2; }
 @keyframes nudge { 50% { transform: scale(1.06); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent); } }
@@ -1158,6 +1155,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   function setStatus(kind, html, actions = []) {
     if ((kind === 'learn' || kind === 'warn') && hidDev) setPanels(true);
     const s = $('#status'); s.dataset.kind = kind;
+    s.hidden = !html;                             // the status panel only appears for prompts
     $('#status-text').innerHTML = html;
     const a = $('#status-actions'); a.innerHTML = '';
     actions.forEach(([label, fn, primary]) => {
@@ -1175,14 +1173,8 @@ window.initDevice3D = function (host, { pick, icons }) {
       setStatus('learn', `<b>${verb(byId[assignId])}</b> on your npad to assign it.`, [['Cancel', () => { mode = 'test'; assignId = null; render(); }]]);
     } else if (pendingSig) {
       setStatus('warn', `<b>${esc(pretty(pendingSig))}</b> isn't assigned to a control. Click the key or control it belongs to.`, [['Ignore', () => { pendingSig = null; render(); }]]);
-    } else if (hidDev && tested.size < INPUTS.length) {
-      setStatus('done', `<b>Connected to ${esc(hidDev.productName || 'npad')}.</b> Switch presses come straight from the firmware. ${esc(lightingText)}`, [['Disconnect', hidDisconnect]]);
-    } else if (tested.size === INPUTS.length) {
-      setStatus('done', '<b>All 9 controls work.</b>', []);
-    } else if (!Object.keys(map).length) {
-      setStatus('', 'No keys are set up yet.', [['Set up keys', startLearn, true]]);
     } else {
-      setStatus('', 'Ready. Press keys on the npad.', []);
+      setStatus('', '');                          // nothing to ask: hide the panel
     }
   }
   const verb = i => i.id === 'cw' ? 'Turn the knob one click right' : i.id === 'ccw' ? 'Turn the knob one click left' : i.id === 'press' ? 'Press the knob' : `Press the ${i.name}`;
@@ -1433,9 +1425,8 @@ window.initDevice3D = function (host, { pick, icons }) {
   }
   function setConnectedUI(on) {
     const b = $('#btn-hid');
-    b.textContent = on ? 'npad connected' : 'Connect npad';
-    b.classList.toggle('primary', !on); b.classList.toggle('connected', on);
-    b.title = on ? `${hidDev?.productName || 'npad'} is connected` : '';
+    b.textContent = on ? 'Disconnect npad' : 'Connect npad';
+    b.classList.toggle('primary', !on);
     $('#btn-panels').hidden = !on;
   }
   async function pollMatrix() {
@@ -1469,7 +1460,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     navigator.hid.addEventListener('disconnect', e => { if (e.device === hidDev) { hidDisconnect(); toast('npad disconnected.'); } });
     navigator.hid.addEventListener('connect', e => { if (!hidDev && isNpadRaw(e.device)) attach(e.device).catch(connectFailed); });
   }
-  $('#btn-hid').addEventListener('click', () => hidDev ? setPanels(true) : hidConnect());
+  $('#btn-hid').addEventListener('click', () => hidDev ? hidDisconnect() : hidConnect());
 
   // ---- 3D model, with the flat drawing as a fallback ----
   try {
