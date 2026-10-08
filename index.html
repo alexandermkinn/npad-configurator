@@ -681,10 +681,11 @@ window.initDevice3D = function (host, { pick, icons }) {
   // The working view people land on once they take over: a standard isometric angle, turned 45°
   // with the knob at the back right, looking down at the true-isometric 35.3°.
   const ISO = { yaw: Math.PI / 4, pitch: Math.atan(1 / Math.SQRT2) };
-  // Idle turntable on load: eases in, and snaps to ISO as soon as someone takes over.
+  // Two modes, switched by the page (the sidebar): preview (on load) runs the orbit, demo taps and
+  // demo backlight; interaction snaps to ISO and leaves the camera to the user. turntable.on is
+  // "in preview"; turntable.held pauses the orbit while someone drags the model in preview.
   const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  const turntable = { on: !reduceMotion, speed: 0, goHome: false, target: null };
-  const spinning = () => turntable.on || turntable.speed > 0.01;
+  const turntable = { on: !reduceMotion, held: false, speed: 0, goHome: false, target: null };
   function snapToIso() {
     turntable.on = false; turntable.speed = 0;
     stopDemo();
@@ -731,7 +732,6 @@ window.initDevice3D = function (host, { pick, icons }) {
   canvas.addEventListener('wheel', e => {
     if (hit(e) !== 'press') return;      // scrolling elsewhere still scrolls the page
     e.preventDefault(); e.stopPropagation();
-    if (spinning()) snapToIso();
     wheelAcc += e.deltaY;
     while (Math.abs(wheelAcc) >= 40) {    // one detent per notch, or per 40px of trackpad scroll
       const dir = wheelAcc < 0 ? 1 : -1;  // scroll up turns it clockwise
@@ -741,7 +741,7 @@ window.initDevice3D = function (host, { pick, icons }) {
 
   let drag = null;
   canvas.addEventListener('pointerdown', e => {
-    if (spinning()) snapToIso();
+    turntable.held = true;                 // in preview, hold the orbit while the model is grabbed
     const onKnob = hit(e) === 'press';
     drag = { x: e.clientX, y: e.clientY, moved: false, knob: onKnob, a0: onKnob ? knobScreenAngle(e) : 0, start: knobAngle };
     canvas.setPointerCapture(e.pointerId);
@@ -765,10 +765,10 @@ window.initDevice3D = function (host, { pick, icons }) {
     placeCamera();
   });
   canvas.addEventListener('pointerup', e => {
-    if (drag && !drag.moved) { const id = hit(e); if (id) pick(id); }
-    drag = null; canvas.style.cursor = 'grab';
+    if (drag && !drag.moved) { const id = hit(e); if (id) pick(id); }  // picking a key switches to interaction (via the page)
+    drag = null; turntable.held = false; canvas.style.cursor = 'grab';
   });
-  canvas.addEventListener('pointercancel', () => { drag = null; });
+  canvas.addEventListener('pointercancel', () => { drag = null; turntable.held = false; });
 
   // ---- animation ----
   let target = null;
@@ -889,10 +889,10 @@ window.initDevice3D = function (host, { pick, icons }) {
     const glowTarget = turntable.on && !reduceMotion && t > 0.8 ? 1 : 0;
     idleGlow += (glowTarget - idleGlow) * Math.min(1, dt * (glowTarget ? 1.2 : 3));
     // turntable: about one turn every 80 s, with eased start and stop
-    turntable.speed += ((turntable.on ? 0.08 : 0) - turntable.speed) * Math.min(1, dt * 1.2);
+    turntable.speed += ((turntable.on && !turntable.held ? 0.08 : 0) - turntable.speed) * Math.min(1, dt * 1.2);
     if (Math.abs(turntable.speed) > 1e-4) {
       view.yaw += turntable.speed * dt;
-      if (turntable.on) {
+      if (turntable.on && !turntable.held) {
         // follow the orbit's height and distance; eased, so resuming from another view glides into it
         const k = Math.min(1, dt * 1.5);
         view.pitch += (orbitPitch(view.yaw) - view.pitch) * k;
@@ -941,7 +941,6 @@ window.initDevice3D = function (host, { pick, icons }) {
 
   return {
     press(id, down) {
-      if (down && spinning()) snapToIso(); // the npad is in use: settle on the working view
       if (id === 'press') { knobDown = down; return; }
       const k = keys[id];
       if (!k) return;
@@ -953,16 +952,13 @@ window.initDevice3D = function (host, { pick, icons }) {
       k.down = down;
     },
     setLighting(state) { lighting = state; },
-    turn(dir) {
-      if (spinning()) snapToIso();
-      knobAngle += dir * (Math.PI / 10);
-    },
+    turn(dir) { knobAngle += dir * (Math.PI / 10); },
     reset() { knobAngle = 0; },
     setTarget(id) { target = id; },
-    // stop idling (if it is) and ease to the iso working view
-    snapIso() { snapToIso(); },
-    // go back to idle mode: orbit, demo key taps and the demo backlight
-    resumeIdle() {
+    // 'interaction': stop the preview and ease to the iso working view.
+    // 'preview': orbit (gliding in from the current view), demo taps and demo backlight.
+    setMode(mode) {
+      if (mode === 'interaction') { snapToIso(); return; }
       if (reduceMotion || turntable.on) return;
       turntable.goHome = false;
       turntable.on = true;
@@ -1073,10 +1069,11 @@ window.initDevice3D = function (host, { pick, icons }) {
     renderStatus(target);
   }
 
-  // ---- side panels: hidden at first, opened by the button or when something needs attention ----
+  // ---- side panels: hidden at first (preview mode); opened by the toggle, by picking a key to
+  // remap, by using the npad, or when something needs attention (interaction mode) ----
   function setPanels(open) {
-    if (!open && panelsOpen()) dev3d?.resumeIdle(); // closing the panels hands the stage back to the idle animation
-    if (open && !panelsOpen()) dev3d?.snapIso();     // opening them is getting to work: settle on the iso view
+    // The sidebar is the mode switch: open = interaction mode, closed = preview mode.
+    if (open !== panelsOpen()) dev3d?.setMode(open ? 'interaction' : 'preview');
     document.querySelector('.app').classList.toggle('collapsed', !open);
     $('#side').inert = !open;
     $('#btn-panels').setAttribute('aria-label', open ? 'Hide panels' : 'Show panels');
