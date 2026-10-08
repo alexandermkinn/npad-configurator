@@ -614,7 +614,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     const body = new T.Mesh(cap.body, mat);
     body.castShadow = body.receiveShadow = true;
     body.userData.input = id;
-    const legendMat = new T.MeshBasicMaterial({ map: legendTexture(icon), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+    const legendMat = new T.MeshBasicMaterial({ map: legendTexture(icon), color: srgb(0xf2ede0), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }); // cream legends
     const legend = new T.Mesh(legendGeo, legendMat);
     legend.userData.input = id;
     const stem = new T.Mesh(stemGeo, stemMat);              // moves with the keycap
@@ -826,7 +826,6 @@ window.initDevice3D = function (host, { pick, icons }) {
   let target = null;
   const tested = new Set();
   const clock = new T.Clock();
-  const GREEN = srgb(0x7ce3a6), WHITE = srgb(0xf2ede0); // cream legends
   // ---- RGB Matrix: approximations of the firmware's effects ----
   let lighting = null;           // { effect, h, s, v, speed } with h/s/v/speed in 0..1, or null when off/unknown
   const presses = [];            // recent key presses, for the reactive and splash effects
@@ -978,7 +977,6 @@ window.initDevice3D = function (host, { pick, icons }) {
       k.outlineMat.opacity = OUTLINE * k.hoverT;
       k.mat.color.copy(CAP_COLOR).lerp(CAP_SELECTED, k.selT);
       k.mat.emissiveIntensity = SEL_GLOW * k.selT;
-      k.legendMat.color.copy(tested.has(id) ? GREEN : WHITE);
       k.heat = Math.max(0, k.heat - 0.004);
       const [r, g, b] = ledColor(k, t);
       const lit = Math.max(r, g, b);
@@ -1129,7 +1127,6 @@ window.initDevice3D = function (host, { pick, icons }) {
       const pill = document.querySelector(`[data-pill="${i.id}"]`);
       pill.textContent = ok ? 'Works' : 'Not tested'; pill.classList.toggle('ok', ok);
       pill.parentElement.classList.toggle('ok', ok);
-      document.querySelectorAll(`[data-led="${i.id}"]`).forEach(l => l.classList.toggle('ok', ok));
     });
     const target = mode === 'learn' ? INPUTS[learnIdx]?.id : mode === 'assign' ? assignId : null;
     document.querySelectorAll('.cell').forEach(c => c.classList.toggle('target', c.dataset.cell === target));
