@@ -722,7 +722,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   }
   // hover state: which control is under the pointer (the case counts, so a key
   // hidden behind it isn't highlighted)
-  const hover = { id: null };
+  const hover = { id: null, panel: null };   // panel: a control hovered in the page's Controls list
   function probe(e) {
     const r = canvas.getBoundingClientRect();
     ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
@@ -927,7 +927,7 @@ window.initDevice3D = function (host, { pick, icons }) {
       k.t += ((k.down ? 1 : 0) - k.t) * 0.45;
       k.group.position.y = CAP_Y - TRAVEL * k.t;
       // hover (both modes): the control under the pointer glows, showing it can be clicked
-      const hoverTo = !drag && hover.id === id ? 1 : 0;
+      const hoverTo = (!drag && hover.id === id) || hover.panel === id ? 1 : 0;
       k.hoverT = (k.hoverT || 0) + (hoverTo - (k.hoverT || 0)) * Math.min(1, dt * 8);
       k.mat.emissiveIntensity = id === target ? pulse : 0.2 * k.hoverT;
       k.legendMat.color.copy(tested.has(id) ? GREEN : WHITE);
@@ -945,7 +945,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     spinner.rotation.y = -knobShown;
     knobT += ((knobDown ? 1 : 0) - knobT) * 0.45;
     knob.position.y = H - KNOB_SINK - 1.2 * knobT;
-    const knobHoverTo = !drag && hover.id === 'press' ? 1 : 0;
+    const knobHoverTo = (!drag && hover.id === 'press') || ['cw', 'ccw', 'press'].includes(hover.panel) ? 1 : 0;
     knobHoverT += (knobHoverTo - knobHoverT) * Math.min(1, dt * 8);
     const knobPulse = ['cw', 'ccw', 'press'].includes(target) ? pulse : 0.2 * knobHoverT;
     knobSide.emissiveIntensity = knobTop.emissiveIntensity = knobPulse;
@@ -970,6 +970,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     turn(dir) { knobAngle += dir * (Math.PI / 10); },
     reset() { knobAngle = 0; },
     setTarget(id) { target = id; },
+    setHover(id) { hover.panel = id; },          // highlight a control from outside (the Controls list)
     // 'interaction': stop the preview and ease to the iso working view.
     // 'preview': orbit (gliding in from the current view), demo taps and demo backlight.
     setMode(mode) {
@@ -1043,6 +1044,10 @@ window.initDevice3D = function (host, { pick, icons }) {
     const r = document.createElement('button');
     r.type = 'button'; r.className = 'chip'; r.dataset.input = i.id; r.title = i.name;
     r.innerHTML = `<span class="pill" data-pill="${i.id}">Not tested</span><span class="name">${i.name}</span><span class="chord" data-chord="${i.id}"></span>`;
+    // hovering or focusing a row lights up that control on the model
+    const show = () => dev3d?.setHover(i.id), hide = () => dev3d?.setHover(null);
+    r.addEventListener('mouseenter', show); r.addEventListener('mouseleave', hide);
+    r.addEventListener('focus', show); r.addEventListener('blur', hide);
     rows.appendChild(r);
   });
 
@@ -1089,6 +1094,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   function setPanels(open) {
     // The sidebar is the mode switch: open = interaction mode, closed = preview mode.
     if (open !== panelsOpen()) dev3d?.setMode(open ? 'interaction' : 'preview');
+    if (!open) dev3d?.setHover(null); // the list slides away under the pointer without a mouseleave
     if (!open && (mode !== 'test' || pendingSig)) {
       // back to preview: drop any key that was selected for setup or remapping
       mode = 'test'; assignId = null; pendingSig = null;
