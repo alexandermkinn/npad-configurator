@@ -1115,12 +1115,17 @@ window.initDevice3D = function (host, { pick, icons }) {
         const rest = TRAVEL * k.t;
         const c = toScreen(k.group.localToWorld(v.set(0, CAP.height + rest, 0)));
         const xs = [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => toScreen(k.group.localToWorld(v.set(sx * capEdge, CAP.height * 0.6 + rest, sz * capEdge))).x);
-        out[id] = { ...c, l: Math.min(...xs), r: Math.max(...xs) };
+        // the four corners of the cap's top, for leader lines to end on (clear of the legend)
+        const tc = CAP.topX * 0.82;
+        const corners = [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => toScreen(k.group.localToWorld(v.set(sx * tc, CAP.height - 0.2 + rest, sz * tc))));
+        out[id] = { ...c, l: Math.min(...xs), r: Math.max(...xs), ends: corners };
       });
       const krest = 1.2 * knobT;
       const kc = toScreen(knob.localToWorld(v.set(0, KNOB_H * 0.6 + krest, 0)));
       const kxs = [0, Math.PI / 2, Math.PI, Math.PI * 1.5].map(a => toScreen(knob.localToWorld(v.set(Math.cos(a) * KNOB_R, KNOB_H * 0.6 + krest, Math.sin(a) * KNOB_R))).x);
-      out.knob = { ...kc, l: Math.min(...kxs), r: Math.max(...kxs) };
+      // points around the knob's top rim
+      const rim = Array.from({ length: 24 }, (_, i) => { const a = i / 24 * Math.PI * 2; return toScreen(knob.localToWorld(v.set(Math.cos(a) * (KNOB_R - 0.6), KNOB_H + krest, Math.sin(a) * (KNOB_R - 0.6)))); });
+      out.knob = { ...kc, l: Math.min(...kxs), r: Math.max(...kxs), ends: rim };
       out.exploded = explodeT;
       const pts = [];
       for (const x of [-W / 2, W / 2]) for (const z of [-D / 2, D / 2]) for (const y of [0, H + KNOB_H]) pts.push(toScreen(v.set(x, y, z)));
@@ -1994,9 +1999,12 @@ window.initDevice3D = function (host, { pick, icons }) {
     let lines = '';
     items.forEach(it => {
       it.el.style.transform = `translate(${Math.round(it.x)}px, ${Math.round(it.y)}px)`;
-      const ex = Math.max(it.x, Math.min(it.x + it.w, it.at.x)), ey = Math.max(it.y, Math.min(it.y + it.h, it.at.y));
+      // the leader runs from the control's corner (or rim point) nearest the flag to the flag's edge
+      const cx0 = it.x + it.w / 2, cy0 = it.y + it.h / 2;
+      const end = (it.at.ends || [it.at]).reduce((b, p) => Math.hypot(p.x - cx0, p.y - cy0) < Math.hypot(b.x - cx0, b.y - cy0) ? p : b);
+      const ex = Math.max(it.x, Math.min(it.x + it.w, end.x)), ey = Math.max(it.y, Math.min(it.y + it.h, end.y));
       const sel = it.fid === edit.ctrl || (it.fid === 'knob' && ['ccw', 'press', 'cw'].includes(edit.ctrl));
-      lines += `<g class="${sel ? 'sel' : ''}"><path d="M${it.at.x},${it.at.y} L${ex},${ey}"/><circle cx="${it.at.x}" cy="${it.at.y}" r="2.5"/></g>`;
+      lines += `<g class="${sel ? 'sel' : ''}"><path d="M${end.x},${end.y} L${ex},${ey}"/><circle cx="${end.x}" cy="${end.y}" r="2.5"/></g>`;
     });
     const cx = c.x;
     $('#flag-lines').innerHTML = lines;
