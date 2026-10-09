@@ -1992,6 +1992,11 @@ window.initDevice3D = function (host, { pick, icons }) {
       const p = left ? at.rest.l : at.rest.r;                    // the corner the pointer meets, at rest
       return { fid, el, at, w, h, left, x: left ? p.x - GAP - w : p.x + GAP, y: p.y - h / 2 };
     });
+    // align each side into a column: left flags share a right edge, right flags a left edge, set by
+    // whichever control on that side reaches furthest out; pointers just run as far as they need to
+    const leftEdge = Math.min(...items.filter(it => it.left).map(it => it.x + it.w));
+    const rightEdge = Math.max(...items.filter(it => !it.left).map(it => it.x));
+    items.forEach(it => { it.x = it.left ? leftEdge - it.w : rightEdge; });
     const clamp = r => { r.x = Math.max(12, Math.min(W - 12 - r.w, r.x)); r.y = Math.max(12, Math.min(bottomLimit - r.h, r.y)); };
     items.forEach(clamp);
     for (let iter = 0; iter < 60; iter++) {                    // separate overlapping flags
