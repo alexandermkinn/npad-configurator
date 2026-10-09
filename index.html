@@ -777,12 +777,24 @@ window.initDevice3D = function (host, { pick, icons }) {
   // The working view people land on once they take over: a standard isometric angle, turned 45°
   // with the knob at the back right, looking down at the true-isometric 35.3°.
   // (pulled back a little so the config-mode flags have room either side)
-  const ISO = { yaw: Math.PI / 4, pitch: Math.atan(1 / Math.SQRT2), zoom: 1.42 };
-  // Exploded view for config mode: keycaps lift off their switches in a staircase, highest at the
-  // back-left (n key) and stepping down toward the front, so each sits in its own band on screen and
-  // its flag can sit right beside it. The right-hand column stays low so it doesn't rise in front of
-  // the knob, which lifts out of its recess too.
-  const EXPLODE = { lift: { k1: 62, k2: 48, k4: 36, k5: 22, k3: 14, k6: 8 }, knob: 14, lookUp: 20 };
+  const ISO = { yaw: Math.PI / 4, pitch: Math.atan(1 / Math.SQRT2), zoom: 1.62 };
+  // Exploded view for config mode, on one geometric rule: every part lifts in proportion to how far
+  // back it sits along the iso view direction, so the parts rest on a single plane sloping down toward
+  // the viewer. The knob, furthest back, ends up highest; the keys fall into evenly spaced diagonal
+  // steps (n; globe + shrimp; arrow + sailboat; sparkle), leaving a clear band at each step for flags.
+  // Lifts (mm) are filled in once the parts exist: lift = MIN + SLOPE * (how much further back than the
+  // frontmost part).
+  const EXPLODE = { SLOPE: 1.15, MIN: 8, lift: {}, knob: 0, lookUp: 34 };
+  const depthAlongView = (x, z) => (x + z) / Math.SQRT2;          // toward the iso camera (+x, +z)
+  {
+    const parts = Object.entries(keys).map(([id, k]) => [id, depthAlongView(k.group.position.x, k.group.position.z)]);
+    parts.push(['knob', depthAlongView(0, KNOB_Z)]);
+    const front = Math.max(...parts.map(([, u]) => u));
+    parts.forEach(([id, u]) => {
+      const lift = EXPLODE.MIN + EXPLODE.SLOPE * (front - u);
+      if (id === 'knob') EXPLODE.knob = lift; else EXPLODE.lift[id] = lift;
+    });
+  }
   let explodeT = 0, explodeTo = 0;
   let viewLocked = false;                                      // config mode holds the camera at ISO
   // Two modes, switched by the page (the sidebar): preview (on load) runs the orbit, demo taps and
@@ -1926,9 +1938,9 @@ window.initDevice3D = function (host, { pick, icons }) {
   // ---- flags: what each control sends, called out around the model in config mode ----
   const FLAGS = [['k1'], ['k2'], ['k3'], ['k4'], ['k5'], ['k6'], ['knob', ['ccw', 'press', 'cw']]];
   const FLAG_NAMES = { ccw: 'Turn left', press: 'Press', cw: 'Turn right' };
-  // which side of its control each flag sits on, at the iso view: the right-hand key column and the
-  // knob label to the right, the rest to the left
-  const FLAG_SIDE = { k1: 'left', k2: 'left', k4: 'left', k5: 'left', k3: 'right', k6: 'right', knob: 'right' };
+  // which side of its control each flag sits on, at the iso view: keys sharing a step of the explode
+  // split left/right (shrimp | globe, sailboat | arrow), the rest alternate down the staircase
+  const FLAG_SIDE = { knob: 'right', k1: 'left', k4: 'left', k2: 'right', k5: 'left', k3: 'right', k6: 'right' };
   const flagsOn = () => !!(dev3d && hidDev && edit.ready && panelsOpen());
   function renderFlags() {
     const on = flagsOn();
