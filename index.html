@@ -200,14 +200,14 @@ button:disabled { opacity: .45; cursor: default; }
 .flag { position: absolute; display: grid; gap: 1px; padding: 3px; border-radius: 9px; background: var(--panel); border: 1px solid var(--line);
   box-shadow: 0 6px 18px rgba(0,0,0,.35); pointer-events: auto; }
 .flags:not(.on) .flag { pointer-events: none; }
-.flag-row { all: unset; box-sizing: border-box; cursor: pointer; display: grid; gap: 0; padding: 4px 18px 4px 6px; border-radius: 6px; min-width: 92px; max-width: 190px; }
+.flag-row { all: unset; box-sizing: border-box; cursor: pointer; display: grid; gap: 0; padding: 4px 6px; border-radius: 6px; min-width: 92px; max-width: 190px; }
 .flag-row:hover { background: color-mix(in srgb, var(--fg) 4%, transparent); }
 .flag-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .flag-row[aria-pressed="true"] { background: transparent; }
-.flag-row.hit .flag-code { background: color-mix(in srgb, var(--accent) 30%, var(--bg)); }
+.flag-icon { transition: color .6s ease, filter .6s ease; }
+.flag-icon.ok { color: color-mix(in srgb, var(--accent) 55%, #fff); }
+.flag-row.hit .flag-icon { color: var(--accent); filter: drop-shadow(0 0 1.5px color-mix(in srgb, var(--accent) 60%, transparent)); transition: none; }
 .flag-row { position: relative; }
-.flag-dot { position: absolute; top: 6px; right: 6px; width: 6px; height: 6px; border-radius: 50%; background: color-mix(in srgb, var(--muted) 40%, transparent); }
-.flag-dot.ok { background: var(--ok); box-shadow: 0 0 5px var(--ok); }
 .flag-row { grid-template-columns: auto minmax(0, 1fr) !important; align-items: center; column-gap: 8px !important; }
 .flag-icon { display: grid; place-items: center; color: color-mix(in srgb, var(--fg) 70%, transparent); }
 .flag-icon svg { display: block; }
@@ -465,6 +465,42 @@ window.initDevice3D = function (host, { pick, icons }) {
   recess.rotation.x = -Math.PI / 2;
   recess.position.set(0, H - KNOB_SINK - 0.4, KNOB_Z);
   scene.add(recess);
+
+  // The rotary encoder the knob sits on (an EC11, simplified): a square steel body, a threaded
+  // bushing and a knurled split shaft. Hidden under the knob when assembled; seen when it lifts off.
+  const ENC = { body: 12.4, bodyH: 1.4, bushR: 3.5, bushH: 3, shaftR: 3, shaftH: 6.8 };
+  // dark like the case, so it doesn't compete with the keycaps and knob
+  const steel = new T.MeshStandardMaterial({ color: srgb(0x232327), metalness: 0.45, roughness: 0.55, envMapIntensity: 0.7 });
+  const encoder = new T.Group();
+  encoder.position.set(0, H - KNOB_SINK - 0.4, KNOB_Z);
+  const encBody = new T.Mesh(new T.BoxGeometry(ENC.body, ENC.bodyH, ENC.body), steel);
+  encBody.position.y = ENC.bodyH / 2;
+  // threaded bushing: a stack of thin rings reads as a thread
+  const bushing = new T.Group();
+  for (let i = 0; i < 6; i++) {
+    const ring = new T.Mesh(new T.CylinderGeometry(ENC.bushR - (i % 2) * 0.25, ENC.bushR - ((i + 1) % 2) * 0.25, ENC.bushH / 6, 40), steel);
+    ring.position.y = ENC.bodyH + (i + 0.5) * ENC.bushH / 6;
+    bushing.add(ring);
+  }
+  // knurled shaft (18 ridges) with the split slot across its top; it turns and dips with the knob
+  const shaftGeo = new T.CylinderGeometry(ENC.shaftR, ENC.shaftR, ENC.shaftH, 18 * 4, 1);
+  { const p = shaftGeo.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), z = p.getZ(i), a = Math.atan2(z, x), k = 1 - 0.07 * (0.5 + 0.5 * Math.cos(a * 18));
+      p.setX(i, x * k); p.setZ(i, z * k);
+    }
+    shaftGeo.computeVertexNormals(); }
+  const shaft = new T.Group();
+  const shaftMesh = new T.Mesh(shaftGeo, steel);
+  shaftMesh.position.y = ENC.shaftH / 2;
+  const slot = new T.Mesh(new T.BoxGeometry(ENC.shaftR * 2.02, 2.4, 0.8), new T.MeshBasicMaterial({ color: 0x050506 }));
+  slot.position.y = ENC.shaftH - 1.15;
+  shaft.add(shaftMesh, slot);
+  shaft.position.y = ENC.bodyH + ENC.bushH;
+  encoder.add(encBody, bushing, shaft);
+  [encBody, shaftMesh].forEach(m => { m.castShadow = m.receiveShadow = true; });
+  encoder.scale.setScalar(0.8);                               // the encoder is drawn 20% smaller (the knob isn't)
+  scene.add(encoder);
 
   // USB-C port, centred on the back face (the case's outer wall is at z = -D/2): a stadium-shaped
   // pocket milled into the case with a silver USB-C receptacle at the bottom. There's no CSG here,
@@ -789,7 +825,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   // the same view without the config-mode parallax: flags are laid out from this one, so they stay put
   const baseCam = new T.PerspectiveCamera(24, 1, 10, 2000);
   // config-mode parallax: the model turns gently with the mouse's horizontal position
-  const PARALLAX = 0.05;                                       // radians either side (~3°)
+  const PARALLAX = 0.085;                                      // radians either side (~5°)
   const par = { yaw: 0, to: 0 };
   const look = new T.Vector3(0, 6, 0); // middle of the case, so it stays centred all the way round
   const HOME_YAW = -0.42, HOME_PITCH = 0.92;
@@ -1112,10 +1148,12 @@ window.initDevice3D = function (host, { pick, icons }) {
     });
     knobShown += (knobAngle - knobShown) * Math.min(1, dt * 22);   // catches up within ~0.1 s, even on fast spins
     spinner.rotation.y = -knobShown;
+    shaft.rotation.y = -knobShown;
     knobT += ((knobDown ? 1 : 0) - knobT) * 0.45;
     const knobHoverTo = (!drag && hover.id === 'press') || ['cw', 'ccw', 'press'].includes(hover.panel) ? 1 : 0;
     knobHoverT += (knobHoverTo - knobHoverT) * ease;
     knob.position.y = H - KNOB_SINK - 1.2 * knobT + explodeT * EXPLODE.knob;
+    shaft.position.y = ENC.bodyH + ENC.bushH - 1.2 * knobT;      // the encoder's push switch
     knobSelT += ((['cw', 'ccw', 'press'].includes(target) ? 1 : 0) - knobSelT) * ease;
     knobOutlineMat.opacity = OUTLINE * knobHoverT;
     knobSide.color.copy(KNOB_SIDE_COLOR).lerp(KNOB_SELECTED, knobSelT);
@@ -2068,8 +2106,9 @@ window.initDevice3D = function (host, { pick, icons }) {
     $('#popover').hidden = !(on && edit.ctrl && edit.more);
     if (!on) return;
     $('#flags').innerHTML = FLAGS.map(([fid, rows = [fid]]) => `<div class="flag" data-flag="${fid}">${rows.map(id => {
-      const rec = id === edit.ctrl, dot = `<span class="flag-dot${tested.has(id) ? ' ok' : ''}" title="${tested.has(id) ? 'Works' : 'Not pressed yet'}"></span>`;
-      const icon = `<span class="flag-icon" aria-hidden="true">${flagIcon(id)}</span>`;
+      // the icon is the test light: it flashes blue when the control fires, then stays light blue
+      const rec = id === edit.ctrl, dot = '';
+      const icon = `<span class="flag-icon${tested.has(id) ? ' ok' : ''}" aria-hidden="true" title="${tested.has(id) ? 'Works' : 'Not pressed yet'}">${flagIcon(id)}</span>`;
       if (rec) return `<div class="flag-row recording" data-input="${id}" aria-pressed="true" role="group" aria-label="${esc(byId[id].name)}: press a key">
         ${dot}${icon}<span class="flag-code" aria-live="polite">${edit.more ? 'Choose a key…' : 'Press a key…'}</span>
         <button type="button" class="flag-more" data-more aria-expanded="${edit.more}">More</button></div>`;
@@ -2081,7 +2120,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   function flashFlag(id) {
     const row = document.querySelector(`#flags [data-input="${id}"]`);
     if (!row) return;
-    row.classList.add('hit'); clearTimeout(row._t); row._t = setTimeout(() => row.classList.remove('hit'), 180);
+    row.classList.add('hit'); clearTimeout(row._t); row._t = setTimeout(() => row.classList.remove('hit'), 260);
   }
   // Flags sit right beside their control: with the model exploded, each keycap is in its own band on
   // screen, so a flag goes level with it, on the outer side. Anything that would still overlap is
