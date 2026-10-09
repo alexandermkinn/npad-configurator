@@ -222,6 +222,14 @@ button:disabled { opacity: .45; cursor: default; }
 .flag-row:hover .flag-code { border-color: color-mix(in srgb, var(--fg) 30%, transparent); }
 .flag-row[aria-pressed="true"] .flag-code { border-color: var(--accent); box-shadow: inset 0 1px 2px rgba(0,0,0,.35), 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); color: var(--fg); }
 .flag-row[aria-pressed="true"] .flag-code::after { border-color: var(--accent); }
+.flag-row.recording { cursor: default; grid-template-columns: auto minmax(0, 1fr) auto !important; }
+.flag-row.recording .flag-code { color: var(--accent); font-style: italic; border-color: var(--accent);
+  animation: rec-pulse 1.4s ease-in-out infinite; }
+.flag-row.recording .flag-code::after { display: none; }
+@keyframes rec-pulse { 50% { box-shadow: inset 0 1px 2px rgba(0,0,0,.35), 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .flag-row.recording .flag-code { animation: none; } }
+.flag-more { font-size: 11px; padding: 3px 7px; margin-left: 6px; border-radius: 6px; }
+.flag-more[aria-expanded="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
 .flag-row[aria-pressed="true"] .flag-name { color: color-mix(in srgb, #fff 75%, transparent); }
 .popover { position: absolute; left: 0; top: 0; z-index: 4; width: 320px; max-width: calc(100% - 24px); height: min(430px, calc(100% - 24px));
   display: flex; flex-direction: column; filter: drop-shadow(0 12px 28px rgba(0,0,0,.5)); }
@@ -1369,20 +1377,22 @@ window.initDevice3D = function (host, { pick, icons }) {
 
   // click a control (on the model, or a row in the sidebar): edit it in the Keymap tab
   document.addEventListener('click', e => {
+    if (e.target.closest('[data-more]')) { edit.more = !edit.more; edit.query = ''; $('#pick-search').value = ''; renderKeymap(); return; }
     const t = e.target.closest('[data-input]');
     if (t) pick(t.dataset.input);
   });
   function pick(id) {
-    if (!id) { if (edit.ctrl && panelsOpen()) { edit.ctrl = null; renderKeymap(); render(); } return; }  // click on empty space
+    if (!id) { if (edit.ctrl && panelsOpen()) { edit.ctrl = null; edit.more = false; renderKeymap(); render(); } return; }  // click on empty space
     if (!hidDev || !edit.ready) { nudgeConnect(); return; }   // editing needs an attached npad
     // clicking the control that's already selected deselects it
     const reclick = edit.ctrl === id && panelsOpen();
     edit.ctrl = reclick ? null : id;
+    edit.more = false;                                // a newly selected control starts in record mode
     edit.query = ''; $('#pick-search').value = '';
     setPanels(true);
     renderKeymap(); render();
   }
-  window.addEventListener('keydown', e => { if (e.key === 'Escape' && edit.ctrl) pick(null); });
+
 
   $('#btn-panels').addEventListener('click', () => setPanels(!panelsOpen()));
   $('#btn-reset').addEventListener('click', () => { tested.clear(); knobAngle = 0; $('#knob-face').style.transform = ''; dev3d?.reset(); render(); });
@@ -1712,7 +1722,7 @@ window.initDevice3D = function (host, { pick, icons }) {
 
   const edit = {
     ready: false, layers: 0, keymap: [], enc: [],               // keymap[layer][row * 3 + col]; enc[layer] = [ccw, cw]
-    original: null, undo: [], layer: 0, ctrl: null, mods: 0, cat: 'Letters', query: '',
+    original: null, undo: [], layer: 0, ctrl: null, more: false, mods: 0, cat: 'Media', query: '',
     macroCount: 0, macroSize: 0, macros: [], draft: [], macroSel: 0, macroTimer: null, macroState: '',
   };
   const idxOf = i => i.pos[0] * 3 + i.pos[1];
@@ -1987,6 +1997,51 @@ window.initDevice3D = function (host, { pick, icons }) {
     }).join('') : '<p class="muted">No keys match.</p>';
   }
 
+  // ---- record mode: the selected control takes the next key or shortcut pressed ----
+  const CODE_TO_KC = (() => {
+    const m = {};
+    for (let i = 0; i < 26; i++) m['Key' + String.fromCharCode(65 + i)] = 0x04 + i;
+    for (let i = 1; i <= 9; i++) m['Digit' + i] = 0x1d + i;
+    m.Digit0 = 0x27;
+    for (let i = 1; i <= 12; i++) m['F' + i] = 0x39 + i;
+    for (let i = 13; i <= 24; i++) m['F' + i] = 0x5b + i;
+    Object.assign(m, { Enter: 0x28, Escape: 0x29, Backspace: 0x2a, Tab: 0x2b, Space: 0x2c, Minus: 0x2d, Equal: 0x2e,
+      BracketLeft: 0x2f, BracketRight: 0x30, Backslash: 0x31, Semicolon: 0x33, Quote: 0x34, Backquote: 0x35, Comma: 0x36,
+      Period: 0x37, Slash: 0x38, CapsLock: 0x39, PrintScreen: 0x46, ScrollLock: 0x47, Pause: 0x48, Insert: 0x49, Home: 0x4a,
+      PageUp: 0x4b, Delete: 0x4c, End: 0x4d, PageDown: 0x4e, ArrowRight: 0x4f, ArrowLeft: 0x50, ArrowDown: 0x51, ArrowUp: 0x52,
+      NumLock: 0x53, NumpadDivide: 0x54, NumpadMultiply: 0x55, NumpadSubtract: 0x56, NumpadAdd: 0x57, NumpadEnter: 0x58,
+      Numpad1: 0x59, Numpad2: 0x5a, Numpad3: 0x5b, Numpad4: 0x5c, Numpad5: 0x5d, Numpad6: 0x5e, Numpad7: 0x5f, Numpad8: 0x60,
+      Numpad9: 0x61, Numpad0: 0x62, NumpadDecimal: 0x63, IntlBackslash: 0x64, ContextMenu: 0x65, NumpadEqual: 0x67,
+      AudioVolumeMute: 0xa8, AudioVolumeUp: 0xa9, AudioVolumeDown: 0xaa, MediaTrackNext: 0xab, MediaTrackPrevious: 0xac,
+      MediaStop: 0xad, MediaPlayPause: 0xae,
+      ControlLeft: 0xe0, ShiftLeft: 0xe1, AltLeft: 0xe2, MetaLeft: 0xe3, ControlRight: 0xe4, ShiftRight: 0xe5, AltRight: 0xe6, MetaRight: 0xe7 });
+    return m;
+  })();
+  const recording = () => !!(edit.ctrl && flagsOn());
+  let lonelyMod = null;                             // a modifier pressed on its own: recorded when it's released alone
+  function recordCode(code) {
+    const id = edit.ctrl;
+    pick(null);
+    setCode(edit.layer, id, code).then(() => flashFlag(id));
+  }
+  window.addEventListener('keydown', e => {
+    if (!recording() || inField(e)) return;
+    e.preventDefault(); e.stopImmediatePropagation();  // the page's tester doesn't see keys while recording
+    if (e.repeat) return;
+    if (e.key === 'Escape' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) { pick(null); return; }
+    const kc = CODE_TO_KC[e.code];
+    if (kc == null) { toast(`That key can't be recorded here. Use More to pick it.`); return; }
+    if (kc >= 0xe0) { lonelyMod = e.code; return; }
+    lonelyMod = null;
+    const mods = (e.ctrlKey ? 1 : 0) | (e.shiftKey ? 2 : 0) | (e.altKey ? 4 : 0) | (e.metaKey ? 8 : 0);
+    recordCode(mods && kc <= 0xa4 ? (mods << 8) | kc : kc);
+  }, true);
+  window.addEventListener('keyup', e => {
+    if (!recording() || inField(e)) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    if (lonelyMod && e.code === lonelyMod) { lonelyMod = null; recordCode(CODE_TO_KC[e.code]); }
+  }, true);
+
   // ---- flags: what each control sends, called out around the model in config mode ----
   const FLAGS = [['k1'], ['k2'], ['k3'], ['k4'], ['k5'], ['k6'], ['knob', ['ccw', 'press', 'cw']]];
   // Little line drawings for the flags: a keycap with its legend, or the knob with what it's doing.
@@ -2014,13 +2069,17 @@ window.initDevice3D = function (host, { pick, icons }) {
   function renderFlags() {
     const on = flagsOn();
     $('#flags').classList.toggle('on', on); $('#flag-lines').classList.toggle('on', on);
-    $('#popover').hidden = !(on && edit.ctrl);
+    $('#popover').hidden = !(on && edit.ctrl && edit.more);
     if (!on) return;
-    $('#flags').innerHTML = FLAGS.map(([fid, rows = [fid]]) => `<div class="flag" data-flag="${fid}">${rows.map(id =>
-      `<button type="button" class="flag-row" data-input="${id}" aria-pressed="${id === edit.ctrl}" aria-label="${esc(byId[id].name)}" title="${esc(byId[id].name)}">
-        <span class="flag-dot${tested.has(id) ? ' ok' : ''}" title="${tested.has(id) ? 'Works' : 'Not pressed yet'}"></span>
-        <span class="flag-icon" aria-hidden="true">${flagIcon(id)}</span>
-        <span class="flag-code">${esc(labelFor(getCode(edit.layer, id)))}</span></button>`).join('')}</div>`).join('');
+    $('#flags').innerHTML = FLAGS.map(([fid, rows = [fid]]) => `<div class="flag" data-flag="${fid}">${rows.map(id => {
+      const rec = id === edit.ctrl, dot = `<span class="flag-dot${tested.has(id) ? ' ok' : ''}" title="${tested.has(id) ? 'Works' : 'Not pressed yet'}"></span>`;
+      const icon = `<span class="flag-icon" aria-hidden="true">${flagIcon(id)}</span>`;
+      if (rec) return `<div class="flag-row recording" data-input="${id}" aria-pressed="true" role="group" aria-label="${esc(byId[id].name)}: press a key">
+        ${dot}${icon}<span class="flag-code" aria-live="polite">${edit.more ? 'Choose a key…' : 'Press a key…'}</span>
+        <button type="button" class="flag-more" data-more aria-expanded="${edit.more}">More</button></div>`;
+      return `<button type="button" class="flag-row" data-input="${id}" aria-pressed="false" aria-label="${esc(byId[id].name)}" title="${esc(byId[id].name)}">
+        ${dot}${icon}<span class="flag-code">${esc(labelFor(getCode(edit.layer, id)))}</span></button>`;
+    }).join('')}</div>`).join('');
     layoutFlags();
   }
   function flashFlag(id) {
@@ -2134,7 +2193,9 @@ window.initDevice3D = function (host, { pick, icons }) {
   $('#pick-mods').addEventListener('click', e => { const b = e.target.closest('[data-mod]'); if (b) { edit.mods ^= +b.dataset.mod; renderKeymap(); } });
   $('#pick-keys').addEventListener('click', e => {
     const b = e.target.closest('[data-code]'); if (!b) return;
-    setCode(edit.layer, edit.ctrl, +b.dataset.code).then(() => { if (edit.mods) { edit.mods = 0; renderKeymap(); } });
+    const id = edit.ctrl;
+    edit.mods = 0; pick(null);
+    setCode(edit.layer, id, +b.dataset.code).then(() => flashFlag(id));
   });
   $('#btn-undo').addEventListener('click', undo);
   $('#btn-restore').addEventListener('click', restoreOriginal);
