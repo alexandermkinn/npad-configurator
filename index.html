@@ -208,6 +208,10 @@ button:disabled { opacity: .45; cursor: default; }
 .flag-row { position: relative; }
 .flag-dot { position: absolute; top: 6px; right: 6px; width: 6px; height: 6px; border-radius: 50%; background: color-mix(in srgb, var(--muted) 40%, transparent); }
 .flag-dot.ok { background: var(--ok); box-shadow: 0 0 5px var(--ok); }
+.flag-row { grid-template-columns: auto minmax(0, 1fr) !important; align-items: center; column-gap: 8px !important; }
+.flag-icon { display: grid; place-items: center; color: color-mix(in srgb, var(--fg) 70%, transparent); }
+.flag-icon svg { display: block; }
+.flag-row[aria-pressed="true"] .flag-icon { color: #fff; }
 .flag-name { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
 .flag-code { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .flag-row[aria-pressed="true"] .flag-name { color: color-mix(in srgb, #fff 75%, transparent); }
@@ -771,6 +775,11 @@ window.initDevice3D = function (host, { pick, icons }) {
 
   // ---- camera with drag-to-turn ----
   const camera = new T.PerspectiveCamera(24, 1, 10, 2000);
+  // the same view without the config-mode parallax: flags are laid out from this one, so they stay put
+  const baseCam = new T.PerspectiveCamera(24, 1, 10, 2000);
+  // config-mode parallax: the model turns gently with the mouse's horizontal position
+  const PARALLAX = 0.05;                                       // radians either side (~3°)
+  const par = { yaw: 0, to: 0 };
   const look = new T.Vector3(0, 6, 0); // middle of the case, so it stays centred all the way round
   const HOME_YAW = -0.42, HOME_PITCH = 0.92;
   const view = { yaw: HOME_YAW, pitch: HOME_PITCH, dist: 268, zoom: 1 };
@@ -819,14 +828,21 @@ window.initDevice3D = function (host, { pick, icons }) {
   function placeCamera() {
     const cp = Math.cos(view.pitch), d = view.dist * view.zoom;
     const ly = look.y + EXPLODE.lookUp * explodeT;              // aim a little higher while exploded
-    camera.position.set(look.x + d * cp * Math.sin(view.yaw), ly + d * Math.sin(view.pitch), look.z + d * cp * Math.cos(view.yaw));
-    camera.lookAt(look.x, ly, look.z);
+    const put = (cam, yaw) => {
+      cam.position.set(look.x + d * cp * Math.sin(yaw), ly + d * Math.sin(view.pitch), look.z + d * cp * Math.cos(yaw));
+      cam.lookAt(look.x, ly, look.z);
+      cam.updateMatrixWorld();
+    };
+    put(baseCam, view.yaw);
+    put(camera, view.yaw + par.yaw);
   }
+  window.addEventListener('pointermove', e => { par.to = viewLocked ? (e.clientX / innerWidth - 0.5) * 2 * PARALLAX : 0; });
   function resize() {
     const w = host.clientWidth, h = host.clientHeight;
     if (!w || !h) return;
     renderer.setSize(w, h, false);
-    camera.aspect = w / h;
+    camera.aspect = baseCam.aspect = w / h;
+    baseCam.updateProjectionMatrix();
     // keep the whole device in frame on narrow screens
     view.dist = 268 * Math.max(1, 1.1 / camera.aspect);
     camera.updateProjectionMatrix(); placeCamera();
@@ -1045,6 +1061,8 @@ window.initDevice3D = function (host, { pick, icons }) {
       placeCamera();
     }
     while (presses.length && t - presses[0].t > 1.5) presses.shift();
+    if (!viewLocked) par.to = 0;
+    if (Math.abs(par.to - par.yaw) > 1e-5) { par.yaw += (par.to - par.yaw) * Math.min(1, dt * 3); placeCamera(); }
     // explode / reassemble, eased (~0.5 s), alongside the camera's turn to iso
     if (explodeT !== explodeTo) {
       explodeT += (explodeTo - explodeT) * Math.min(1, dt * 7);
@@ -1118,13 +1136,13 @@ window.initDevice3D = function (host, { pick, icons }) {
     // device's on-screen bounds; anchors are the keycap tops and the knob's top edge facing the viewer
     anchors() {
       const w = canvas.clientWidth, h = canvas.clientHeight, v = new T.Vector3();
-      const toScreen = p => { p.project(camera); return { x: (p.x + 1) / 2 * w, y: (1 - p.y) / 2 * h }; };
+      const toScreen = (p, cam = camera) => { p.project(cam); return { x: (p.x + 1) / 2 * w, y: (1 - p.y) / 2 * h }; };
       const out = {};
       // Each control's outer silhouette corners, halfway up its side: the leftmost and rightmost points
       // on screen. Flags are placed level with these at rest (so they stay still while a key is
       // pressed) and pointers run straight across to the live corner.
-      const sil = (obj, pts, dy) => {
-        const sp = pts.map(([x, y, z]) => toScreen(obj.localToWorld(v.set(x, y + dy, z))));
+      const sil = (obj, pts, dy, cam) => {
+        const sp = pts.map(([x, y, z]) => toScreen(obj.localToWorld(v.set(x, y + dy, z)), cam));
         const l = sp.reduce((m, p) => p.x < m.x ? p : m), r = sp.reduce((m, p) => p.x > m.x ? p : m);
         return { l: { ...l }, r: { ...r } };
       };
@@ -1132,14 +1150,22 @@ window.initDevice3D = function (host, { pick, icons }) {
       const mid = CAP.height / 2, hwm = (CAP.base + CAP.topX + CAP.fillet * 0.8) / 2 * 0.92;
       const capCorners = [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => [sx * hwm, mid, sz * hwm]);
       Object.entries(keys).forEach(([id, k]) => {
-        const rest = sil(k.group, capCorners, TRAVEL * k.t), live = sil(k.group, capCorners, 0);
+        const rest = sil(k.group, capCorners, TRAVEL * k.t, baseCam), live = sil(k.group, capCorners, 0, camera);
         out[id] = { rest, live };
       });
-      const knobRing = Array.from({ length: 48 }, (_, i) => { const t = i / 48 * Math.PI * 2; return [Math.cos(t) * KNOB_R, KNOB_H / 2, Math.sin(t) * KNOB_R]; });
-      out.knob = { rest: sil(knob, knobRing, 1.2 * knobT), live: sil(knob, knobRing, 0) };
+      // The knob is round, so its outline edge is found exactly rather than from sample points (which
+      // made the flag hop between neighbours as the view moved): for each camera, the edge points sit
+      // at ±radius along the horizontal direction square to the line of sight to the knob's axis.
+      const knobEdge = (cam, dy) => {
+        const c = knob.localToWorld(new T.Vector3(0, KNOB_H / 2 + dy, 0));
+        const side = new T.Vector3(cam.position.z - c.z, 0, c.x - cam.position.x).normalize().multiplyScalar(KNOB_R);
+        const a = toScreen(c.clone().add(side), cam), b = toScreen(c.clone().sub(side), cam);
+        return a.x < b.x ? { l: a, r: b } : { l: b, r: a };
+      };
+      out.knob = { rest: knobEdge(baseCam, 1.2 * knobT), live: knobEdge(camera, 0) };
       out.exploded = explodeT;
       const pts = [];
-      for (const x of [-W / 2, W / 2]) for (const z of [-D / 2, D / 2]) for (const y of [0, H + KNOB_H]) pts.push(toScreen(v.set(x, y, z)));
+      for (const x of [-W / 2, W / 2]) for (const z of [-D / 2, D / 2]) for (const y of [0, H + KNOB_H]) pts.push(toScreen(v.set(x, y, z), baseCam));
       out.box = { l: Math.min(...pts.map(p => p.x)), r: Math.max(...pts.map(p => p.x)), t: Math.min(...pts.map(p => p.y)), b: Math.max(...pts.map(p => p.y)) };
       out.settled = !turntable.goHome;
       return out;
@@ -1956,7 +1982,22 @@ window.initDevice3D = function (host, { pick, icons }) {
 
   // ---- flags: what each control sends, called out around the model in config mode ----
   const FLAGS = [['k1'], ['k2'], ['k3'], ['k4'], ['k5'], ['k6'], ['knob', ['ccw', 'press', 'cw']]];
-  const FLAG_NAMES = { ccw: 'Turn left', press: 'Press', cw: 'Turn right' };
+  // Little line drawings for the flags: a keycap with its legend, or the knob with what it's doing.
+  const ICON_STROKE = 'fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"';
+  function flagIcon(id) {
+    const icon = INPUTS.find(i => i.id === id)?.icon;
+    if (icon) {
+      const legend = ICONS[icon].replace('<svg ', '<svg x="7.25" y="5.5" width="9.5" height="9.5" ');
+      return `<svg viewBox="0 0 24 24" width="24" height="24"><g ${ICON_STROKE}><rect x="2" y="2.5" width="20" height="19" rx="4"/><rect x="5" y="3.5" width="14" height="13" rx="3"/></g><g fill="currentColor">${legend}</g></svg>`;
+    }
+    const knob = '<circle cx="12" cy="14" r="6.5"/><circle cx="10" cy="12" r="1.4"/>';
+    const marks = {
+      ccw: '<path d="M18.5 7.5A9.5 9.5 0 0 0 4 9.5"/><path d="M3.6 6.2 4 9.5 7.2 8.8"/>',
+      cw: '<path d="M5.5 7.5A9.5 9.5 0 0 1 20 9.5"/><path d="M20.4 6.2 20 9.5 16.8 8.8"/>',
+      press: '<path d="M12 1.5v4"/><path d="M9.8 3.6 12 5.8 14.2 3.6"/>',
+    };
+    return `<svg viewBox="0 0 24 24" width="24" height="24"><g ${ICON_STROKE}>${knob}${marks[id] || ''}</g></svg>`;
+  }
   // which side of its control each flag sits on, at the iso view: keys sharing a step of the explode
   // split left/right (shrimp | globe, sailboat | arrow), the rest alternate down the staircase
   const FLAG_SIDE = { knob: 'right', k1: 'left', k4: 'left', k2: 'right', k5: 'left', k3: 'right', k6: 'right' };
@@ -1967,9 +2008,9 @@ window.initDevice3D = function (host, { pick, icons }) {
     $('#popover').hidden = !(on && edit.ctrl);
     if (!on) return;
     $('#flags').innerHTML = FLAGS.map(([fid, rows = [fid]]) => `<div class="flag" data-flag="${fid}">${rows.map(id =>
-      `<button type="button" class="flag-row" data-input="${id}" aria-pressed="${id === edit.ctrl}">
+      `<button type="button" class="flag-row" data-input="${id}" aria-pressed="${id === edit.ctrl}" aria-label="${esc(byId[id].name)}" title="${esc(byId[id].name)}">
         <span class="flag-dot${tested.has(id) ? ' ok' : ''}" title="${tested.has(id) ? 'Works' : 'Not pressed yet'}"></span>
-        <span class="flag-name">${esc(FLAG_NAMES[id] || byId[id].name.replace(/ key$/, ''))}</span>
+        <span class="flag-icon" aria-hidden="true">${flagIcon(id)}</span>
         <span class="flag-code">${esc(labelFor(getCode(edit.layer, id)))}</span></button>`).join('')}</div>`).join('');
     layoutFlags();
   }
@@ -2017,10 +2058,9 @@ window.initDevice3D = function (host, { pick, icons }) {
     items.forEach(it => {
       it.el.style.transform = `translate(${Math.round(it.x)}px, ${Math.round(it.y)}px)`;
       // the pointer runs straight across, at 90° to the flag's edge, to the control's outer corner
-      // (its live position, so it stays attached when the key goes down)
+      // (its live position, so it stays attached when a key goes down or the model drifts with the mouse)
       const end = it.left ? it.at.live.l : it.at.live.r;
       const ex = it.left ? it.x + it.w : it.x, ey = Math.max(it.y + 6, Math.min(it.y + it.h - 6, end.y));
-      end.y = ey;
       const sel = it.fid === edit.ctrl || (it.fid === 'knob' && ['ccw', 'press', 'cw'].includes(edit.ctrl));
       lines += `<g class="${sel ? 'sel' : ''}"><path d="M${end.x},${end.y} L${ex},${ey}"/><circle cx="${end.x}" cy="${end.y}" r="2.5"/></g>`;
     });
