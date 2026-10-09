@@ -790,7 +790,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   // steps (n; globe + shrimp; arrow + sailboat; sparkle), leaving a clear band at each step for flags.
   // Lifts (mm) are filled in once the parts exist: lift = MIN + SLOPE * (how much further back than the
   // frontmost part).
-  const EXPLODE = { SLOPE: 0.6, MIN: 10, lift: {}, knob: 0, lookUp: 22 };   // gentle steps; sparkle 10 mm up, n key ~34 mm
+  const EXPLODE = { SLOPE: 0.6, MIN: 10, KNOB_DROP: 2, lift: {}, knob: 0, lookUp: 22 };   // gentle steps; sparkle 10 mm up, n key ~34 mm
   const depthAlongView = (x, z) => (x + z) / Math.SQRT2;          // toward the iso camera (+x, +z)
   {
     const parts = Object.entries(keys).map(([id, k]) => [id, depthAlongView(k.group.position.x, k.group.position.z)]);
@@ -798,7 +798,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     const front = Math.max(...parts.map(([, u]) => u));
     parts.forEach(([id, u]) => {
       const lift = EXPLODE.MIN + EXPLODE.SLOPE * (front - u);
-      if (id === 'knob') EXPLODE.knob = lift; else EXPLODE.lift[id] = lift;
+      if (id === 'knob') EXPLODE.knob = lift - EXPLODE.KNOB_DROP; else EXPLODE.lift[id] = lift;   // knob sits 2 mm below the plane
     });
   }
   let explodeT = 0, explodeTo = 0;
@@ -1120,25 +1120,23 @@ window.initDevice3D = function (host, { pick, icons }) {
       const w = canvas.clientWidth, h = canvas.clientHeight, v = new T.Vector3();
       const toScreen = p => { p.project(camera); return { x: (p.x + 1) / 2 * w, y: (1 - p.y) / 2 * h }; };
       const out = {};
-      const capEdge = CAP.topX + CAP.fillet;
-      // flags are placed from each control's resting height (so they stay still while it's pressed);
-      // the leader ends follow the live position
+      // Each control's outer silhouette corners, halfway up its side: the leftmost and rightmost points
+      // on screen. Flags are placed level with these at rest (so they stay still while a key is
+      // pressed) and pointers run straight across to the live corner.
+      const sil = (obj, pts, dy) => {
+        const sp = pts.map(([x, y, z]) => toScreen(obj.localToWorld(v.set(x, y + dy, z))));
+        const l = sp.reduce((m, p) => p.x < m.x ? p : m), r = sp.reduce((m, p) => p.x > m.x ? p : m);
+        return { l: { ...l }, r: { ...r } };
+      };
+      // keycap corners at mid-height (the walls slant, so the half-width there is between base and top)
+      const mid = CAP.height / 2, hwm = (CAP.base + CAP.topX + CAP.fillet * 0.8) / 2 * 0.92;
+      const capCorners = [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => [sx * hwm, mid, sz * hwm]);
       Object.entries(keys).forEach(([id, k]) => {
-        const rest = TRAVEL * k.t;
-        const c = toScreen(k.group.localToWorld(v.set(0, CAP.height + rest, 0)));
-        const xs = [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => toScreen(k.group.localToWorld(v.set(sx * capEdge, CAP.height * 0.6 + rest, sz * capEdge))).x);
-        // the four corners of the cap's top, for leader lines to end on (clear of the legend)
-        const tc = CAP.topX * 0.82;
-        // (at the live position, so the line stays attached when the key goes down)
-        const corners = [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => toScreen(k.group.localToWorld(v.set(sx * tc, CAP.height - 0.2, sz * tc))));
-        out[id] = { ...c, l: Math.min(...xs), r: Math.max(...xs), ends: corners };
+        const rest = sil(k.group, capCorners, TRAVEL * k.t), live = sil(k.group, capCorners, 0);
+        out[id] = { rest, live };
       });
-      const krest = 1.2 * knobT;
-      const kc = toScreen(knob.localToWorld(v.set(0, KNOB_H * 0.6 + krest, 0)));
-      const kxs = [0, Math.PI / 2, Math.PI, Math.PI * 1.5].map(a => toScreen(knob.localToWorld(v.set(Math.cos(a) * KNOB_R, KNOB_H * 0.6 + krest, Math.sin(a) * KNOB_R))).x);
-      // points around the knob's top rim
-      const rim = Array.from({ length: 24 }, (_, i) => { const a = i / 24 * Math.PI * 2; return toScreen(knob.localToWorld(v.set(Math.cos(a) * (KNOB_R - 0.6), KNOB_H, Math.sin(a) * (KNOB_R - 0.6)))); });
-      out.knob = { ...kc, l: Math.min(...kxs), r: Math.max(...kxs), ends: rim };
+      const knobRing = Array.from({ length: 48 }, (_, i) => { const t = i / 48 * Math.PI * 2; return [Math.cos(t) * KNOB_R, KNOB_H / 2, Math.sin(t) * KNOB_R]; });
+      out.knob = { rest: sil(knob, knobRing, 1.2 * knobT), live: sil(knob, knobRing, 0) };
       out.exploded = explodeT;
       const pts = [];
       for (const x of [-W / 2, W / 2]) for (const z of [-D / 2, D / 2]) for (const y of [0, H + KNOB_H]) pts.push(toScreen(v.set(x, y, z)));
@@ -1986,13 +1984,13 @@ window.initDevice3D = function (host, { pick, icons }) {
   function layoutFlags() {
     if (!flagsOn()) return;
     const a = dev3d.anchors(), stage = $('#npad3d'), W = stage.clientWidth, Hh = stage.clientHeight;
-    const PAD = 6, GAP = 16, bottomLimit = Hh - 12;
+    const PAD = 6, GAP = 32, bottomLimit = Hh - 12;
     const c = { x: (a.box.l + a.box.r) / 2, y: (a.box.t + a.box.b) / 2 }, hw = (a.box.r - a.box.l) / 2, hh = (a.box.b - a.box.t) / 2;
     const items = FLAGS.map(([fid]) => {
       const el = document.querySelector(`#flags [data-flag="${fid}"]`), at = a[fid];
       const w = el.offsetWidth, h = el.offsetHeight, left = FLAG_SIDE[fid] === 'left';
-      const gap = fid === 'knob' ? GAP * 2.75 : GAP;            // the knob's rim reaches close to its flag; give its leader room
-      return { fid, el, at, w, h, x: left ? at.l - gap - w : at.r + gap, y: at.y - h / 2 };
+      const p = left ? at.rest.l : at.rest.r;                    // the corner the pointer meets, at rest
+      return { fid, el, at, w, h, left, x: left ? p.x - GAP - w : p.x + GAP, y: p.y - h / 2 };
     });
     const clamp = r => { r.x = Math.max(12, Math.min(W - 12 - r.w, r.x)); r.y = Math.max(12, Math.min(bottomLimit - r.h, r.y)); };
     items.forEach(clamp);
@@ -2013,10 +2011,11 @@ window.initDevice3D = function (host, { pick, icons }) {
     let lines = '';
     items.forEach(it => {
       it.el.style.transform = `translate(${Math.round(it.x)}px, ${Math.round(it.y)}px)`;
-      // the leader runs from the control's corner (or rim point) nearest the flag to the flag's edge
-      const cx0 = it.x + it.w / 2, cy0 = it.y + it.h / 2;
-      const end = (it.at.ends || [it.at]).reduce((b, p) => Math.hypot(p.x - cx0, p.y - cy0) < Math.hypot(b.x - cx0, b.y - cy0) ? p : b);
-      const ex = Math.max(it.x, Math.min(it.x + it.w, end.x)), ey = Math.max(it.y, Math.min(it.y + it.h, end.y));
+      // the pointer runs straight across, at 90° to the flag's edge, to the control's outer corner
+      // (its live position, so it stays attached when the key goes down)
+      const end = it.left ? it.at.live.l : it.at.live.r;
+      const ex = it.left ? it.x + it.w : it.x, ey = Math.max(it.y + 6, Math.min(it.y + it.h - 6, end.y));
+      end.y = ey;
       const sel = it.fid === edit.ctrl || (it.fid === 'knob' && ['ccw', 'press', 'cw'].includes(edit.ctrl));
       lines += `<g class="${sel ? 'sel' : ''}"><path d="M${end.x},${end.y} L${ex},${ey}"/><circle cx="${end.x}" cy="${end.y}" r="2.5"/></g>`;
     });
