@@ -213,19 +213,15 @@ button:disabled { opacity: .45; cursor: default; }
 .flag-icon svg { display: block; }
 .flag-row[aria-pressed="true"] .flag-icon { color: var(--accent); }
 .flag-name { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
-.flag-code { /* the mapping reads as an editable field: inset, bordered, with a chevron */
-  position: relative; display: block; min-width: 88px; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  padding: 4px 22px 4px 8px; border-radius: 6px; background: var(--bg); border: 1px solid var(--line);
+.flag-code { /* the mapping is a key-capture field: click it, then press the key you want */
+  position: relative; display: block; min-width: 88px; font-family: var(--font-mono); font-size: 12.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  padding: 4px 8px; border-radius: 6px; background: var(--bg); border: 1px solid var(--line);
   box-shadow: inset 0 1px 2px rgba(0,0,0,.35); transition: border-color .15s, background .15s; }
-.flag-code::after { content: ""; position: absolute; right: 8px; top: 50%; width: 5px; height: 5px; margin-top: -4px;
-  border-right: 1.3px solid var(--muted); border-bottom: 1.3px solid var(--muted); transform: rotate(45deg); }
 .flag-row:hover .flag-code { border-color: color-mix(in srgb, var(--fg) 30%, transparent); }
 .flag-row[aria-pressed="true"] .flag-code { border-color: var(--accent); box-shadow: inset 0 1px 2px rgba(0,0,0,.35), 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); color: var(--fg); }
-.flag-row[aria-pressed="true"] .flag-code::after { border-color: var(--accent); }
 .flag-row.recording { cursor: default; grid-template-columns: auto minmax(0, 1fr) auto !important; }
-.flag-row.recording .flag-code { color: var(--accent); font-style: italic; border-color: var(--accent);
+.flag-row.recording .flag-code { color: var(--accent); font-family: var(--font-body); font-style: italic; border-color: var(--accent); overflow: visible; min-width: 104px;
   animation: rec-pulse 1.4s ease-in-out infinite; }
-.flag-row.recording .flag-code::after { display: none; }
 @keyframes rec-pulse { 50% { box-shadow: inset 0 1px 2px rgba(0,0,0,.35), 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); } }
 @media (prefers-reduced-motion: reduce) { .flag-row.recording .flag-code { animation: none; } }
 .flag-more { font-size: 11px; padding: 3px 7px; margin-left: 6px; border-radius: 6px; }
