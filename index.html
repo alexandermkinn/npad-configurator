@@ -777,14 +777,14 @@ window.initDevice3D = function (host, { pick, icons }) {
   // The working view people land on once they take over: a standard isometric angle, turned 45°
   // with the knob at the back right, looking down at the true-isometric 35.3°.
   // (pulled back a little so the config-mode flags have room either side)
-  const ISO = { yaw: Math.PI / 4, pitch: Math.atan(1 / Math.SQRT2), zoom: 1.62 };
+  const ISO = { yaw: Math.PI / 4, pitch: Math.atan(1 / Math.SQRT2), zoom: 1.5 };
   // Exploded view for config mode, on one geometric rule: every part lifts in proportion to how far
   // back it sits along the iso view direction, so the parts rest on a single plane sloping down toward
   // the viewer. The knob, furthest back, ends up highest; the keys fall into evenly spaced diagonal
   // steps (n; globe + shrimp; arrow + sailboat; sparkle), leaving a clear band at each step for flags.
   // Lifts (mm) are filled in once the parts exist: lift = MIN + SLOPE * (how much further back than the
   // frontmost part).
-  const EXPLODE = { SLOPE: 1.15, MIN: 8, lift: {}, knob: 0, lookUp: 34 };
+  const EXPLODE = { SLOPE: 0.95, MIN: 3, lift: {}, knob: 0, lookUp: 26 };
   const depthAlongView = (x, z) => (x + z) / Math.SQRT2;          // toward the iso camera (+x, +z)
   {
     const parts = Object.entries(keys).map(([id, k]) => [id, depthAlongView(k.group.position.x, k.group.position.z)]);
