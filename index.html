@@ -790,7 +790,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   // steps (n; globe + shrimp; arrow + sailboat; sparkle), leaving a clear band at each step for flags.
   // Lifts (mm) are filled in once the parts exist: lift = MIN + SLOPE * (how much further back than the
   // frontmost part).
-  const EXPLODE = { SLOPE: 0.95, MIN: 3, lift: {}, knob: 0, lookUp: 26 };
+  const EXPLODE = { SLOPE: 0.6, MIN: 10, lift: {}, knob: 0, lookUp: 22 };   // gentle steps; sparkle 10 mm up, n key ~34 mm
   const depthAlongView = (x, z) => (x + z) / Math.SQRT2;          // toward the iso camera (+x, +z)
   {
     const parts = Object.entries(keys).map(([id, k]) => [id, depthAlongView(k.group.position.x, k.group.position.z)]);
@@ -1121,21 +1121,23 @@ window.initDevice3D = function (host, { pick, icons }) {
       const toScreen = p => { p.project(camera); return { x: (p.x + 1) / 2 * w, y: (1 - p.y) / 2 * h }; };
       const out = {};
       const capEdge = CAP.topX + CAP.fillet;
-      // measured at each control's resting height, so flags stay still while a key is pressed
+      // flags are placed from each control's resting height (so they stay still while it's pressed);
+      // the leader ends follow the live position
       Object.entries(keys).forEach(([id, k]) => {
         const rest = TRAVEL * k.t;
         const c = toScreen(k.group.localToWorld(v.set(0, CAP.height + rest, 0)));
         const xs = [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => toScreen(k.group.localToWorld(v.set(sx * capEdge, CAP.height * 0.6 + rest, sz * capEdge))).x);
         // the four corners of the cap's top, for leader lines to end on (clear of the legend)
         const tc = CAP.topX * 0.82;
-        const corners = [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => toScreen(k.group.localToWorld(v.set(sx * tc, CAP.height - 0.2 + rest, sz * tc))));
+        // (at the live position, so the line stays attached when the key goes down)
+        const corners = [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => toScreen(k.group.localToWorld(v.set(sx * tc, CAP.height - 0.2, sz * tc))));
         out[id] = { ...c, l: Math.min(...xs), r: Math.max(...xs), ends: corners };
       });
       const krest = 1.2 * knobT;
       const kc = toScreen(knob.localToWorld(v.set(0, KNOB_H * 0.6 + krest, 0)));
       const kxs = [0, Math.PI / 2, Math.PI, Math.PI * 1.5].map(a => toScreen(knob.localToWorld(v.set(Math.cos(a) * KNOB_R, KNOB_H * 0.6 + krest, Math.sin(a) * KNOB_R))).x);
       // points around the knob's top rim
-      const rim = Array.from({ length: 24 }, (_, i) => { const a = i / 24 * Math.PI * 2; return toScreen(knob.localToWorld(v.set(Math.cos(a) * (KNOB_R - 0.6), KNOB_H + krest, Math.sin(a) * (KNOB_R - 0.6)))); });
+      const rim = Array.from({ length: 24 }, (_, i) => { const a = i / 24 * Math.PI * 2; return toScreen(knob.localToWorld(v.set(Math.cos(a) * (KNOB_R - 0.6), KNOB_H, Math.sin(a) * (KNOB_R - 0.6)))); });
       out.knob = { ...kc, l: Math.min(...kxs), r: Math.max(...kxs), ends: rim };
       out.exploded = explodeT;
       const pts = [];
@@ -1989,7 +1991,8 @@ window.initDevice3D = function (host, { pick, icons }) {
     const items = FLAGS.map(([fid]) => {
       const el = document.querySelector(`#flags [data-flag="${fid}"]`), at = a[fid];
       const w = el.offsetWidth, h = el.offsetHeight, left = FLAG_SIDE[fid] === 'left';
-      return { fid, el, at, w, h, x: left ? at.l - GAP - w : at.r + GAP, y: at.y - h / 2 };
+      const gap = fid === 'knob' ? GAP * 2.75 : GAP;            // the knob's rim reaches close to its flag; give its leader room
+      return { fid, el, at, w, h, x: left ? at.l - gap - w : at.r + gap, y: at.y - h / 2 };
     });
     const clamp = r => { r.x = Math.max(12, Math.min(W - 12 - r.w, r.x)); r.y = Math.max(12, Math.min(bottomLimit - r.h, r.y)); };
     items.forEach(clamp);
