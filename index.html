@@ -210,7 +210,7 @@ button:disabled { opacity: .45; cursor: default; }
 .flag-row { position: relative; }
 .flag-row { grid-template-columns: auto minmax(0, 1fr) !important; align-items: center; column-gap: 8px !important; }
 .flag-icon { display: grid; place-items: center; color: color-mix(in srgb, var(--fg) 70%, transparent); }
-.flag-icon svg { display: block; }
+.flag-icon svg { display: block; width: 28px; height: 28px; }   /* as tall as the mapping field beside it */
 .flag-row[aria-pressed="true"] .flag-icon { color: var(--accent); }
 .flag-name { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
 .flag-code { /* the mapping is a key-capture field: click it, then press the key you want */
@@ -1335,7 +1335,6 @@ window.initDevice3D = function (host, { pick, icons }) {
   // ---- activation visuals ----
   // turn the knob by a number of detents in one go (a fast spin can deliver several at once)
   function turnKnob(id, steps = 1) {
-    if (hidDev && !panelsOpen()) setPanels(true);
     const dir = id === 'cw' ? 1 : -1;
     knobAngle += dir * 24 * steps;
     $('#knob-face').style.transform = `rotate(${knobAngle}deg)`;
@@ -1346,7 +1345,6 @@ window.initDevice3D = function (host, { pick, icons }) {
     if (typeof flashFlag === 'function') flashFlag(id);
   }
   function activate(id, down) {
-    if (hidDev && !panelsOpen()) setPanels(true); // input from the connected npad: show the results
     if (id === 'cw' || id === 'ccw') { turnKnob(id); return; }
     dev3d?.press(id, down);
     const el = id === 'press' ? $('#knob') : document.querySelector(`[data-cell="${id}"]`);
@@ -1560,7 +1558,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     await refreshLighting();
     pollMatrix(++pollGen);
     render();
-    setPanels(true);                              // an npad is attached: straight into interaction mode
+    // edit mode only opens from a click on a control or the sidebar button, not from connecting
   }
   function setConnectedUI(on) {
     const b = $('#btn-hid');
@@ -2085,8 +2083,8 @@ window.initDevice3D = function (host, { pick, icons }) {
     if (icon) {
       // the keycap's top as a flat outline (a rounded squircle), with its legend inside; the outline
       // matches the legends' Phosphor-light stroke (12/256 of an 11-unit icon ≈ 0.5)
-      const legend = ICONS[icon].replace('<svg ', '<svg x="6.5" y="6.5" width="11" height="11" ');
-      return `<svg viewBox="0 0 24 24" width="24" height="24"><g ${ICON_STROKE}><rect x="2.5" y="2.5" width="19" height="19" rx="6"/></g><g fill="currentColor">${legend}</g></svg>`;
+      const legend = ICONS[icon].replace('<svg ', '<svg x="6" y="6" width="12" height="12" ');
+      return `<svg viewBox="0 0 24 24" width="24" height="24"><g ${ICON_STROKE.replace('stroke-width="0.6"', 'stroke-width="0.52"')}><rect x="0.4" y="0.4" width="23.2" height="23.2" rx="6.5"/></g><g fill="currentColor">${legend}</g></svg>`;
     }
     const knob = '<circle cx="12" cy="14" r="6.5"/><circle cx="10" cy="12" r="1.4"/>';
     const marks = {
