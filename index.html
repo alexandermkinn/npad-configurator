@@ -623,6 +623,7 @@ window.initDevice3D = function (host, { pick, icons }) {
 
   const pickables = [];
   const keys = {};
+  const floatingCasters = [];                                  // keycaps and knob: no cast shadows while exploded
 
   // Hover outlines a control's full silhouette; selection tints it blue.
   // The outline is a stencil outline: each control marks the pixels where it is visible with its own
@@ -666,6 +667,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     const mat = new T.MeshStandardMaterial({ color: CAP_COLOR.clone(), roughness: 0.6, metalness: 0.05, envMapIntensity: 0.5, emissive: 0x6f8cff, emissiveIntensity: 0 });
     const body = new T.Mesh(cap.body, mat);
     body.castShadow = body.receiveShadow = true;
+    floatingCasters.push(body);
     body.userData.input = id;
     const legendMat = new T.MeshBasicMaterial({ map: legendTexture(icon), color: srgb(0xf2ede0), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }); // cream legends
     const legend = new T.Mesh(legendGeo, legendMat);
@@ -746,7 +748,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   }
   const face = new T.Mesh(knobFace(), knobTop);
   face.position.y = KNOB_H;
-  [knobBody, lid, face].forEach(m => { m.castShadow = m.receiveShadow = true; m.userData.input = 'press'; pickables.push(m); });
+  [knobBody, lid, face].forEach(m => { m.castShadow = m.receiveShadow = true; m.userData.input = 'press'; pickables.push(m); floatingCasters.push(m); });
   spinner.add(knobBody, lid, face);
   // the knob's outline: its profile (side, 45° chamfer, top) offset evenly by OUTLINE_W, turned into
   // a solid of revolution; the knurl is too fine to follow
@@ -795,7 +797,7 @@ window.initDevice3D = function (host, { pick, icons }) {
       if (id === 'knob') EXPLODE.knob = lift; else EXPLODE.lift[id] = lift;
     });
   }
-  let explodeT = 0, explodeTo = 0;
+  let explodeT = 0, explodeTo = 0, floatShadows = true;
   let viewLocked = false;                                      // config mode holds the camera at ISO
   // Two modes, switched by the page (the sidebar): preview (on load) runs the orbit, demo taps and
   // demo backlight; interaction snaps to ISO and leaves the camera to the user. turntable.on is
@@ -1043,6 +1045,9 @@ window.initDevice3D = function (host, { pick, icons }) {
     if (explodeT !== explodeTo) {
       explodeT += (explodeTo - explodeT) * Math.min(1, dt * 7);
       if (Math.abs(explodeTo - explodeT) < 1e-3) explodeT = explodeTo;
+      // floating parts don't cast shadows (they'd land far from the parts as dark blobs on the case)
+      const cast = explodeT < 0.02;
+      if (cast !== floatShadows) { floatShadows = cast; floatingCasters.forEach(m => { m.castShadow = cast; }); }
       placeCamera();
     }
     // selection: shift the material itself toward blue so lighting and shading still read, plus a
