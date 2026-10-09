@@ -463,7 +463,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   // floor of the knob recess
   const recess = new T.Mesh(new T.CircleGeometry(KNOB_R + 1.6, 64), new T.MeshStandardMaterial({ color: srgb(0x050506), roughness: 1 }));
   recess.rotation.x = -Math.PI / 2;
-  recess.position.set(0, H - KNOB_SINK - 0.4, KNOB_Z);
+  recess.position.set(0, FLOOR, KNOB_Z);                       // as deep as the key pocket
   scene.add(recess);
 
   // The rotary encoder the knob sits on (an EC11, simplified): a square steel body, a threaded
@@ -472,7 +472,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   // dark like the case, so it doesn't compete with the keycaps and knob
   const steel = new T.MeshStandardMaterial({ color: srgb(0x232327), metalness: 0.45, roughness: 0.55, envMapIntensity: 0.7 });
   const encoder = new T.Group();
-  encoder.position.set(0, H - KNOB_SINK - 0.4, KNOB_Z);
+  encoder.position.set(0, FLOOR, KNOB_Z);
   const encBody = new T.Mesh(new T.BoxGeometry(ENC.body, ENC.bodyH, ENC.body), steel);
   encBody.position.y = ENC.bodyH / 2;
   // threaded bushing: a stack of thin rings reads as a thread
@@ -688,7 +688,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   // (a neighbouring key, the case, the knob) hides the outline exactly as it hides the control.
   // Values 11-17 keep clear of the USB pocket's stencil window, which uses 1.
   const HILITE = 0x6f8cff, OUTLINE_W = 0.3;
-  const CAP_COLOR = srgb(0x15161c), CAP_SELECTED = srgb(0x3a4f9c); // keycap plastic, and as tinted when selected
+  const CAP_COLOR = srgb(0x0e1019), CAP_SELECTED = srgb(0x3a4f9c); // keycap plastic, and as tinted when selected
   const markStencil = (material, ref) => Object.assign(material, {
     stencilWrite: true, stencilRef: ref, stencilFunc: T.AlwaysStencilFunc, stencilZPass: T.ReplaceStencilOp,
   });
