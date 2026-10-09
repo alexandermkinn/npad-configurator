@@ -1110,13 +1110,16 @@ window.initDevice3D = function (host, { pick, icons }) {
       const toScreen = p => { p.project(camera); return { x: (p.x + 1) / 2 * w, y: (1 - p.y) / 2 * h }; };
       const out = {};
       const capEdge = CAP.topX + CAP.fillet;
+      // measured at each control's resting height, so flags stay still while a key is pressed
       Object.entries(keys).forEach(([id, k]) => {
-        const c = toScreen(k.group.localToWorld(v.set(0, CAP.height, 0)));
-        const xs = [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => toScreen(k.group.localToWorld(v.set(sx * capEdge, CAP.height * 0.6, sz * capEdge))).x);
+        const rest = TRAVEL * k.t;
+        const c = toScreen(k.group.localToWorld(v.set(0, CAP.height + rest, 0)));
+        const xs = [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz]) => toScreen(k.group.localToWorld(v.set(sx * capEdge, CAP.height * 0.6 + rest, sz * capEdge))).x);
         out[id] = { ...c, l: Math.min(...xs), r: Math.max(...xs) };
       });
-      const kc = toScreen(knob.localToWorld(v.set(0, KNOB_H * 0.6, 0)));
-      const kxs = [0, Math.PI / 2, Math.PI, Math.PI * 1.5].map(a => toScreen(knob.localToWorld(v.set(Math.cos(a) * KNOB_R, KNOB_H * 0.6, Math.sin(a) * KNOB_R))).x);
+      const krest = 1.2 * knobT;
+      const kc = toScreen(knob.localToWorld(v.set(0, KNOB_H * 0.6 + krest, 0)));
+      const kxs = [0, Math.PI / 2, Math.PI, Math.PI * 1.5].map(a => toScreen(knob.localToWorld(v.set(Math.cos(a) * KNOB_R, KNOB_H * 0.6 + krest, Math.sin(a) * KNOB_R))).x);
       out.knob = { ...kc, l: Math.min(...kxs), r: Math.max(...kxs) };
       out.exploded = explodeT;
       const pts = [];
