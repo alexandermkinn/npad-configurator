@@ -1987,8 +1987,9 @@ window.initDevice3D = function (host, { pick, icons }) {
   function flagIcon(id) {
     const icon = INPUTS.find(i => i.id === id)?.icon;
     if (icon) {
-      const legend = ICONS[icon].replace('<svg ', '<svg x="7.25" y="5.5" width="9.5" height="9.5" ');
-      return `<svg viewBox="0 0 24 24" width="24" height="24"><g ${ICON_STROKE}><rect x="2" y="2.5" width="20" height="19" rx="4"/><rect x="5" y="3.5" width="14" height="13" rx="3"/></g><g fill="currentColor">${legend}</g></svg>`;
+      // the keycap's top as a flat outline (a rounded squircle), with its legend inside
+      const legend = ICONS[icon].replace('<svg ', '<svg x="6.5" y="6.5" width="11" height="11" ');
+      return `<svg viewBox="0 0 24 24" width="24" height="24"><g ${ICON_STROKE}><rect x="2.5" y="2.5" width="19" height="19" rx="6"/></g><g fill="currentColor">${legend}</g></svg>`;
     }
     const knob = '<circle cx="12" cy="14" r="6.5"/><circle cx="10" cy="12" r="1.4"/>';
     const marks = {
