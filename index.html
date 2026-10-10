@@ -200,7 +200,7 @@ button:disabled { opacity: .45; cursor: default; }
 .flag { position: absolute; display: grid; gap: 1px; padding: 3px; border-radius: 9px; background: var(--panel); border: 1px solid var(--line);
   box-shadow: 0 6px 18px rgba(0,0,0,.35); pointer-events: auto; }
 .flags:not(.on) .flag { pointer-events: none; }
-.flag-row { all: unset; box-sizing: border-box; cursor: pointer; display: grid; gap: 0; padding: 4px 6px; border-radius: 6px; min-width: 92px; max-width: 190px; }
+.flag-row { all: unset; box-sizing: border-box; cursor: pointer; display: grid; gap: 0; padding: 4px 6px; border-radius: 6px; }
 .flag-row:hover { background: color-mix(in srgb, var(--fg) 4%, transparent); }
 .flag-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .flag-row[aria-pressed="true"] { background: transparent; }
@@ -213,16 +213,19 @@ button:disabled { opacity: .45; cursor: default; }
 .flag-icon svg { display: block; width: 28px; height: 28px; }   /* as tall as the mapping field beside it */
 .flag-row[aria-pressed="true"] .flag-icon { color: var(--accent); }
 .flag-name { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
-.flag-code { /* the mapping is a key-capture field: click it, then press the key you want */
-  position: relative; display: block; min-width: 88px; font-family: var(--font-mono); font-size: 12.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  padding: 4px 8px; border-radius: 6px; background: var(--bg); border: 1px solid var(--line);
-  box-shadow: inset 0 1px 2px rgba(0,0,0,.35); transition: border-color .15s, background .15s; }
-.flag-row:hover .flag-code { border-color: color-mix(in srgb, var(--fg) 30%, transparent); }
-.flag-row[aria-pressed="true"] .flag-code { border-color: var(--accent); box-shadow: inset 0 1px 2px rgba(0,0,0,.35), 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); color: var(--fg); }
-.flag-row.recording { cursor: default; grid-template-columns: auto minmax(0, 1fr) auto !important; }
-.flag-row.recording .flag-code { color: var(--accent); font-family: var(--font-body); font-style: italic; border-color: var(--accent); overflow: visible; min-width: 104px;
+.flag-code { /* the mapping drawn as a little keycap top, like the icon beside it: same height, outline,
+  corner radius and inset; its width snaps to the text, and a single character makes a square cap */
+  display: inline-flex; align-items: center; justify-content: center; justify-self: start;
+  height: 28px; min-width: 28px; width: max-content; max-width: 132px; padding: 0 7px; box-sizing: border-box;
+  border: 0.6px solid color-mix(in srgb, var(--fg) 70%, transparent); border-radius: 7.5px; background: transparent;
+  font-family: var(--font-mono); font-size: 12.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transition: border-color .15s, color .15s; }
+.flag-row:hover .flag-code { border-color: var(--fg); }
+.flag-row[aria-pressed="true"] .flag-code { border-color: var(--accent); color: var(--fg); }
+.flag-row.recording { cursor: default; grid-template-columns: auto auto auto !important; justify-content: start; }
+.flag-row.recording .flag-code { color: var(--accent); font-family: var(--font-body); font-style: italic; border-color: var(--accent); overflow: visible; max-width: none;
   animation: rec-pulse 1.4s ease-in-out infinite; }
-@keyframes rec-pulse { 50% { box-shadow: inset 0 1px 2px rgba(0,0,0,.35), 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); } }
+@keyframes rec-pulse { 50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); } }
 @media (prefers-reduced-motion: reduce) { .flag-row.recording .flag-code { animation: none; } }
 .flag-more { font-size: 11px; padding: 3px 7px; margin-left: 6px; border-radius: 6px; }
 .flag-more[aria-expanded="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
