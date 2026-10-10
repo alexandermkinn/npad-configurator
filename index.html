@@ -230,8 +230,16 @@ button:disabled { opacity: .45; cursor: default; }
 .caret { width: 1.5px; height: 14px; background: var(--accent); animation: caret-blink 1.06s steps(1) infinite; }
 @keyframes caret-blink { 50% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .caret { animation: none; } }
-.flag-more { font-size: 11px; padding: 3px 7px; margin-left: 6px; border-radius: 6px; }
-.flag-more[aria-expanded="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.flag-input { all: unset; box-sizing: border-box; display: inline-flex; height: 28px; min-width: 28px; padding: 0 7px;
+  border: 0.6px solid var(--accent); border-radius: 7.5px; color: var(--fg); caret-color: var(--accent);
+  font-family: var(--font-mono); font-size: 12.5px; font-weight: 500; text-align: left; }
+.suggest { position: absolute; left: 0; top: 0; z-index: 5; width: 230px; max-height: 260px; overflow: auto; padding: 4px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 12px 28px rgba(0,0,0,.5); }
+.suggest-head { font-size: 11px; color: var(--muted); padding: 6px 8px 4px; }
+.suggest-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 5px 8px; border-radius: 6px; cursor: pointer; }
+.suggest-row[aria-selected="true"] { background: color-mix(in srgb, var(--accent) 28%, transparent); }
+.suggest-label { font-family: var(--font-mono); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.suggest-cat { font-size: 11px; color: var(--muted); flex: none; }
 .flag-row[aria-pressed="true"] .flag-name { color: color-mix(in srgb, #fff 75%, transparent); }
 .popover { position: absolute; left: 0; top: 0; z-index: 4; width: 320px; max-width: calc(100% - 24px); height: min(430px, calc(100% - 24px));
   display: flex; flex-direction: column; filter: drop-shadow(0 12px 28px rgba(0,0,0,.5)); }
@@ -286,6 +294,7 @@ button:disabled { opacity: .45; cursor: default; }
     <p class="toast" id="toast" role="status" aria-live="polite" hidden></p>
     <svg class="flag-lines" id="flag-lines" aria-hidden="true"></svg>
     <div class="flags" id="flags" aria-label="What each control sends"></div>
+    <div class="suggest" id="suggest" role="listbox" hidden></div>
     <div class="popover" id="popover" hidden>
       <section class="panel picker" aria-labelledby="pick-title">
         <div class="panel-head"><h2 id="pick-title">n key</h2><span class="pick-current" id="pick-current"></span></div>
@@ -1426,7 +1435,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     const reclick = edit.ctrl === id && panelsOpen();
     edit.ctrl = reclick ? null : id;
     edit.more = false;                                // a newly selected control starts in record mode
-    edit.query = ''; $('#pick-search').value = '';
+    edit.query = ''; edit.sel = 0; $('#pick-search').value = '';
     setPanels(true);
     renderKeymap(); render();
   }
@@ -2095,6 +2104,100 @@ window.initDevice3D = function (host, { pick, icons }) {
     if (lonelyMod && e.code === lonelyMod) { lonelyMod = null; recordCode(CODE_TO_KC[e.code]); }
   }, true);
 
+  // ---- search: the recording field filters every keycode by name; ↑/↓ choose, Enter maps ----
+  const SYNONYMS = { KC_ESC: 'escape', KC_ENT: 'return enter', KC_BSPC: 'backspace delete', KC_DEL: 'forward delete',
+    KC_SPC: 'space bar', KC_LGUI: 'cmd command meta super', KC_RGUI: 'cmd command meta', KC_LALT: 'opt option alt',
+    KC_RALT: 'opt option alt', KC_LCTL: 'ctrl control', KC_RCTL: 'ctrl control', KC_LSFT: 'shift', KC_RSFT: 'shift',
+    KC_MPLY: 'play pause media', KC_MUTE: 'mute sound audio', KC_VOLU: 'volume up louder', KC_VOLD: 'volume down quieter',
+    KC_MNXT: 'next track skip', KC_MPRV: 'previous track back', KC_BRIU: 'brightness up', KC_BRID: 'brightness down',
+    KC_MS_BTN1: 'left click mouse', KC_MS_BTN2: 'right click mouse', KC_MS_BTN3: 'middle click mouse',
+    KC_MS_WH_UP: 'scroll up wheel', KC_MS_WH_DOWN: 'scroll down wheel', KC_NO: 'none nothing disable off',
+    KC_TRNS: 'transparent pass through fall through', KC_PSCR: 'print screen screenshot', KC_MCTL: 'mission control expose',
+    KC_LPAD: 'launchpad apps' };
+  const SEARCH_INDEX = (() => {
+    const seen = new Set(), out = [];
+    const add = (c, cat) => { if (seen.has(c)) return; seen.add(c); out.push({ c, cat }); };
+    PICKER.forEach(([cat, codes]) => codes.forEach(c => add(c, cat)));
+    return out;
+  })();
+  function searchIndex() {                          // layers and macros depend on the connected npad
+    const extra = [];
+    PICKER.forEach(([cat, codes]) => { if (cat === 'Layers' || cat === 'Macros') codes.forEach(c => extra.push({ c, cat })); });
+    const all = SEARCH_INDEX.concat(extra.filter(x => !SEARCH_INDEX.some(y => y.c === x.c)));
+    return all.map(x => {
+      const label = labelFor(x.c), via = codeToVia(x.c);
+      const macro = x.c >= QK_MACRO && x.c <= 0x777f ? macroPreview(x.c - QK_MACRO) : '';
+      return { ...x, label, hay: `${label} ${via.replace(/^KC_/, '')} ${SYNONYMS[KC_NAME[x.c]] || ''} ${x.cat} ${macro}`.toLowerCase() };
+    });
+  }
+  const SUGGESTED = ['KC_MPLY', 'KC_MUTE', 'KC_VOLU', 'KC_VOLD', 'KC_MNXT', 'KC_MPRV', 'KC_MCTL', 'KC_MS_BTN1'];
+  let results = [];
+  function runSearch(q) {
+    q = q.trim().toLowerCase();
+    const idx = searchIndex();
+    if (!q) return SUGGESTED.map(n => idx.find(x => x.c === KC[n])).filter(Boolean);
+    const scored = [];
+    for (const x of idx) {
+      const l = x.label.toLowerCase();
+      let score = l === q ? 0 : l.startsWith(q) ? 1 : (' ' + x.hay).includes(' ' + q) ? 2 : l.includes(q) ? 3 : x.hay.includes(q) ? 4 : -1;
+      if (score >= 0) scored.push([score, l.length, x]);
+    }
+    scored.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    // mid-word matches ("play" in "Display") only when nothing matches at the start of a word
+    const strong = scored.filter(r => r[0] <= 2);
+    return (strong.length ? strong : scored).slice(0, 50).map(r => r[2]);
+  }
+  function renderSuggest() {
+    const box = $('#suggest'), on = recording();
+    box.hidden = !on;
+    if (!on) return;
+    results = runSearch(edit.query);
+    edit.sel = Math.max(0, Math.min(edit.sel || 0, results.length - 1));
+    box.innerHTML = (edit.query.trim() ? '' : '<div class="suggest-head">Type to search, or press a shortcut</div>')
+      + (results.length ? results.map((r, i) => `<div class="suggest-row" role="option" id="sg-${i}" data-sg="${i}" aria-selected="${i === edit.sel}">
+          <span class="suggest-label">${esc(r.label)}</span><span class="suggest-cat">${esc(r.cat)}</span></div>`).join('')
+        : '<div class="suggest-head">No keys match</div>');
+    $('#flags .flag-input')?.setAttribute('aria-activedescendant', results.length ? `sg-${edit.sel}` : '');
+    box.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
+  }
+  function sizeInput(input) { input.style.width = `calc(${Math.max(1, input.value.length)}ch + 15px)`; }
+  $('#flags').addEventListener('input', e => {
+    if (!e.target.classList.contains('flag-input')) return;
+    edit.query = e.target.value; edit.sel = 0;
+    sizeInput(e.target); renderSuggest();
+  });
+  $('#flags').addEventListener('keydown', e => {
+    if (!e.target.classList.contains('flag-input')) return;
+    e.stopPropagation();
+    if (e.repeat && !['ArrowUp', 'ArrowDown'].includes(e.key)) return;
+    if (e.key === 'Escape') { e.preventDefault(); pick(null); return; }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      edit.sel = (edit.sel + (e.key === 'ArrowDown' ? 1 : -1) + results.length) % Math.max(1, results.length);
+      renderSuggest(); return;
+    }
+    if (e.key === 'Enter') { e.preventDefault(); if (results[edit.sel]) recordCode(results[edit.sel].c); return; }
+    // shortcuts and keys you can't type are recorded straight away
+    const kc = CODE_TO_KC[e.code];
+    if (kc == null) return;
+    if (kc >= 0xe0) { lonelyMod = edit.query ? null : e.code; return; }
+    lonelyMod = null;
+    const typeless = (kc >= 0x3a && kc <= 0x45) || (kc >= 0x68 && kc <= 0x73) || (kc >= 0xa8 && kc <= 0xae) || kc === 0x2b && !edit.query;
+    if (e.ctrlKey || e.metaKey || e.altKey || typeless) {
+      e.preventDefault();
+      const mods = (e.ctrlKey ? 1 : 0) | (e.shiftKey ? 2 : 0) | (e.altKey ? 4 : 0) | (e.metaKey ? 8 : 0);
+      recordCode(mods && kc <= 0xa4 ? (mods << 8) | kc : kc);
+    }
+  });
+  $('#flags').addEventListener('keyup', e => {
+    if (!e.target.classList.contains('flag-input')) return;
+    e.stopPropagation();
+    if (lonelyMod && e.code === lonelyMod && !edit.query) { const c = CODE_TO_KC[e.code]; lonelyMod = null; recordCode(c); }
+  });
+  $('#suggest').addEventListener('mousedown', e => e.preventDefault());   // keep focus in the field
+  $('#suggest').addEventListener('click', e => { const r = e.target.closest('[data-sg]'); if (r && results[+r.dataset.sg]) recordCode(results[+r.dataset.sg].c); });
+  $('#suggest').addEventListener('mousemove', e => { const r = e.target.closest('[data-sg]'); if (r && +r.dataset.sg !== edit.sel) { edit.sel = +r.dataset.sg; renderSuggest(); } });
+
   // ---- flags: what each control sends, called out around the model in config mode ----
   const FLAGS = [['k1'], ['k2'], ['k3'], ['k4'], ['k5'], ['k6'], ['knob', ['ccw', 'press', 'cw']]];
   // Little line drawings for the flags: a keycap with its legend, or the knob with what it's doing.
@@ -2126,11 +2229,19 @@ window.initDevice3D = function (host, { pick, icons }) {
       const rec = id === edit.ctrl, dot = '';
       const icon = `<span class="flag-icon${tested.has(id) ? ' ok' : ''}" aria-hidden="true" title="${tested.has(id) ? 'Works' : 'Not pressed yet'}">${flagIcon(id)}</span>`;
       if (rec) return `<div class="flag-row recording" data-input="${id}" aria-pressed="true" role="group" aria-label="${esc(byId[id].name)}: press a key">
-        ${dot}${icon}${FLAG_ARROW}<span class="flag-code" aria-label="${edit.more ? 'Choose a key' : 'Press a key'}"><span class="caret"></span></span>
-        <button type="button" class="flag-more" data-more aria-expanded="${edit.more}">More</button></div>`;
+        ${dot}${icon}${FLAG_ARROW}<input class="flag-code flag-input" type="text" spellcheck="false" autocomplete="off"
+          role="combobox" aria-expanded="true" aria-controls="suggest" aria-label="Press a key or type to search"></div>`;
       return `<button type="button" class="flag-row" data-input="${id}" aria-pressed="false" aria-label="${esc(byId[id].name)}" title="${esc(byId[id].name)}">
         ${dot}${icon}${FLAG_ARROW}${chordCaps(getCode(edit.layer, id))}</button>`;
     }).join('')}</div>`).join('');
+    const input = $('#flags .flag-input');
+    if (input) {
+      input.value = edit.query;
+      sizeInput(input);
+      input.focus({ preventScroll: true });
+      input.setSelectionRange(edit.query.length, edit.query.length);
+    }
+    renderSuggest();
     layoutFlags();
   }
   function flashFlag(id) {
@@ -2185,6 +2296,13 @@ window.initDevice3D = function (host, { pick, icons }) {
     });
     const cx = c.x;
     $('#flag-lines').innerHTML = lines;
+    // the search results sit under the recording field
+    const inp = $('#flags .flag-input'), sg = $('#suggest');
+    if (inp && !sg.hidden) {
+      const st = $('#npad3d').getBoundingClientRect(), r = inp.getBoundingClientRect();
+      const left = Math.max(12, Math.min(W - 12 - sg.offsetWidth, r.left - st.left));
+      sg.style.transform = `translate(${Math.round(left)}px, ${Math.round(r.bottom - st.top + 6)}px)`;
+    }
     // the picker opens beside the selected flag, on the same side, clamped inside the stage
     const selFlag = items.find(it => it.fid === edit.ctrl || (it.fid === 'knob' && ['ccw', 'press', 'cw'].includes(edit.ctrl)));
     const pop = $('#popover');
