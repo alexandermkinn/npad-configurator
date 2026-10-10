@@ -2149,8 +2149,8 @@ window.initDevice3D = function (host, { pick, icons }) {
   }
   function renderSuggest() {
     const box = $('#suggest'), on = recording();
-    box.hidden = !on;
-    if (!on) return;
+    if (!on) { box.hidden = true; return; }
+    if (box.hidden) { box.style.visibility = 'hidden'; box.hidden = false; }   // revealed once positioned
     results = runSearch(edit.query);
     edit.sel = Math.max(0, Math.min(edit.sel || 0, results.length - 1));
     box.innerHTML = (edit.query.trim() ? '' : '<div class="suggest-head">Type to search, or press a shortcut</div>')
@@ -2229,7 +2229,8 @@ window.initDevice3D = function (host, { pick, icons }) {
       const rec = id === edit.ctrl, dot = '';
       const icon = `<span class="flag-icon${tested.has(id) ? ' ok' : ''}" aria-hidden="true" title="${tested.has(id) ? 'Works' : 'Not pressed yet'}">${flagIcon(id)}</span>`;
       if (rec) return `<div class="flag-row recording" data-input="${id}" aria-pressed="true" role="group" aria-label="${esc(byId[id].name)}: press a key">
-        ${dot}${icon}${FLAG_ARROW}<input class="flag-code flag-input" type="text" spellcheck="false" autocomplete="off"
+        ${dot}${icon}${FLAG_ARROW}<input class="flag-code flag-input" type="text" name="npad-key-${id}" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"
+          data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other"
           role="combobox" aria-expanded="true" aria-controls="suggest" aria-label="Press a key or type to search"></div>`;
       return `<button type="button" class="flag-row" data-input="${id}" aria-pressed="false" aria-label="${esc(byId[id].name)}" title="${esc(byId[id].name)}">
         ${dot}${icon}${FLAG_ARROW}${chordCaps(getCode(edit.layer, id))}</button>`;
@@ -2302,6 +2303,7 @@ window.initDevice3D = function (host, { pick, icons }) {
       const st = $('#npad3d').getBoundingClientRect(), r = inp.getBoundingClientRect();
       const left = Math.max(12, Math.min(W - 12 - sg.offsetWidth, r.left - st.left));
       sg.style.transform = `translate(${Math.round(left)}px, ${Math.round(r.bottom - st.top + 6)}px)`;
+      sg.style.visibility = '';
     }
     // the picker opens beside the selected flag, on the same side, clamped inside the stage
     const selFlag = items.find(it => it.fid === edit.ctrl || (it.fid === 'knob' && ['ccw', 'press', 'cw'].includes(edit.ctrl)));
