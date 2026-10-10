@@ -37,6 +37,12 @@
 }
 
 * { box-sizing: border-box; }
+/* minimal scrollbars: a thin, faint thumb with no track, brighter on hover */
+* { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--fg) 18%, transparent) transparent; }
+*::-webkit-scrollbar { width: 6px; height: 6px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--fg) 18%, transparent); border-radius: 3px; }
+*::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--fg) 32%, transparent); }
 /* Layout: one screen, no page scroll. Top bar; the render fills the left; panels stack on the right. */
 html, body { height: 100%; }
 body { margin: 0; overflow: hidden;
@@ -234,7 +240,6 @@ button:disabled { opacity: .45; cursor: default; }
 .flag-input { all: unset; box-sizing: border-box; display: inline-flex; height: 28px; min-width: 28px; padding: 0 7px;
   border: 0.6px solid var(--accent); border-radius: 7.5px; color: var(--fg); caret-color: var(--accent);
   font-family: var(--font-mono); font-size: 12.5px; font-weight: 500; text-align: center; }   /* typed like the key's own legend */
-.flag-input.one { text-transform: uppercase; }   /* a single character shows as its legend would (n → N) */
 .suggest { position: absolute; left: 0; top: 0; z-index: 5; width: 220px; max-height: 188px; overflow: auto; padding: 4px;
   background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 12px 28px rgba(0,0,0,.5); }
 .suggest-head { font-size: 11px; color: var(--muted); padding: 6px 8px 4px; }
@@ -1901,12 +1906,26 @@ window.initDevice3D = function (host, { pick, icons }) {
     KC_LCTL: 'Control', KC_LSFT: 'Shift', KC_LALT: 'Option', KC_LGUI: 'Command', KC_RCTL: 'Right Control', KC_RSFT: 'Right Shift',
     KC_RALT: 'Right Option', KC_RGUI: 'Right Command' };
   const modSymbols = m => (m & 1 ? '⌃' : '') + (m & 4 ? '⌥' : '') + (m & 2 ? '⇧' : '') + (m & 8 ? '⌘' : '');
-  const keyLabel = name => KEY_LABELS[name] || name.replace(/^KC_P(\d)$/, 'Num $1').replace(/^KC_/, '');
+  // letters are shown lowercase, like an unshifted keypress; Shift shows as the shifted character
+  const keyLabel = name => KEY_LABELS[name] || (/^KC_[A-Z]$/.test(name) ? name.slice(3).toLowerCase() : name.replace(/^KC_P(\d)$/, 'Num $1').replace(/^KC_/, ''));
+  const SHIFTED = { KC_1: '!', KC_2: '@', KC_3: '#', KC_4: '$', KC_5: '%', KC_6: '^', KC_7: '&', KC_8: '*', KC_9: '(', KC_0: ')',
+    KC_MINS: '_', KC_EQL: '+', KC_LBRC: '{', KC_RBRC: '}', KC_BSLS: '|', KC_SCLN: ':', KC_QUOT: '"', KC_GRV: '~', KC_COMM: '<',
+    KC_DOT: '>', KC_SLSH: '?' };
+  // label of a basic key with Shift held: N, !, ?… (or null when Shift doesn't change the legend)
+  const shiftedLabel = kc => { const n = KC_NAME[kc]; return !n ? null : /^KC_[A-Z]$/.test(n) ? n.slice(3) : SHIFTED[n] || null; };
+  // split a modifier-wrapped code into the caps to show: Shift folds into the key when it can
+  function chordParts(code) {
+    let m = code >> 8; const kc = code & 0xff, mods = [];
+    let key = labelFor(kc);
+    if (m & 0x02) { const sh = shiftedLabel(kc); if (sh) { key = sh; m &= ~0x02; } }
+    [[1, '⌃'], [4, '⌥'], [2, '⇧'], [8, '⌘']].forEach(([bit, sym]) => { if (m & bit) mods.push(sym); });
+    return { mods, key };
+  }
   function labelFor(c) {                                        // number -> what people see
     if (c == null) return '…';
     const rgb = RGB_KEYS.find(r => r[1] === c); if (rgb) return rgb[2];
     if (KC_NAME[c]) return keyLabel(KC_NAME[c]);
-    if (c >= 0x0100 && c <= 0x1fff) return modSymbols(c >> 8) + labelFor(c & 0xff);
+    if (c >= 0x0100 && c <= 0x1fff) { const { mods, key } = chordParts(c); return mods.join('') + key; }
     for (const [fn, base] of Object.entries(LAYER_FNS)) if (c >= base && c <= base + 0x1f) return `${LAYER_LABEL[fn]} ${c - base}`;
     if (c >= QK_LT && c <= 0x4fff) return `Layer ${(c >> 8) & 0xf} / ${labelFor(c & 0xff)}`;
     if (c >= QK_MACRO && c <= 0x777f) return `Macro ${c - QK_MACRO}`;
@@ -2217,11 +2236,8 @@ window.initDevice3D = function (host, { pick, icons }) {
   // joined with "+" (⌘⇧S → [⌘] + [⇧] + [S]); anything else is a single cap.
   function chordCaps(code) {
     const caps = [];
-    if (code >= 0x0100 && code <= 0x1fff) {
-      const m = code >> 8;
-      [[1, '⌃'], [4, '⌥'], [2, '⇧'], [8, '⌘']].forEach(([bit, sym]) => { if (m & bit) caps.push(sym); });
-      caps.push(labelFor(code & 0xff));
-    } else caps.push(labelFor(code));
+    if (code >= 0x0100 && code <= 0x1fff) { const { mods, key } = chordParts(code); caps.push(...mods, key); }
+    else caps.push(labelFor(code));
     return `<span class="flag-keys" aria-label="${esc(labelFor(code))}">${caps.map(c => `<span class="flag-code">${esc(c)}</span>`).join('<span class="flag-plus" aria-hidden="true">+</span>')}</span>`;
   }
 
@@ -2344,7 +2360,6 @@ window.initDevice3D = function (host, { pick, icons }) {
   }
   // same box as a legend cap: text width + 7 px padding each side + the outline, never narrower than square
   function sizeInput(input) {
-    input.classList.toggle('one', input.value.length === 1);
     input.style.width = `max(28px, calc(${input.value.length}ch + 15.2px))`;
   }
   $('#flags').addEventListener('input', e => {
