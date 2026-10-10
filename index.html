@@ -575,25 +575,46 @@ window.initDevice3D = function (host, { pick, icons }) {
   // MX-style upper casing (the lower casing sits below the plate, out of sight): a clear shell with
   // straight sides, a chamfer up to a flat top, and the rectangular opening the stem rides in.
   // Built as one continuous loft: down the outside, across the top, down into the stem opening.
-  const CASING_H = 5, HOLE = { x: 3.6, z: 2.8, floor: 2.2 };
+  // Cherry MX top housing: a 15.6 mm square with a short vertical skirt, a chamfer stepping in to the
+  // sloped shoulders, and a smaller flat top around the rectangular stem opening.
+  const CASING_H = 6.2, HOLE = { x: 3.6, z: 2.8, floor: 2.2 };
   function casingGeometry() {
     const rings = [
-      ringPoints(7.8, 7.8, 0.8, 0, 0),
-      ringPoints(7.8, 7.8, 0.8, 0, 3.0),
-      ringPoints(7.4, 7.4, 0.8, 0, 3.6),
-      ringPoints(5.9, 5.9, 0.6, 0, CASING_H),               // top edge
+      ringPoints(7.8, 7.8, 0.5, 0, 0),
+      ringPoints(7.8, 7.8, 0.5, 0, 2.2),                    // vertical skirt (sits in the plate)
+      ringPoints(7.5, 7.5, 0.6, 0, 2.5),                    // small chamfer
+      ringPoints(7.3, 7.3, 0.7, 0, 3.0),
+      ringPoints(5.6, 5.6, 1.1, 0, CASING_H - 0.25),        // sloped shoulders
+      ringPoints(5.35, 5.35, 1.0, 0, CASING_H),             // flat top edge
       ringPoints(HOLE.x, HOLE.z, 0.4, 0, CASING_H),         // rim of the stem opening
       ringPoints(HOLE.x, HOLE.z, 0.4, 0, HOLE.floor),
     ];
     return stitch(rings, new T.Vector3(0, HOLE.floor, 0));
   }
+  const ledWindowGeo = new T.PlaneGeometry(4.6, 1.5);         // LED window on the south side of the top
+  ledWindowGeo.rotateX(-Math.PI / 2);
+  const clipGeo = new T.BoxGeometry(0.7, 1.4, 4.2);           // side latch clips
+  // the stem: a slider body in the opening, with the + cross the keycap fits onto
+  const STEM = { body: CASING_H + 0.7 - HOLE.floor, arm: 4.1, thick: 1.2 };
   const casingGeo = casingGeometry();
   const lowerHousingGeo = new T.BoxGeometry(14, 5, 14);
   const lowerHousingMat = new T.MeshStandardMaterial({ color: srgb(0x5b5b5f), roughness: 0.6, metalness: 0 });
   const stemMat = new T.MeshStandardMaterial({ color: srgb(0xc4232c), roughness: 0.5 }); // Cherry MX Red
-  const stemH = CAP_Y + 0.5 - (FLOOR + HOLE.floor);         // from the opening's floor up into the keycap
-  const stemGeo = new T.BoxGeometry(HOLE.x * 2 - 1.2, stemH, HOLE.z * 2 - 1.2);
+  const stemH = CAP_Y + 3 - (FLOOR + HOLE.floor);           // from the opening's floor up into the keycap
+  const crossH = stemH - STEM.body;
+  function makeStem() {                                      // centred like the old single box (origin mid-height)
+    const g = new T.Group();
+    const slider = new T.Mesh(new T.BoxGeometry(HOLE.x * 2 - 1.2, STEM.body, HOLE.z * 2 - 1.2), stemMat);
+    slider.position.y = -stemH / 2 + STEM.body / 2;
+    const a = new T.Mesh(new T.BoxGeometry(STEM.arm, crossH, STEM.thick), stemMat);
+    const b = new T.Mesh(new T.BoxGeometry(STEM.thick, crossH, STEM.arm), stemMat);
+    a.position.y = b.position.y = stemH / 2 - crossH / 2;
+    g.add(slider, a, b);
+    return g;
+  }
   const ledDotGeo = new T.SphereGeometry(0.9, 16, 8);
+  // the LED window: dark smoky plastic that lights up with the key's LED
+  const ledWindowMat = new T.MeshStandardMaterial({ color: srgb(0x3a3a40), roughness: 0.3, emissive: 0x000000 });
 
   // ---- keycaps: XDA profile ----
   // A loft of rounded rectangles from the 18.1 mm base up to a large, centred square top:
@@ -747,9 +768,12 @@ window.initDevice3D = function (host, { pick, icons }) {
     });
     const lowerHousing = new T.Mesh(lowerHousingGeo, lowerHousingMat); lowerHousing.position.set(x, FLOOR - 2.6, z);
     const housing = new T.Mesh(casingGeo, housingMat); housing.position.set(x, FLOOR, z);
+    [-1, 1].forEach(sx => { const c = new T.Mesh(clipGeo, housingMat); c.position.set(sx * 7.95, 1.3, 0); housing.add(c); });
     // the LED itself: one small light centred under the stem, seen through the clear plastic
     const ledDotMat = new T.MeshBasicMaterial({ color: 0x000000, toneMapped: false });
     const ledDot = new T.Mesh(ledDotGeo, ledDotMat); ledDot.position.set(x, FLOOR + 0.5, z);
+    const winMat = ledWindowMat.clone();
+    const ledWindow = new T.Mesh(ledWindowGeo, winMat); ledWindow.position.set(0, CASING_H + 0.02, 4.45); housing.add(ledWindow);
     scene.add(housing, lowerHousing, ledDot);
 
     const group = new T.Group(); group.position.set(x, CAP_Y, z);
@@ -760,8 +784,8 @@ window.initDevice3D = function (host, { pick, icons }) {
     const legendMat = new T.MeshBasicMaterial({ map: legendTexture(icon), color: srgb(0xf2ede0), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }); // cream legends
     const legend = new T.Mesh(legendGeo, legendMat);
     legend.userData.input = id;
-    const stem = new T.Mesh(stemGeo, stemMat);              // stays in the switch; follows presses, not the explode
-    stem.position.set(x, CAP_Y + 0.5 - stemH / 2, z);
+    const stem = makeStem();                                 // stays in the switch; follows presses, not the explode
+    stem.position.set(x, CAP_Y + 3 - stemH / 2, z);
     scene.add(stem);
     markStencil(mat, 11 + idx);
     const outlineMat = outlineMaterial(11 + idx);
@@ -777,7 +801,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     scene.add(ledLight);
 
     pickables.push(body, legend);
-    keys[id] = { group, stem, housing, lowerHousing, ledDot, mat, legendMat, outlineMat, ledDotMat, housingMat, ledLight, ledLin: new T.Color(), led: LED_POS[id], down: false, t: 0, pressedAt: -1e9, heat: 0, rnd: { h: 0, s: 1, v: 0, next: 0 } };
+    keys[id] = { group, stem, housing, lowerHousing, ledDot, winMat, mat, legendMat, outlineMat, ledDotMat, housingMat, ledLight, ledLin: new T.Color(), led: LED_POS[id], down: false, t: 0, pressedAt: -1e9, heat: 0, rnd: { h: 0, s: 1, v: 0, next: 0 } };
   });
 
   // ---- knob: anodized aluminium, knurled sides, finger dimple ----
@@ -1167,7 +1191,7 @@ window.initDevice3D = function (host, { pick, icons }) {
       k.group.position.y = CAP_Y - TRAVEL * k.t + explodeT * (EXPLODE.lift[id] || 0);
       // the switch (casing, stem, LED) follows its keycap up the staircase, half as far
       const swLift = explodeT * (EXPLODE.lift[id] || 0) * 0.5;
-      k.stem.position.y = CAP_Y + 0.5 - stemH / 2 - TRAVEL * k.t + swLift;
+      k.stem.position.y = CAP_Y + 3 - stemH / 2 - TRAVEL * k.t + swLift;
       k.housing.position.y = FLOOR + swLift;
       k.lowerHousing.position.y = FLOOR - 2.6 + swLift;
       k.ledDot.position.y = FLOOR + 0.5 + swLift;
@@ -1181,6 +1205,7 @@ window.initDevice3D = function (host, { pick, icons }) {
       k.ledLin.setRGB(r, g, b).convertSRGBToLinear();
       k.ledDotMat.color.copy(k.ledLin).multiplyScalar(4);
       k.housingMat.emissive.copy(k.ledLin).multiplyScalar(0.3);   // milky plastic: a soft glow, not a lamp
+      k.winMat.emissive.copy(k.ledLin).multiplyScalar(1.4);        // the LED window shows the LED's colour
       k.ledLight.color.setRGB(r, g, b);
       k.ledLight.intensity = 8 * lit;
     });
