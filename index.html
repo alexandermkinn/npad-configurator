@@ -208,9 +208,10 @@ button:disabled { opacity: .45; cursor: default; }
 .flag-icon.ok { color: color-mix(in srgb, var(--accent) 55%, #fff); }
 .flag-row.hit .flag-icon { color: var(--accent); filter: drop-shadow(0 0 1.5px color-mix(in srgb, var(--accent) 60%, transparent)); transition: none; }
 .flag-row { position: relative; }
-.flag-row { grid-template-columns: auto minmax(0, 1fr) !important; align-items: center; column-gap: 8px !important; }
+.flag-row { grid-template-columns: auto auto minmax(0, 1fr) !important; align-items: center; column-gap: 8px !important; }
 .flag-keys { display: inline-flex; align-items: center; gap: 4px; justify-self: start; min-width: 0; }
 .flag-plus { font-size: 11px; color: var(--muted); }
+.flag-arrow { display: block; color: var(--muted); }
 .flag-row:hover .flag-plus { color: var(--fg); }
 .flag-icon { display: grid; place-items: center; color: color-mix(in srgb, var(--fg) 70%, transparent); }
 .flag-icon svg { display: block; width: 28px; height: 28px; }   /* as tall as the mapping field beside it */
@@ -224,11 +225,11 @@ button:disabled { opacity: .45; cursor: default; }
   transition: border-color .15s, color .15s; }
 .flag-row:hover .flag-code { border-color: var(--fg); }
 .flag-row[aria-pressed="true"] .flag-code { border-color: var(--accent); color: var(--fg); }
-.flag-row.recording { cursor: default; grid-template-columns: auto auto auto !important; justify-content: start; }
-.flag-row.recording .flag-code { color: var(--accent); font-family: var(--font-body); font-style: italic; border-color: var(--accent); overflow: visible; max-width: none;
-  animation: rec-pulse 1.4s ease-in-out infinite; }
-@keyframes rec-pulse { 50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); } }
-@media (prefers-reduced-motion: reduce) { .flag-row.recording .flag-code { animation: none; } }
+.flag-row.recording { cursor: default; grid-template-columns: auto auto auto auto !important; justify-content: start; }
+.flag-row.recording .flag-code { border-color: var(--accent); }   /* an empty cap waiting for a key */
+.caret { width: 1.5px; height: 14px; background: var(--accent); animation: caret-blink 1.06s steps(1) infinite; }
+@keyframes caret-blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .caret { animation: none; } }
 .flag-more { font-size: 11px; padding: 3px 7px; margin-left: 6px; border-radius: 6px; }
 .flag-more[aria-expanded="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
 .flag-row[aria-pressed="true"] .flag-name { color: color-mix(in srgb, #fff 75%, transparent); }
@@ -2034,6 +2035,9 @@ window.initDevice3D = function (host, { pick, icons }) {
     }).join('') : '<p class="muted">No keys match.</p>';
   }
 
+  // a small chevron between a control and what it's mapped to: [icon] › [mapping]
+  const FLAG_ARROW = '<svg class="flag-arrow" viewBox="0 0 8 12" width="6" height="9" aria-hidden="true"><path d="M2 1.5 6.5 6 2 10.5" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
   // A mapping as keycaps: a shortcut is split into one cap per modifier and one for the key,
   // joined with "+" (⌘⇧S → [⌘] + [⇧] + [S]); anything else is a single cap.
   function chordCaps(code) {
@@ -2122,10 +2126,10 @@ window.initDevice3D = function (host, { pick, icons }) {
       const rec = id === edit.ctrl, dot = '';
       const icon = `<span class="flag-icon${tested.has(id) ? ' ok' : ''}" aria-hidden="true" title="${tested.has(id) ? 'Works' : 'Not pressed yet'}">${flagIcon(id)}</span>`;
       if (rec) return `<div class="flag-row recording" data-input="${id}" aria-pressed="true" role="group" aria-label="${esc(byId[id].name)}: press a key">
-        ${dot}${icon}<span class="flag-code" aria-live="polite">${edit.more ? 'Choose a key…' : 'Press a key…'}</span>
+        ${dot}${icon}${FLAG_ARROW}<span class="flag-code" aria-label="${edit.more ? 'Choose a key' : 'Press a key'}"><span class="caret"></span></span>
         <button type="button" class="flag-more" data-more aria-expanded="${edit.more}">More</button></div>`;
       return `<button type="button" class="flag-row" data-input="${id}" aria-pressed="false" aria-label="${esc(byId[id].name)}" title="${esc(byId[id].name)}">
-        ${dot}${icon}${chordCaps(getCode(edit.layer, id))}</button>`;
+        ${dot}${icon}${FLAG_ARROW}${chordCaps(getCode(edit.layer, id))}</button>`;
     }).join('')}</div>`).join('');
     layoutFlags();
   }
