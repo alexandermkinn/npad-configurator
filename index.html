@@ -225,7 +225,7 @@ button:disabled { opacity: .45; cursor: default; }
   transition: border-color .15s, color .15s; }
 .flag-row:hover .flag-code { border-color: var(--fg); }
 .flag-row[aria-pressed="true"] .flag-code { border-color: var(--accent); color: var(--fg); }
-.flag-row.recording { cursor: default; grid-template-columns: auto auto auto auto !important; justify-content: start; }
+.flag-row.recording { cursor: default; }
 .flag-row.recording .flag-code { border-color: var(--accent); }   /* an empty cap waiting for a key */
 .caret { width: 1.5px; height: 14px; background: var(--accent); animation: caret-blink 1.06s steps(1) infinite; }
 @keyframes caret-blink { 50% { opacity: 0; } }
@@ -588,6 +588,8 @@ window.initDevice3D = function (host, { pick, icons }) {
     return stitch(rings, new T.Vector3(0, HOLE.floor, 0));
   }
   const casingGeo = casingGeometry();
+  const lowerHousingGeo = new T.BoxGeometry(14, 5, 14);
+  const lowerHousingMat = new T.MeshStandardMaterial({ color: srgb(0x5b5b5f), roughness: 0.6, metalness: 0 });
   const stemMat = new T.MeshStandardMaterial({ color: srgb(0xc4232c), roughness: 0.5 }); // Cherry MX Red
   const stemH = CAP_Y + 0.5 - (FLOOR + HOLE.floor);         // from the opening's floor up into the keycap
   const stemGeo = new T.BoxGeometry(HOLE.x * 2 - 1.2, stemH, HOLE.z * 2 - 1.2);
@@ -737,16 +739,18 @@ window.initDevice3D = function (host, { pick, icons }) {
   const KEYS = [['k1', 'n', 0, 0], ['k2', 'globe', 1, 0], ['k3', 'share', 2, 0], ['k4', 'shrimp', 0, 1], ['k5', 'boat', 1, 1], ['k6', 'sparkle', 2, 1]];
   KEYS.forEach(([id, icon, col, row], idx) => {
     const x = (col - 1) * PITCH, z = WELL_Z + (row === 0 ? -PITCH / 2 : PITCH / 2);
-    // clear upper casing: glossy plastic that glows with the LED shining up through it
+    // Cherry MX style: a milky-white top housing (it glows softly when its LED is on) over a grey
+    // bottom housing, which shows once the switch lifts out in the exploded view
     const housingMat = new T.MeshStandardMaterial({
-      color: 0xe8eeff, transparent: true, opacity: 0.28, roughness: 0.12, metalness: 0, envMapIntensity: 1.2,
-      emissive: 0x000000, side: T.DoubleSide, depthWrite: false,
+      color: srgb(0xdedcd6), transparent: true, opacity: 0.95, roughness: 0.45, metalness: 0, envMapIntensity: 0.6,
+      emissive: 0x000000, side: T.DoubleSide,
     });
+    const lowerHousing = new T.Mesh(lowerHousingGeo, lowerHousingMat); lowerHousing.position.set(x, FLOOR - 2.6, z);
     const housing = new T.Mesh(casingGeo, housingMat); housing.position.set(x, FLOOR, z);
     // the LED itself: one small light centred under the stem, seen through the clear plastic
     const ledDotMat = new T.MeshBasicMaterial({ color: 0x000000, toneMapped: false });
     const ledDot = new T.Mesh(ledDotGeo, ledDotMat); ledDot.position.set(x, FLOOR + 0.5, z);
-    scene.add(housing, ledDot);
+    scene.add(housing, lowerHousing, ledDot);
 
     const group = new T.Group(); group.position.set(x, CAP_Y, z);
     const mat = new T.MeshStandardMaterial({ color: CAP_COLOR.clone(), roughness: 0.6, metalness: 0.05, envMapIntensity: 0.5, emissive: 0x6f8cff, emissiveIntensity: 0 });
@@ -773,7 +777,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     scene.add(ledLight);
 
     pickables.push(body, legend);
-    keys[id] = { group, stem, housing, ledDot, mat, legendMat, outlineMat, ledDotMat, housingMat, ledLight, ledLin: new T.Color(), led: LED_POS[id], down: false, t: 0, pressedAt: -1e9, heat: 0, rnd: { h: 0, s: 1, v: 0, next: 0 } };
+    keys[id] = { group, stem, housing, lowerHousing, ledDot, mat, legendMat, outlineMat, ledDotMat, housingMat, ledLight, ledLin: new T.Color(), led: LED_POS[id], down: false, t: 0, pressedAt: -1e9, heat: 0, rnd: { h: 0, s: 1, v: 0, next: 0 } };
   });
 
   // ---- knob: anodized aluminium, knurled sides, finger dimple ----
@@ -1165,6 +1169,7 @@ window.initDevice3D = function (host, { pick, icons }) {
       const swLift = explodeT * (EXPLODE.lift[id] || 0) * 0.5;
       k.stem.position.y = CAP_Y + 0.5 - stemH / 2 - TRAVEL * k.t + swLift;
       k.housing.position.y = FLOOR + swLift;
+      k.lowerHousing.position.y = FLOOR - 2.6 + swLift;
       k.ledDot.position.y = FLOOR + 0.5 + swLift;
       k.ledLight.position.y = FLOOR + 2 + swLift;
       k.outlineMat.opacity = OUTLINE * k.hoverT;
@@ -1175,8 +1180,7 @@ window.initDevice3D = function (host, { pick, icons }) {
       const lit = Math.max(r, g, b);
       k.ledLin.setRGB(r, g, b).convertSRGBToLinear();
       k.ledDotMat.color.copy(k.ledLin).multiplyScalar(4);
-      k.housingMat.emissive.copy(k.ledLin).multiplyScalar(1.1);
-      k.housingMat.opacity = 0.28 + 0.35 * lit;                 // lit plastic reads as more solid
+      k.housingMat.emissive.copy(k.ledLin).multiplyScalar(0.3);   // milky plastic: a soft glow, not a lamp
       k.ledLight.color.setRGB(r, g, b);
       k.ledLight.intensity = 8 * lit;
     });
