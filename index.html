@@ -2186,8 +2186,24 @@ window.initDevice3D = function (host, { pick, icons }) {
   }
   const SUGGESTED = ['KC_MPLY', 'KC_MUTE', 'KC_VOLU', 'KC_VOLD', 'KC_MNXT', 'KC_MPRV', 'KC_MCTL', 'KC_MS_BTN1'];
   let results = [];
+  const MOD_WORDS = { shift: 2, '⇧': 2, cmd: 8, command: 8, '⌘': 8, meta: 8, ctrl: 1, control: 1, '⌃': 1, '^': 1,
+    alt: 4, opt: 4, option: 4, '⌥': 4 };
+  function parseChord(q) {                          // "cmd shift s" / "⌘⇧s" / "ctrl+c" → { mods, rest }
+    let mods = 0, rest = q;
+    for (;;) {
+      const m = rest.match(/^\s*([⇧⌘⌃⌥^]|shift|command|cmd|meta|control|ctrl|option|opt|alt)\s*\+?\s*/);
+      if (!m) break;
+      mods |= MOD_WORDS[m[1]]; rest = rest.slice(m[0].length);
+    }
+    return { mods, rest: rest.trim() };
+  }
   function runSearch(q) {
     q = q.trim().toLowerCase();
+    const { mods, rest } = parseChord(q);
+    if (mods && rest) {                             // a modifier plus a key: offer that shortcut first
+      const keys = runSearch(rest).filter(x => x.c > 0x03 && x.c <= 0xa4).slice(0, 6);
+      if (keys.length) return keys.map(x => { const c = (mods << 8) | x.c; return { c, cat: 'Shortcut', label: labelFor(c) }; });
+    }
     const idx = searchIndex();
     if (!q) return SUGGESTED.map(n => idx.find(x => x.c === KC[n])).filter(Boolean);
     const scored = [];
@@ -2237,7 +2253,9 @@ window.initDevice3D = function (host, { pick, icons }) {
     if (kc >= 0xe0) { lonelyMod = edit.query ? null : e.code; return; }
     lonelyMod = null;
     const typeless = (kc >= 0x3a && kc <= 0x45) || (kc >= 0x68 && kc <= 0x73) || (kc >= 0xa8 && kc <= 0xae) || kc === 0x2b && !edit.query;
-    if (e.ctrlKey || e.metaKey || e.altKey || typeless) {
+    // Shift + key records as a chord when nothing has been typed yet; after that Shift just capitalises
+    const shiftChord = e.shiftKey && !edit.query && kc <= 0xa4;
+    if (e.ctrlKey || e.metaKey || e.altKey || typeless || shiftChord) {
       e.preventDefault();
       const mods = (e.ctrlKey ? 1 : 0) | (e.shiftKey ? 2 : 0) | (e.altKey ? 4 : 0) | (e.metaKey ? 8 : 0);
       recordCode(mods && kc <= 0xa4 ? (mods << 8) | kc : kc);
