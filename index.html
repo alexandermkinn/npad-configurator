@@ -60,7 +60,7 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 24px; letter
    centre), while the panels inside slide in from the right one after another. */
 .side { width: 356px; min-height: 0; overflow: hidden; display: flex; justify-content: flex-end;
   transition: width .5s cubic-bezier(.25, .8, .25, 1); }
-.side-inner { width: 340px; flex: none; display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.side-inner { width: 344px; padding-right: 4px; box-sizing: border-box; flex: none; display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .side-inner > * { flex: none; }
 .side-inner > * { transition: transform .5s cubic-bezier(.2, .9, .25, 1), opacity .35s ease; }
 .side-inner > :nth-child(n+2) { transition-delay: 60ms; }
@@ -2326,7 +2326,16 @@ window.initDevice3D = function (host, { pick, icons }) {
     return { mods, rest: rest.trim() };
   }
   function runSearch(q) {
-    q = q.trim().toLowerCase();
+    // a single shifted character (N, !, ?) offers that Shift + key first, then the usual matches
+    const raw = q.trim();
+    if (raw.length === 1) {
+      const kc = Object.keys(KC_NAME).map(Number).find(c => c <= 0xff && shiftedLabel(c) === raw);
+      if (kc != null) {
+        const c = 0x0200 | kc, first = { c, cat: 'Shortcut', label: labelFor(c) };
+        return [first, ...runSearch(raw.toLowerCase() === raw ? '' : raw.toLowerCase()).filter(x => x.c !== c)];
+      }
+    }
+    q = raw.toLowerCase();
     const { mods, rest } = parseChord(q);
     if (mods && rest) {                             // a modifier plus a key: offer that shortcut first
       const keys = runSearch(rest).filter(x => x.c > 0x03 && x.c <= 0xa4).slice(0, 6);
@@ -2384,9 +2393,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     if (kc >= 0xe0) { lonelyMod = edit.query ? null : e.code; return; }
     lonelyMod = null;
     const typeless = (kc >= 0x3a && kc <= 0x45) || (kc >= 0x68 && kc <= 0x73) || (kc >= 0xa8 && kc <= 0xae) || kc === 0x2b && !edit.query;
-    // Shift + key records as a chord when nothing has been typed yet; after that Shift just capitalises
-    const shiftChord = e.shiftKey && !edit.query && kc <= 0xa4;
-    if (e.ctrlKey || e.metaKey || e.altKey || typeless || shiftChord) {
+    if (e.ctrlKey || e.metaKey || e.altKey || typeless) {
       e.preventDefault();
       const mods = (e.ctrlKey ? 1 : 0) | (e.shiftKey ? 2 : 0) | (e.altKey ? 4 : 0) | (e.metaKey ? 8 : 0);
       recordCode(mods && kc <= 0xa4 ? (mods << 8) | kc : kc);
@@ -2459,13 +2466,14 @@ window.initDevice3D = function (host, { pick, icons }) {
   function layoutFlags() {
     if (!flagsOn()) return;
     const a = dev3d.anchors(), stage = $('#npad3d'), W = stage.clientWidth, Hh = stage.clientHeight;
-    const PAD = 6, GAP = 32, bottomLimit = Hh - 12;
+    const PAD = 6, GAP = 32, LEFT_ROOM = 48, bottomLimit = Hh - 12;
     const c = { x: (a.box.l + a.box.r) / 2, y: (a.box.t + a.box.b) / 2 }, hw = (a.box.r - a.box.l) / 2, hh = (a.box.b - a.box.t) / 2;
     const items = FLAGS.map(([fid]) => {
       const el = document.querySelector(`#flags [data-flag="${fid}"]`), at = a[fid];
       const w = el.offsetWidth, h = el.offsetHeight, left = FLAG_SIDE[fid] === 'left';
       const p = left ? at.rest.l : at.rest.r;                    // the corner the pointer meets, at rest
-      return { fid, el, at, w, h, left, x: left ? p.x - GAP - w : p.x + GAP, y: p.y - h / 2 };
+      // the left column sits further out, so a flag can widen toward the keys before the column moves
+      return { fid, el, at, w, h, left, x: left ? p.x - GAP - LEFT_ROOM - w : p.x + GAP, y: p.y - h / 2 };
     });
     // align each side into a column on its outer edge: left flags share a left edge, right flags a
     // left edge too, each set by the flag that needs to sit furthest out; pointers run as far as needed
