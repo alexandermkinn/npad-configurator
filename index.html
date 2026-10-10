@@ -469,6 +469,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   // dampening foam, and the aluminium bottom plate (with the feet). Hidden inside the shell when
   // assembled; in the exploded view they drop away in even steps.
   const BASE = { pcb: 11, foam: 22, bottom: 33 };
+  const SWITCH_GAP = 7;                                        // mm between a lifted switch and its keycap's lift
   const pcbLayer = new T.Group(), foamLayer = new T.Group(), bottomLayer = new T.Group();
   scene.add(pcbLayer, foamLayer, bottomLayer);
   bottomLayer.add(plate);
@@ -598,8 +599,8 @@ window.initDevice3D = function (host, { pick, icons }) {
   const STEM = { body: CASING_H + 0.7 - HOLE.floor, arm: 4.1, thick: 1.2 };
   const casingGeo = casingGeometry();
   const lowerHousingGeo = new T.BoxGeometry(14, 5, 14);
-  const lowerHousingMat = new T.MeshStandardMaterial({ color: srgb(0x5b5b5f), roughness: 0.6, metalness: 0 });
-  const stemMat = new T.MeshStandardMaterial({ color: srgb(0xc4232c), roughness: 0.5 }); // Cherry MX Red
+  const lowerHousingMat = new T.MeshStandardMaterial({ color: srgb(0x26272b), roughness: 0.65, metalness: 0 });
+  const stemMat = new T.MeshStandardMaterial({ color: srgb(0x7c7d82), roughness: 0.5 }); // grey: quieter than MX red
   const stemH = CAP_Y + 3 - (FLOOR + HOLE.floor);           // from the opening's floor up into the keycap
   const crossH = stemH - STEM.body;
   function makeStem() {                                      // centred like the old single box (origin mid-height)
@@ -760,10 +761,10 @@ window.initDevice3D = function (host, { pick, icons }) {
   const KEYS = [['k1', 'n', 0, 0], ['k2', 'globe', 1, 0], ['k3', 'share', 2, 0], ['k4', 'shrimp', 0, 1], ['k5', 'boat', 1, 1], ['k6', 'sparkle', 2, 1]];
   KEYS.forEach(([id, icon, col, row], idx) => {
     const x = (col - 1) * PITCH, z = WELL_Z + (row === 0 ? -PITCH / 2 : PITCH / 2);
-    // Cherry MX style: a milky-white top housing (it glows softly when its LED is on) over a grey
+    // Cherry MX style: a smoky grey top housing (only its LED window lights up) over a darker
     // bottom housing, which shows once the switch lifts out in the exploded view
     const housingMat = new T.MeshStandardMaterial({
-      color: srgb(0xdedcd6), transparent: true, opacity: 0.95, roughness: 0.45, metalness: 0, envMapIntensity: 0.6,
+      color: srgb(0x3a3b40), transparent: true, opacity: 0.95, roughness: 0.5, metalness: 0, envMapIntensity: 0.5,   // smoky grey: present but quiet
       emissive: 0x000000, side: T.DoubleSide,
     });
     const lowerHousing = new T.Mesh(lowerHousingGeo, lowerHousingMat); lowerHousing.position.set(x, FLOOR - 2.6, z);
@@ -1189,8 +1190,9 @@ window.initDevice3D = function (host, { pick, icons }) {
       k.hoverT = (k.hoverT || 0) + (hoverTo - (k.hoverT || 0)) * ease;
       k.selT = (k.selT || 0) + ((id === target ? 1 : 0) - (k.selT || 0)) * ease;
       k.group.position.y = CAP_Y - TRAVEL * k.t + explodeT * (EXPLODE.lift[id] || 0);
-      // the switch (casing, stem, LED) follows its keycap up the staircase, half as far
-      const swLift = explodeT * (EXPLODE.lift[id] || 0) * 0.5;
+      // the switch (casing, stem, LED) follows its keycap up the staircase, staying a constant
+      // distance below it, so every switch sits the same gap under its own cap
+      const swLift = explodeT * Math.max(0, (EXPLODE.lift[id] || 0) - SWITCH_GAP);
       k.stem.position.y = CAP_Y + 3 - stemH / 2 - TRAVEL * k.t + swLift;
       k.housing.position.y = FLOOR + swLift;
       k.lowerHousing.position.y = FLOOR - 2.6 + swLift;
@@ -1204,7 +1206,7 @@ window.initDevice3D = function (host, { pick, icons }) {
       const lit = Math.max(r, g, b);
       k.ledLin.setRGB(r, g, b).convertSRGBToLinear();
       k.ledDotMat.color.copy(k.ledLin).multiplyScalar(4);
-      k.housingMat.emissive.copy(k.ledLin).multiplyScalar(0.3);   // milky plastic: a soft glow, not a lamp
+      // the housing itself doesn't glow; only the LED window carries the light
       k.winMat.emissive.copy(k.ledLin).multiplyScalar(1.4);        // the LED window shows the LED's colour
       k.ledLight.color.setRGB(r, g, b);
       k.ledLight.intensity = 8 * lit;
