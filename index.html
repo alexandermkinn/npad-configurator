@@ -523,9 +523,10 @@ window.initDevice3D = function (host, { pick, icons }) {
   const pcbLayer = new T.Group(), foamLayer = new T.Group(), bottomLayer = new T.Group();
   scene.add(pcbLayer, foamLayer, bottomLayer);
   bottomLayer.add(plate);
+  const floorMat = new T.MeshStandardMaterial({ color: srgb(0x1b1b20), roughness: 0.75 }); // plate: dark, but catches the LED light
   // inner layers sit inside the shell's walls (2.5 mm in) and share its corner radius, minus the inset
   const INSET = 5, layerShape = () => roundRect(new T.Shape(), 0, 0, W - 1.6 - INSET, D - 1.6 - INSET, R - INSET / 2);
-  const pcbBoard = new T.Mesh(extrudeUp(layerShape(), 1.6, 0.2, 1), new T.MeshStandardMaterial({ color: srgb(0x141518), roughness: 0.6, metalness: 0.1 }));
+  const pcbBoard = new T.Mesh(extrudeUp(layerShape(), 1.6, 0.2, 1), floorMat);   // dark grey that catches the LED light
   pcbBoard.position.y = FLOOR - 1.6;
   const foam = new T.Mesh(extrudeUp(layerShape(), 3, 0.4, 2), new T.MeshStandardMaterial({ color: srgb(0x2b2b30), roughness: 1 }));
   foam.position.y = PLATE + 0.5;
@@ -581,7 +582,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   const recess = new T.Mesh(new T.CircleGeometry(KNOB_R + 1.6, 64), new T.MeshStandardMaterial({ color: srgb(0x050506), roughness: 1 }));
   recess.rotation.x = -Math.PI / 2;
   recess.position.set(0, FLOOR, KNOB_Z);                       // as deep as the key pocket
-  pcbLayer.add(recess);
+  // (the PCB's own top is the recess floor; a separate disc here z-fought with it)
 
   // The rotary encoder the knob sits on (an EC11, simplified): a square steel body, a threaded
   // bushing and a knurled split shaft. Hidden under the knob when assembled; seen when it lifts off.
@@ -654,11 +655,10 @@ window.initDevice3D = function (host, { pick, icons }) {
   }
 
   // ---- pocket floor and switches (RGB off) ----
-  const floorMat = new T.MeshStandardMaterial({ color: srgb(0x1b1b20), roughness: 0.75 }); // plate: dark, but catches the LED light
   const floor = new T.Mesh(new T.PlaneGeometry(WELL_W + 2, WELL_D + 2), floorMat);
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(0, FLOOR, WELL_Z);
-  pcbLayer.add(floor);                                         // the pocket floor is the PCB's top
+  // (the PCB's own top is the pocket floor; a separate plane here z-fought with it)
 
   // MX-style upper casing (the lower casing sits below the plate, out of sight): a clear shell with
   // straight sides, a chamfer up to a flat top, and the rectangular opening the stem rides in.
