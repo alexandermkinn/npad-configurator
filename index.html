@@ -233,7 +233,7 @@ button:disabled { opacity: .45; cursor: default; }
 .flag-input { all: unset; box-sizing: border-box; display: inline-flex; height: 28px; min-width: 28px; padding: 0 7px;
   border: 0.6px solid var(--accent); border-radius: 7.5px; color: var(--fg); caret-color: var(--accent);
   font-family: var(--font-mono); font-size: 12.5px; font-weight: 500; text-align: left; }
-.suggest { position: absolute; left: 0; top: 0; z-index: 5; width: 230px; max-height: 260px; overflow: auto; padding: 4px;
+.suggest { position: absolute; left: 0; top: 0; z-index: 5; width: 220px; max-height: 188px; overflow: auto; padding: 4px;
   background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 12px 28px rgba(0,0,0,.5); }
 .suggest-head { font-size: 11px; color: var(--muted); padding: 6px 8px 4px; }
 .suggest-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 5px 8px; border-radius: 6px; cursor: pointer; }
@@ -463,7 +463,21 @@ window.initDevice3D = function (host, { pick, icons }) {
   const caseMesh = new T.Mesh(caseGeo, aluminium);
   const plate = new T.Mesh(extrudeUp(roundRect(new T.Shape(), 0, 0, W - 2.6, D - 2.6, R - 0.5), PLATE - 0.15, 0.3, 1),
     new T.MeshStandardMaterial({ color: srgb(0x111113), metalness: 0.25, roughness: 0.8 }));
-  [caseMesh, plate].forEach(m => { m.castShadow = m.receiveShadow = true; scene.add(m); });
+  [caseMesh, plate].forEach(m => { m.castShadow = m.receiveShadow = true; });
+  scene.add(caseMesh);
+  // The build under the top shell, as in momokai's exploded render: PCB (with the encoder), sound-
+  // dampening foam, and the aluminium bottom plate (with the feet). Hidden inside the shell when
+  // assembled; in the exploded view they drop away in even steps.
+  const BASE = { pcb: 11, foam: 22, bottom: 33 };
+  const pcbLayer = new T.Group(), foamLayer = new T.Group(), bottomLayer = new T.Group();
+  scene.add(pcbLayer, foamLayer, bottomLayer);
+  bottomLayer.add(plate);
+  const pcbBoard = new T.Mesh(new T.BoxGeometry(W - 5, 1.6, D - 5), new T.MeshStandardMaterial({ color: srgb(0x141518), roughness: 0.6, metalness: 0.1 }));
+  pcbBoard.position.y = FLOOR - 0.85;
+  const foam = new T.Mesh(new T.BoxGeometry(W - 5, 3, D - 5), new T.MeshStandardMaterial({ color: srgb(0x2b2b30), roughness: 1 }));
+  foam.position.y = PLATE + 2;
+  [pcbBoard, foam].forEach(m => { m.castShadow = m.receiveShadow = true; });
+  pcbLayer.add(pcbBoard); foamLayer.add(foam);
 
   // four rubber feet under the corners, 2 mm tall
   const footGeo = new T.CylinderGeometry(3.6, 4, 2, 32);
@@ -472,14 +486,14 @@ window.initDevice3D = function (host, { pick, icons }) {
     const foot = new T.Mesh(footGeo, footMat);
     foot.position.set(sx * (W / 2 - 9), -1, sz * (D / 2 - 10));
     foot.castShadow = true;
-    scene.add(foot);
+    bottomLayer.add(foot);
   });
 
   // floor of the knob recess
   const recess = new T.Mesh(new T.CircleGeometry(KNOB_R + 1.6, 64), new T.MeshStandardMaterial({ color: srgb(0x050506), roughness: 1 }));
   recess.rotation.x = -Math.PI / 2;
   recess.position.set(0, FLOOR, KNOB_Z);                       // as deep as the key pocket
-  scene.add(recess);
+  pcbLayer.add(recess);
 
   // The rotary encoder the knob sits on (an EC11, simplified): a square steel body, a threaded
   // bushing and a knurled split shaft. Hidden under the knob when assembled; seen when it lifts off.
@@ -515,7 +529,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   encoder.add(encBody, bushing, shaft);
   [encBody, shaftMesh].forEach(m => { m.castShadow = m.receiveShadow = true; });
   encoder.scale.setScalar(0.8);                               // the encoder is drawn 20% smaller (the knob isn't)
-  scene.add(encoder);
+  pcbLayer.add(encoder);                                       // it's soldered to the PCB
 
   // USB-C port, centred on the back face (the case's outer wall is at z = -D/2): a stadium-shaped
   // pocket milled into the case with a silver USB-C receptacle at the bottom. There's no CSG here,
@@ -556,7 +570,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   const floor = new T.Mesh(new T.PlaneGeometry(WELL_W + 2, WELL_D + 2), floorMat);
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(0, FLOOR, WELL_Z);
-  scene.add(floor);
+  pcbLayer.add(floor);                                         // the pocket floor is the PCB's top
 
   // MX-style upper casing (the lower casing sits below the plate, out of sight): a clear shell with
   // straight sides, a chamfer up to a flat top, and the rectangular opening the stem rides in.
@@ -759,7 +773,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     scene.add(ledLight);
 
     pickables.push(body, legend);
-    keys[id] = { group, stem, mat, legendMat, outlineMat, ledDotMat, housingMat, ledLight, ledLin: new T.Color(), led: LED_POS[id], down: false, t: 0, pressedAt: -1e9, heat: 0, rnd: { h: 0, s: 1, v: 0, next: 0 } };
+    keys[id] = { group, stem, housing, ledDot, mat, legendMat, outlineMat, ledDotMat, housingMat, ledLight, ledLin: new T.Color(), led: LED_POS[id], down: false, t: 0, pressedAt: -1e9, heat: 0, rnd: { h: 0, s: 1, v: 0, next: 0 } };
   });
 
   // ---- knob: anodized aluminium, knurled sides, finger dimple ----
@@ -854,14 +868,14 @@ window.initDevice3D = function (host, { pick, icons }) {
   // The working view people land on once they take over: a standard isometric angle, turned 45°
   // with the knob at the back right, looking down at the true-isometric 35.3°.
   // (pulled back a little so the config-mode flags have room either side)
-  const ISO = { yaw: Math.PI / 4, pitch: Math.atan(1 / Math.SQRT2), zoom: 1.5 };
+  const ISO = { yaw: Math.PI / 4, pitch: Math.atan(1 / Math.SQRT2), zoom: 1.68 };
   // Exploded view for config mode, on one geometric rule: every part lifts in proportion to how far
   // back it sits along the iso view direction, so the parts rest on a single plane sloping down toward
   // the viewer. The knob, furthest back, ends up highest; the keys fall into evenly spaced diagonal
   // steps (n; globe + shrimp; arrow + sailboat; sparkle), leaving a clear band at each step for flags.
   // Lifts (mm) are filled in once the parts exist: lift = MIN + SLOPE * (how much further back than the
   // frontmost part).
-  const EXPLODE = { SLOPE: 0.6, MIN: 10, KNOB_DROP: 2, lift: {}, knob: 0, lookUp: 22 };   // gentle steps; sparkle 10 mm up, n key ~34 mm
+  const EXPLODE = { SLOPE: 0.6, MIN: 10, KNOB_DROP: 2, lift: {}, knob: 0, lookUp: 2 };   // gentle steps; sparkle 10 mm up, n key ~34 mm
   const depthAlongView = (x, z) => (x + z) / Math.SQRT2;          // toward the iso camera (+x, +z)
   {
     const parts = Object.entries(keys).map(([id, k]) => [id, depthAlongView(k.group.position.x, k.group.position.z)]);
@@ -1147,7 +1161,12 @@ window.initDevice3D = function (host, { pick, icons }) {
       k.hoverT = (k.hoverT || 0) + (hoverTo - (k.hoverT || 0)) * ease;
       k.selT = (k.selT || 0) + ((id === target ? 1 : 0) - (k.selT || 0)) * ease;
       k.group.position.y = CAP_Y - TRAVEL * k.t + explodeT * (EXPLODE.lift[id] || 0);
-      k.stem.position.y = CAP_Y + 0.5 - stemH / 2 - TRAVEL * k.t;
+      // the switch (casing, stem, LED) follows its keycap up the staircase, half as far
+      const swLift = explodeT * (EXPLODE.lift[id] || 0) * 0.5;
+      k.stem.position.y = CAP_Y + 0.5 - stemH / 2 - TRAVEL * k.t + swLift;
+      k.housing.position.y = FLOOR + swLift;
+      k.ledDot.position.y = FLOOR + 0.5 + swLift;
+      k.ledLight.position.y = FLOOR + 2 + swLift;
       k.outlineMat.opacity = OUTLINE * k.hoverT;
       k.mat.color.copy(CAP_COLOR).lerp(CAP_SELECTED, k.selT);
       k.mat.emissiveIntensity = SEL_GLOW * k.selT;
@@ -1168,6 +1187,10 @@ window.initDevice3D = function (host, { pick, icons }) {
     const knobHoverTo = (!drag && hover.id === 'press') || ['cw', 'ccw', 'press'].includes(hover.panel) ? 1 : 0;
     knobHoverT += (knobHoverTo - knobHoverT) * ease;
     knob.position.y = H - KNOB_SINK - 1.2 * knobT + explodeT * EXPLODE.knob;
+    pcbLayer.position.y = -BASE.pcb * explodeT;
+    foamLayer.position.y = -BASE.foam * explodeT;
+    bottomLayer.position.y = -BASE.bottom * explodeT;
+    ground.position.y = -2 - BASE.bottom * explodeT;
     shaft.position.y = ENC.bodyH + ENC.bushH - 1.2 * knobT;      // the encoder's push switch
     knobSelT += ((['cw', 'ccw', 'press'].includes(target) ? 1 : 0) - knobSelT) * ease;
     knobOutlineMat.opacity = OUTLINE * knobHoverT;
@@ -2148,13 +2171,13 @@ window.initDevice3D = function (host, { pick, icons }) {
     return (strong.length ? strong : scored).slice(0, 50).map(r => r[2]);
   }
   function renderSuggest() {
-    const box = $('#suggest'), on = recording();
-    if (!on) { box.hidden = true; return; }
+    // results only appear once something has been typed; an empty field just waits for a key
+    const box = $('#suggest'), on = recording() && !!edit.query.trim();
+    if (!on) { box.hidden = true; results = []; return; }
     if (box.hidden) { box.style.visibility = 'hidden'; box.hidden = false; }   // revealed once positioned
     results = runSearch(edit.query);
     edit.sel = Math.max(0, Math.min(edit.sel || 0, results.length - 1));
-    box.innerHTML = (edit.query.trim() ? '' : '<div class="suggest-head">Type to search, or press a shortcut</div>')
-      + (results.length ? results.map((r, i) => `<div class="suggest-row" role="option" id="sg-${i}" data-sg="${i}" aria-selected="${i === edit.sel}">
+    box.innerHTML = (results.length ? results.map((r, i) => `<div class="suggest-row" role="option" id="sg-${i}" data-sg="${i}" aria-selected="${i === edit.sel}">
           <span class="suggest-label">${esc(r.label)}</span><span class="suggest-cat">${esc(r.cat)}</span></div>`).join('')
         : '<div class="suggest-head">No keys match</div>');
     $('#flags .flag-input')?.setAttribute('aria-activedescendant', results.length ? `sg-${edit.sel}` : '');
