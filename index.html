@@ -510,7 +510,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   const caseGeo = extrudeUp(caseShape, H - PLATE, 0.8, 1);
   caseGeo.translate(0, PLATE, 0);
   const caseMesh = new T.Mesh(caseGeo, aluminium);
-  const plate = new T.Mesh(extrudeUp(roundRect(new T.Shape(), 0, 0, W - 2.6, D - 2.6, R - 0.5), PLATE - 0.15, 0.3, 1),
+  const plate = new T.Mesh(extrudeUp(roundRect(new T.Shape(), 0, 0, W - 1.6 - 5, D - 1.6 - 5, R - 2.5), PLATE - 0.15, 0.3, 1),
     new T.MeshStandardMaterial({ color: srgb(0x111113), metalness: 0.25, roughness: 0.8 }));
   [caseMesh, plate].forEach(m => { m.castShadow = m.receiveShadow = true; });
   scene.add(caseMesh);
@@ -522,10 +522,12 @@ window.initDevice3D = function (host, { pick, icons }) {
   const pcbLayer = new T.Group(), foamLayer = new T.Group(), bottomLayer = new T.Group();
   scene.add(pcbLayer, foamLayer, bottomLayer);
   bottomLayer.add(plate);
-  const pcbBoard = new T.Mesh(new T.BoxGeometry(W - 5, 1.6, D - 5), new T.MeshStandardMaterial({ color: srgb(0x141518), roughness: 0.6, metalness: 0.1 }));
-  pcbBoard.position.y = FLOOR - 0.85;
-  const foam = new T.Mesh(new T.BoxGeometry(W - 5, 3, D - 5), new T.MeshStandardMaterial({ color: srgb(0x2b2b30), roughness: 1 }));
-  foam.position.y = PLATE + 2;
+  // inner layers sit inside the shell's walls (2.5 mm in) and share its corner radius, minus the inset
+  const INSET = 5, layerShape = () => roundRect(new T.Shape(), 0, 0, W - 1.6 - INSET, D - 1.6 - INSET, R - INSET / 2);
+  const pcbBoard = new T.Mesh(extrudeUp(layerShape(), 1.6, 0.2, 1), new T.MeshStandardMaterial({ color: srgb(0x141518), roughness: 0.6, metalness: 0.1 }));
+  pcbBoard.position.y = FLOOR - 1.6;
+  const foam = new T.Mesh(extrudeUp(layerShape(), 3, 0.4, 2), new T.MeshStandardMaterial({ color: srgb(0x2b2b30), roughness: 1 }));
+  foam.position.y = PLATE + 0.5;
   [pcbBoard, foam].forEach(m => { m.castShadow = m.receiveShadow = true; });
   pcbLayer.add(pcbBoard); foamLayer.add(foam);
 
@@ -579,7 +581,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   encoder.add(encBody, bushing, shaft);
   [encBody, shaftMesh].forEach(m => { m.castShadow = m.receiveShadow = true; });
   encoder.scale.setScalar(0.8);                               // the encoder is drawn 20% smaller (the knob isn't)
-  pcbLayer.add(encoder);                                       // it's soldered to the PCB
+  scene.add(encoder);                                          // rides up under the knob in the exploded view
 
   // USB-C port, centred on the back face (the case's outer wall is at z = -D/2): a stadium-shaped
   // pocket milled into the case with a silver USB-C receptacle at the bottom. There's no CSG here,
@@ -641,8 +643,6 @@ window.initDevice3D = function (host, { pick, icons }) {
     ];
     return stitch(rings, new T.Vector3(0, HOLE.floor, 0));
   }
-  const ledWindowGeo = new T.PlaneGeometry(4.6, 1.5);         // LED window on the south side of the top
-  ledWindowGeo.rotateX(-Math.PI / 2);
   const clipGeo = new T.BoxGeometry(0.7, 1.4, 4.2);           // side latch clips
   // the stem: a slider body in the opening, with the + cross the keycap fits onto
   const STEM = { body: CASING_H + 0.7 - HOLE.floor, arm: 4.1, thick: 1.2 };
@@ -663,8 +663,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     return g;
   }
   const ledDotGeo = new T.SphereGeometry(0.9, 16, 8);
-  // the LED window: dark smoky plastic that lights up with the key's LED
-  const ledWindowMat = new T.MeshStandardMaterial({ color: srgb(0x3a3a40), roughness: 0.3, emissive: 0x000000 });
+
 
   // ---- keycaps: XDA profile ----
   // A loft of rounded rectangles from the 18.1 mm base up to a large, centred square top:
@@ -810,11 +809,11 @@ window.initDevice3D = function (host, { pick, icons }) {
   const KEYS = [['k1', 'n', 0, 0], ['k2', 'globe', 1, 0], ['k3', 'share', 2, 0], ['k4', 'shrimp', 0, 1], ['k5', 'boat', 1, 1], ['k6', 'sparkle', 2, 1]];
   KEYS.forEach(([id, icon, col, row], idx) => {
     const x = (col - 1) * PITCH, z = WELL_Z + (row === 0 ? -PITCH / 2 : PITCH / 2);
-    // Cherry MX style: a smoky grey top housing (only its LED window lights up) over a darker
+    // Cherry MX style: a clear top housing (the LED shows through and lights it) over a dark
     // bottom housing, which shows once the switch lifts out in the exploded view
     const housingMat = new T.MeshStandardMaterial({
-      color: srgb(0x3a3b40), transparent: true, opacity: 0.95, roughness: 0.5, metalness: 0, envMapIntensity: 0.5,   // smoky grey: present but quiet
-      emissive: 0x000000, side: T.DoubleSide,
+      color: srgb(0x5a5c63), transparent: true, opacity: 0.42, roughness: 0.15, metalness: 0, envMapIntensity: 0.8,   // smoked clear top housing
+      emissive: 0x000000, side: T.DoubleSide, depthWrite: false,
     });
     const lowerHousing = new T.Mesh(lowerHousingGeo, lowerHousingMat); lowerHousing.position.set(x, FLOOR - 2.6, z);
     const housing = new T.Mesh(casingGeo, housingMat); housing.position.set(x, FLOOR, z);
@@ -822,8 +821,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     // the LED itself: one small light centred under the stem, seen through the clear plastic
     const ledDotMat = new T.MeshBasicMaterial({ color: 0x000000, toneMapped: false });
     const ledDot = new T.Mesh(ledDotGeo, ledDotMat); ledDot.position.set(x, FLOOR + 0.5, z);
-    const winMat = ledWindowMat.clone();
-    const ledWindow = new T.Mesh(ledWindowGeo, winMat); ledWindow.position.set(0, CASING_H + 0.02, 4.45); housing.add(ledWindow);
+
     scene.add(housing, lowerHousing, ledDot);
 
     const group = new T.Group(); group.position.set(x, CAP_Y, z);
@@ -851,7 +849,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     scene.add(ledLight);
 
     pickables.push(body, legend);
-    keys[id] = { group, stem, housing, lowerHousing, ledDot, winMat, mat, legendMat, outlineMat, ledDotMat, housingMat, ledLight, ledLin: new T.Color(), led: LED_POS[id], down: false, t: 0, pressedAt: -1e9, heat: 0, rnd: { h: 0, s: 1, v: 0, next: 0 } };
+    keys[id] = { group, stem, housing, lowerHousing, ledDot, mat, legendMat, outlineMat, ledDotMat, housingMat, ledLight, ledLin: new T.Color(), led: LED_POS[id], down: false, t: 0, pressedAt: -1e9, heat: 0, rnd: { h: 0, s: 1, v: 0, next: 0 } };
   });
 
   // ---- knob: anodized aluminium, knurled sides, finger dimple ----
@@ -1255,8 +1253,9 @@ window.initDevice3D = function (host, { pick, icons }) {
       const lit = Math.max(r, g, b);
       k.ledLin.setRGB(r, g, b).convertSRGBToLinear();
       k.ledDotMat.color.copy(k.ledLin).multiplyScalar(4);
-      // the housing itself doesn't glow; only the LED window carries the light
-      k.winMat.emissive.copy(k.ledLin).multiplyScalar(1.4);        // the LED window shows the LED's colour
+      // the clear top housing carries the LED's light: it glows with its colour and reads more solid when lit
+      k.housingMat.emissive.copy(k.ledLin).multiplyScalar(0.4);
+      k.housingMat.opacity = 0.42 + 0.2 * lit;
       k.ledLight.color.setRGB(r, g, b);
       k.ledLight.intensity = 8 * lit;
     });
@@ -1267,6 +1266,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     const knobHoverTo = (!drag && hover.id === 'press') || ['cw', 'ccw', 'press'].includes(hover.panel) ? 1 : 0;
     knobHoverT += (knobHoverTo - knobHoverT) * ease;
     knob.position.y = H - KNOB_SINK - 1.2 * knobT + explodeT * EXPLODE.knob;
+    encoder.position.y = FLOOR + explodeT * Math.max(0, EXPLODE.knob - SWITCH_GAP);   // follows the knob, like the switches
     pcbLayer.position.y = -BASE.pcb * explodeT;
     foamLayer.position.y = -BASE.foam * explodeT;
     bottomLayer.position.y = -BASE.bottom * explodeT;
