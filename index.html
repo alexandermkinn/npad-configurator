@@ -208,7 +208,11 @@ button:disabled { opacity: .45; cursor: default; }
 .flag-icon.ok { color: color-mix(in srgb, var(--accent) 55%, #fff); }
 .flag-row.hit .flag-icon { color: var(--accent); filter: drop-shadow(0 0 1.5px color-mix(in srgb, var(--accent) 60%, transparent)); transition: none; }
 .flag-row { position: relative; }
-.flag-row { grid-template-columns: auto minmax(0, 1fr) !important; align-items: center; column-gap: 8px !important; }
+.flag-row { grid-template-columns: auto auto minmax(0, 1fr) !important; align-items: center; column-gap: 8px !important; }
+.flag-sep { width: 1px; height: 18px; background: color-mix(in srgb, var(--fg) 22%, transparent); }   /* control | mapping */
+.flag-keys { display: inline-flex; align-items: center; gap: 4px; justify-self: start; min-width: 0; }
+.flag-plus { font-size: 11px; color: var(--muted); }
+.flag-row:hover .flag-plus { color: var(--fg); }
 .flag-icon { display: grid; place-items: center; color: color-mix(in srgb, var(--fg) 70%, transparent); }
 .flag-icon svg { display: block; width: 28px; height: 28px; }   /* as tall as the mapping field beside it */
 .flag-row[aria-pressed="true"] .flag-icon { color: var(--accent); }
@@ -222,7 +226,7 @@ button:disabled { opacity: .45; cursor: default; }
   transition: border-color .15s, color .15s; }
 .flag-row:hover .flag-code { border-color: var(--fg); }
 .flag-row[aria-pressed="true"] .flag-code { border-color: var(--accent); color: var(--fg); }
-.flag-row.recording { cursor: default; grid-template-columns: auto auto auto !important; justify-content: start; }
+.flag-row.recording { cursor: default; grid-template-columns: auto auto auto auto !important; justify-content: start; }
 .flag-row.recording .flag-code { color: var(--accent); font-family: var(--font-body); font-style: italic; border-color: var(--accent); overflow: visible; max-width: none;
   animation: rec-pulse 1.4s ease-in-out infinite; }
 @keyframes rec-pulse { 50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); } }
@@ -2032,6 +2036,18 @@ window.initDevice3D = function (host, { pick, icons }) {
     }).join('') : '<p class="muted">No keys match.</p>';
   }
 
+  // A mapping as keycaps: a shortcut is split into one cap per modifier and one for the key,
+  // joined with "+" (⌘⇧S → [⌘] + [⇧] + [S]); anything else is a single cap.
+  function chordCaps(code) {
+    const caps = [];
+    if (code >= 0x0100 && code <= 0x1fff) {
+      const m = code >> 8;
+      [[1, '⌃'], [4, '⌥'], [2, '⇧'], [8, '⌘']].forEach(([bit, sym]) => { if (m & bit) caps.push(sym); });
+      caps.push(labelFor(code & 0xff));
+    } else caps.push(labelFor(code));
+    return `<span class="flag-keys" aria-label="${esc(labelFor(code))}">${caps.map(c => `<span class="flag-code">${esc(c)}</span>`).join('<span class="flag-plus" aria-hidden="true">+</span>')}</span>`;
+  }
+
   // ---- record mode: the selected control takes the next key or shortcut pressed ----
   const CODE_TO_KC = (() => {
     const m = {};
@@ -2095,7 +2111,8 @@ window.initDevice3D = function (host, { pick, icons }) {
       cw: '<path d="M5.5 7.5A9.5 9.5 0 0 1 20 9.5"/><path d="M20.4 6.2 20 9.5 16.8 8.8"/>',
       press: '<path d="M12 1.5v4"/><path d="M9.8 3.6 12 5.8 14.2 3.6"/>',
     };
-    return `<svg viewBox="0 0 24 24" width="24" height="24"><g ${ICON_STROKE}>${knob}${marks[id] || ''}</g></svg>`;
+    // cropped to the drawing so it fills the same box as the keycap icons; thinner stroke keeps the weight
+    return `<svg viewBox="2.1 1.1 19.8 19.8" width="24" height="24"><g ${ICON_STROKE.replace('stroke-width="0.6"', 'stroke-width="0.5"')}>${knob}${marks[id] || ''}</g></svg>`;
   }
   // which side of its control each flag sits on, at the iso view: keys sharing a step of the explode
   // split left/right (shrimp | globe, sailboat | arrow), the rest alternate down the staircase
@@ -2111,10 +2128,10 @@ window.initDevice3D = function (host, { pick, icons }) {
       const rec = id === edit.ctrl, dot = '';
       const icon = `<span class="flag-icon${tested.has(id) ? ' ok' : ''}" aria-hidden="true" title="${tested.has(id) ? 'Works' : 'Not pressed yet'}">${flagIcon(id)}</span>`;
       if (rec) return `<div class="flag-row recording" data-input="${id}" aria-pressed="true" role="group" aria-label="${esc(byId[id].name)}: press a key">
-        ${dot}${icon}<span class="flag-code" aria-live="polite">${edit.more ? 'Choose a key…' : 'Press a key…'}</span>
+        ${dot}${icon}<span class="flag-sep" aria-hidden="true"></span><span class="flag-code" aria-live="polite">${edit.more ? 'Choose a key…' : 'Press a key…'}</span>
         <button type="button" class="flag-more" data-more aria-expanded="${edit.more}">More</button></div>`;
       return `<button type="button" class="flag-row" data-input="${id}" aria-pressed="false" aria-label="${esc(byId[id].name)}" title="${esc(byId[id].name)}">
-        ${dot}${icon}<span class="flag-code">${esc(labelFor(getCode(edit.layer, id)))}</span></button>`;
+        ${dot}${icon}<span class="flag-sep" aria-hidden="true"></span>${chordCaps(getCode(edit.layer, id))}</button>`;
     }).join('')}</div>`).join('');
     layoutFlags();
   }
