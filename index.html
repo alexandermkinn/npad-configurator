@@ -184,6 +184,7 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .seg { display: flex; gap: 2px; }
 .seg button, .mods button, .cats button, .macro-list button, .macro-add button { padding: 3px 9px; font-size: 12px; }
 [aria-pressed="true"]:is(.seg button, .mods button, .cats button, .macro-list button, .key) { background: var(--accent); border-color: var(--accent); color: #fff; }
+
 .panel.picker { flex: 1 1 0; min-height: 200px; display: flex; flex-direction: column; } /* fills what's left; its keys scroll */
 .pick-current { font-family: var(--font-mono); font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55%; }
 .pick-tools { display: flex; gap: 8px; padding: 8px 10px 0; }
@@ -517,7 +518,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   // The build under the top shell, as in momokai's exploded render: PCB (with the encoder), sound-
   // dampening foam, and the aluminium bottom plate (with the feet). Hidden inside the shell when
   // assembled; in the exploded view they drop away in even steps.
-  const BASE = { pcb: 11, foam: 22, bottom: 33 };
+  const BASE = { pcb: 20, foam: 32, bottom: 44 };
   const SWITCH_GAP = 7;                                        // mm between a lifted switch and its keycap's lift
   const pcbLayer = new T.Group(), foamLayer = new T.Group(), bottomLayer = new T.Group();
   scene.add(pcbLayer, foamLayer, bottomLayer);
@@ -530,6 +531,41 @@ window.initDevice3D = function (host, { pick, icons }) {
   foam.position.y = PLATE + 0.5;
   [pcbBoard, foam].forEach(m => { m.castShadow = m.receiveShadow = true; });
   pcbLayer.add(pcbBoard); foamLayer.add(foam);
+  // PCB details: a hot-swap socket cutout pattern under each switch, and three standoff screws
+  {
+    const holeMat = new T.MeshBasicMaterial({ color: 0x060607 });
+    const top = FLOOR + 0.02;
+    const disc = (r, x, z) => { const m = new T.Mesh(new T.CircleGeometry(r, 20), holeMat); m.rotation.x = -Math.PI / 2; m.position.set(x, top, z); return m; };
+    const slot = (w, d, x, z) => { const m = new T.Mesh(new T.PlaneGeometry(w, d), holeMat); m.rotation.x = -Math.PI / 2; m.position.set(x, top, z); return m; };
+    for (let col = 0; col < 3; col++) for (let row = 0; row < 2; row++) {
+      const x = (col - 1) * PITCH, z = WELL_Z + (row === 0 ? -PITCH / 2 : PITCH / 2);
+      pcbLayer.add(disc(2, x, z), disc(0.85, x - 5.1, z), disc(0.85, x + 5.1, z),
+        disc(1.5, x - 3.8, z - 2.5), disc(1.5, x + 2.5, z - 5), slot(2.6, 1.4, x, z + 5.2));
+    }
+    const screwMat = new T.MeshStandardMaterial({ color: srgb(0xb8bbc0), metalness: 0.9, roughness: 0.35 });
+    const thread = new T.TorusGeometry(0.82, 0.12, 4, 16); thread.rotateX(Math.PI / 2);
+    [[-PITCH / 2, WELL_Z], [PITCH / 2, WELL_Z], [W / 2 - 6, -D / 2 + 9]].forEach(([x, z]) => {
+      const screw = new T.Group();
+      const body = new T.Mesh(new T.CylinderGeometry(0.8, 0.8, 5, 16), screwMat); body.position.y = 2.5; screw.add(body);
+      for (let i = 0; i < 7; i++) { const r = new T.Mesh(thread, screwMat); r.position.y = 1 + i * 0.55; screw.add(r); }
+      screw.position.set(x, FLOOR, z);
+      pcbLayer.add(screw);
+    });
+  }
+  // four screws standing up from the bottom plate's corners (they thread into the shell when assembled)
+  {
+    const screwMat = new T.MeshStandardMaterial({ color: srgb(0xb8bbc0), metalness: 0.9, roughness: 0.35 });
+    const shaft = new T.CylinderGeometry(0.8, 0.8, 6, 16);
+    const thread = new T.TorusGeometry(0.82, 0.12, 4, 16); thread.rotateX(Math.PI / 2);
+    const sx = (W - 1.6 - 5) / 2 - 3.2, sz = (D - 1.6 - 5) / 2 - 3.2;
+    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([dx, dz]) => {
+      const screw = new T.Group();
+      const body = new T.Mesh(shaft, screwMat); body.position.y = 3; screw.add(body);
+      for (let i = 0; i < 9; i++) { const r = new T.Mesh(thread, screwMat); r.position.y = 1.2 + i * 0.55; screw.add(r); }
+      screw.position.set(dx * sx, PLATE, dz * sz);
+      bottomLayer.add(screw);
+    });
+  }
 
   // four rubber feet under the corners, 2 mm tall
   const footGeo = new T.CylinderGeometry(3.6, 4, 2, 32);
@@ -649,7 +685,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   const casingGeo = casingGeometry();
   const lowerHousingGeo = new T.BoxGeometry(14, 5, 14);
   const lowerHousingMat = new T.MeshStandardMaterial({ color: srgb(0x26272b), roughness: 0.65, metalness: 0 });
-  const stemMat = new T.MeshStandardMaterial({ color: srgb(0x7c7d82), roughness: 0.5 }); // grey: quieter than MX red
+  const stemMat = new T.MeshStandardMaterial({ color: srgb(0xc4232c), roughness: 0.5 }); // Cherry MX Red
   const stemH = CAP_Y + 3 - (FLOOR + HOLE.floor);           // from the opening's floor up into the keycap
   const crossH = stemH - STEM.body;
   function makeStem() {                                      // centred like the old single box (origin mid-height)
@@ -849,7 +885,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     scene.add(ledLight);
 
     pickables.push(body, legend);
-    keys[id] = { group, stem, housing, lowerHousing, ledDot, mat, legendMat, outlineMat, ledDotMat, housingMat, ledLight, ledLin: new T.Color(), led: LED_POS[id], down: false, t: 0, pressedAt: -1e9, heat: 0, rnd: { h: 0, s: 1, v: 0, next: 0 } };
+    keys[id] = { id, group, stem, housing, lowerHousing, ledDot, mat, legendMat, outlineMat, ledDotMat, housingMat, ledLight, ledLin: new T.Color(), led: LED_POS[id], down: false, t: 0, pressedAt: -1e9, heat: 0, rnd: { h: 0, s: 1, v: 0, next: 0 } };
   });
 
   // ---- knob: anodized aluminium, knurled sides, finger dimple ----
@@ -944,7 +980,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   // The working view people land on once they take over: a standard isometric angle, turned 45°
   // with the knob at the back right, looking down at the true-isometric 35.3°.
   // (pulled back a little so the config-mode flags have room either side)
-  const ISO = { yaw: Math.PI / 4, pitch: Math.atan(1 / Math.SQRT2), zoom: 1.68 };
+  const ISO = { yaw: Math.PI / 4, pitch: Math.atan(1 / Math.SQRT2), zoom: 1.82 };
   // Exploded view for config mode, on one geometric rule: every part lifts in proportion to how far
   // back it sits along the iso view direction, so the parts rest on a single plane sloping down toward
   // the viewer. The knob, furthest back, ends up highest; the keys fall into evenly spaced diagonal
@@ -1078,7 +1114,6 @@ window.initDevice3D = function (host, { pick, icons }) {
   const clock = new T.Clock();
   // ---- RGB Matrix: approximations of the firmware's effects ----
   let lighting = null;           // { effect, h, s, v, speed } with h/s/v/speed in 0..1, or null when off/unknown
-  const presses = [];            // recent key presses, for the reactive and splash effects
   const frac = x => x - Math.floor(x);
   function hsv(h, s, v) {
     h = frac(h) * 6; const i = Math.floor(h), f = h - i;
@@ -1089,55 +1124,181 @@ window.initDevice3D = function (host, { pick, icons }) {
   // plain white like the stock firmware; a pressed key's own LED flashes pink and fades back
   const DEMO_LIGHT = { effect: 'idle_splash', h: 0.885, s: 0, v: 0.85, speed: 0.4 }; // h ≈ 319°: pink, not red
   let idleGlow = 0;                                   // 0..1 fade for the demo backlight
-  function ledColor(k, t) {
-    const L = lighting || (idleGlow > 0.001 ? { ...DEMO_LIGHT, v: DEMO_LIGHT.v * idleGlow } : null);
-    if (!L || L.v <= 0 || L.effect === 'none') return [0, 0, 0];
-    const T = t * (0.2 + L.speed * 1.6);            // effect clock, scaled by speed
-    const [x, y] = k.led, nx = x / 224, ny = y / 64;
-    const dx = (x - 112) / 112, dy = (y - 32) / 32, dist = Math.hypot(dx, dy), ang = Math.atan2(dy, dx) / (Math.PI * 2);
-    let { h, s, v } = L;
-    const since = t - k.pressedAt;
-    const fade = since < 0 ? 0 : Math.max(0, 1 - since * (0.6 + L.speed * 1.4)); // 1 → 0 after a press
-    const splash = () => presses.reduce((m, pr) => {
-      const age = t - pr.t, r = age * (60 + L.speed * 160), d = Math.hypot(x - pr.x, y - pr.y);
-      return Math.max(m, Math.max(0, 1 - Math.abs(d - r) / 30) * Math.max(0, 1 - age / 1.5));
-    }, 0);
-    const random = (every) => {
-      if (t > k.rnd.next) { k.rnd = { h: Math.random(), s: 0.6 + Math.random() * 0.4, v: Math.random(), next: t + every * (0.5 + Math.random()) }; }
-      return k.rnd;
-    };
+  // ---- QMK RGB Matrix, ported: the same integer math as the firmware's effects (quantum/rgb_matrix),
+  // run over the Aurora's six LEDs, so the on-screen backlight matches the device. Times are in ms.
+  const u8 = x => x & 255;
+  const qadd8 = (a, b) => Math.min(255, a + b), qsub8 = (a, b) => Math.max(0, a - b);
+  const scale8 = (i, sc) => ((i & 255) * (1 + (sc & 255))) >> 8;
+  const scale16by8 = (i, sc) => ((i & 0xffff) * (1 + (sc & 255))) >> 8;
+  const abs8 = x => Math.abs((x << 24) >> 24);                       // |int8|
+  const sin8 = th => Math.round(128 + 127.5 * Math.sin((th & 255) / 256 * Math.PI * 2)) & 255;
+  const cos8 = th => sin8(th + 64);
+  const atan2_8 = (dy, dx) => Math.round(Math.atan2(dy, dx) / (Math.PI * 2) * 256) & 255;
+  const sqrt16 = x => Math.floor(Math.sqrt(x));
+  const rand8 = () => (Math.random() * 256) | 0, rand8mm = (lo, hi) => lo + ((Math.random() * (hi - lo)) | 0);
+  function qmkHsvToRgb(h, s, v) {                                    // quantum/color.c hsv_to_rgb_impl
+    h &= 255; s &= 255; v &= 255;
+    if (s === 0) return [v, v, v];
+    const region = (h * 6 / 255) | 0, rem = (h * 2 - region * 85) * 3;
+    const p = (v * (255 - s)) >> 8, q = (v * (255 - ((s * rem) >> 8))) >> 8, t = (v * (255 - ((s * (255 - rem)) >> 8))) >> 8;
+    return [[v, t, p], [q, v, p], [p, v, t], [p, q, v], [t, p, v], [v, p, q], [v, t, p]][region];
+  }
+  // LEDs in the firmware's order (keyboard.json rgb_matrix.layout), with their points and matrix spots
+  const QMK_LEDS = [['k4', 51, 51, 2, 0], ['k1', 51, 38, 1, 0], ['k2', 102, 38, 1, 1], ['k5', 102, 51, 2, 1], ['k6', 154, 51, 2, 2], ['k3', 154, 38, 1, 2]];
+  const LED_OF = Object.fromEntries(QMK_LEDS.map(([id], i) => [id, i]));
+  const CX = 112, CY = 32, MAX_V = 200;                              // centre and max_brightness
+  const fx = { timer: 0, last: 0, hits: [], fb: [[0, 0, 0], [0, 0, 0], [0, 0, 0]], held: QMK_LEDS.map(() => [0, 0, 0]),
+    mode: null, idx: -1, trig: -1, wait: 0, flow: [], drop: 0, decay: 0, heatTimer: 0 };
+  function qmkHit(id) {                                              // a key press, as the firmware records it
+    const i = LED_OF[id]; if (i == null) return;
+    const [, x, y, r, c] = QMK_LEDS[i];
+    fx.hits.push({ x, y, i, tick: 0 }); if (fx.hits.length > 8) fx.hits.shift();
+    const fb = fx.fb, STEP = 32, SPREAD = 40, LIMIT = 16;             // typing heatmap
+    fb[r][c] = qadd8(fb[r][c], STEP);
+    QMK_LEDS.forEach(([, x2, y2, r2, c2]) => {
+      if (r2 === r && c2 === c) { fb[r][c] = qadd8(fb[r][c], STEP); return; }
+      const d = sqrt16((x - x2) ** 2 + (y - y2) ** 2);
+      if (d <= SPREAD) fb[r2][c2] = qadd8(fb[r2][c2], Math.min(LIMIT, qsub8(SPREAD, d)));
+    });
+  }
+  // one firmware frame: returns [r, g, b] (0..255) per LED, in QMK_LEDS order
+  function qmkFrame(L, nowMs) {
+    const dt = Math.min(100, nowMs - fx.last); fx.last = nowMs; fx.timer = (fx.timer + dt) >>> 0;
+    fx.hits.forEach(h => { h.tick = Math.min(65535, h.tick + dt); });
+    const H = Math.round(L.h * 255), S = Math.round(L.s * 255), V = Math.min(MAX_V, Math.round(L.v * 255)), SP = Math.round(L.speed * 255);
+    const T = fx.timer, n = QMK_LEDS.length, out = [];
+    const init = fx.mode !== L.effect; fx.mode = L.effect;
+    const timeI = u8(scale16by8(T, qadd8(SP >> 2, 1))), timeD = u8(scale16by8(T, SP >> 1));
+    const eachI = f => QMK_LEDS.forEach((led, i) => out.push(qmkHsvToRgb(...f(H, S, V, i, led, timeI))));
+    const eachD = (f, withDist) => QMK_LEDS.forEach(([, x, y]) => {
+      const dx = x - CX, dy = y - CY; out.push(qmkHsvToRgb(...f(H, S, V, dx, dy, withDist ? u8(sqrt16(dx * dx + dy * dy)) : 0, timeD)));
+    });
+    const reactiveHue = u8(scale16by8(T, qadd8(SP, 8) >> 4));
+    const splashRun = (f, start) => QMK_LEDS.forEach(([, x, y]) => {
+      let h = H, s = S, v = 0;
+      for (let j = start; j < fx.hits.length; j++) {
+        const hit = fx.hits[j], dx = x - hit.x, dy = y - hit.y, dist = u8(sqrt16(dx * dx + dy * dy));
+        [h, s, v] = f(h, s, v, dx, dy, dist, scale16by8(hit.tick, qadd8(SP, 1)) & 0xffff);
+      }
+      out.push(qmkHsvToRgb(h, s, scale8(v, V)));
+    });
     switch (L.effect) {
-      case 'solid_color': break;
-      case 'breathing': v *= 0.15 + 0.85 * (0.5 + 0.5 * Math.sin(T * 2.5)); break;
-      case 'gradient_up_down': h += ny * 0.25; break;
-      case 'gradient_left_right': h += nx * 0.25; break;
-      case 'band_sat': s *= Math.min(1, Math.abs(nx - frac(T * 0.4)) * 3); break;
-      case 'band_val': v *= Math.max(0, 1 - Math.abs(nx - frac(T * 0.4)) * 3); break;
-      case 'band_pinwheel_sat': s *= frac(ang - T * 0.4); break;
-      case 'band_pinwheel_val': v *= frac(ang - T * 0.4); break;
-      case 'cycle_all': h += T * 0.25; break;
-      case 'cycle_left_right': h += nx - T * 0.25; break;
-      case 'cycle_up_down': h += ny - T * 0.25; break;
-      case 'cycle_out_in': h += dist * 0.5 - T * 0.25; break;
-      case 'cycle_spiral': h += ang - T * 0.25; break;
-      case 'hue_breathing': h += 0.06 * Math.sin(T * 2); break;
-      case 'hue_wave': h += 0.08 * Math.sin((nx - T * 0.4) * Math.PI * 2); break;
-      case 'raindrops': { const r = random(1.5); h += r.h > 0.5 ? 0.1 : -0.1; break; }
-      case 'jellybean_raindrops': { const r = random(1); h = r.h; s = r.s; v *= r.v; break; }
-      case 'pixel_rain': { const r = random(0.6); h = r.h; v *= r.v > 0.5 ? 1 : 0; break; }
-      case 'pixel_flow': h = frac(Math.floor((nx * 3 - T) * 2) * 0.37); break;
-      case 'digital_rain': h = 0.33; s = 1; v *= Math.max(0, 1 - frac(ny - T * 0.6) * 2.5); break;
-      case 'typing_heatmap': h = 0.66 * (1 - Math.min(1, k.heat)); s = 1; v *= Math.min(1, k.heat * 1.5); break;
-      case 'solid_reactive_simple': v *= fade; break;
-      case 'solid_reactive':
-      case 'solid_reactive_cross':
-      case 'solid_reactive_nexus': h += 0.5 * fade; break;
-      case 'splash': { const w = splash(); h += w * 0.5; v *= w; break; }
-      case 'solid_splash': v *= splash(); break;
-      case 'idle_splash': s = 0.55 * fade; break; // white, with only the pressed key flashing pink
-      default: break;                               // unknown effect: show the base colour
+      case 'none': return QMK_LEDS.map(() => [0, 0, 0]);
+      case 'solid_color': eachI((h, s, v) => [h, s, v]); break;
+      case 'gradient_up_down': { const sc = scale8(64, SP); eachI((h, s, v, i, [, , y]) => [h + sc * (y >> 4), s, v]); break; }
+      case 'gradient_left_right': { const sc = scale8(64, SP); eachI((h, s, v, i, [, x]) => [h + ((sc * x) >> 5), s, v]); break; }
+      case 'breathing': eachI((h, s, v, i, l, t) => [h, s, scale8(abs8(sin8(t >> 1) - 128) * 2, v)]); break;
+      case 'band_sat': eachI((h, s, v, i, [, x], t) => { const ss = s - Math.abs(scale8(x, 228) + 28 - t) * 8; return [h, scale8(Math.max(0, ss), s), v]; }); break;
+      case 'band_val': eachI((h, s, v, i, [, x], t) => { const vv = v - Math.abs(scale8(x, 228) + 28 - t) * 8; return [h, s, scale8(Math.max(0, vv), v)]; }); break;
+      case 'band_pinwheel_sat': eachD((h, s, v, dx, dy, d, t) => [h, scale8(u8(s - t - atan2_8(dy, dx) * 3), s), v]); break;
+      case 'band_pinwheel_val': eachD((h, s, v, dx, dy, d, t) => [h, s, scale8(u8(v - t - atan2_8(dy, dx) * 3), v)]); break;
+      case 'cycle_all': eachI((h, s, v, i, l, t) => [t, s, v]); break;
+      case 'cycle_left_right': eachI((h, s, v, i, [, x], t) => [x - t, s, v]); break;
+      case 'cycle_up_down': eachI((h, s, v, i, [, , y], t) => [y - t, s, v]); break;
+      case 'cycle_out_in': eachD((h, s, v, dx, dy, d, t) => [((3 * d) >> 1) + t, s, v], true); break;
+      case 'cycle_spiral': eachD((h, s, v, dx, dy, d, t) => [d - t - atan2_8(dy, dx), s, v], true); break;
+      case 'hue_breathing': eachI((h, s, v, i, l, t) => [h + scale8(abs8(sin8(t >> 1) - 128) * 2, 12), s, v]); break;
+      case 'hue_wave': eachI((h, s, v, i, [, x], t) => [h + scale8(abs8(x - t), 24), s, v]); break;
+      case 'raindrops': case 'jellybean_raindrops': {
+        const jelly = L.effect === 'jellybean_raindrops';
+        const paint = i => { fx.held[i] = jelly ? qmkHsvToRgb(rand8(), rand8mm(127, 255), V) : qmkHsvToRgb(H + (((((H + 128) & 255) - H) << 24 >> 24) / 4 | 0) * ((Math.random() * 3) | 0), S, V); };
+        if (init) for (let i = 0; i < n; i++) paint(i);
+        const tv = scale16by8(T, qadd8(SP, 16));
+        if (tv !== fx.trig) { fx.trig = tv; if (tv % (jelly ? 5 : 10) === 0) paint((Math.random() * n) | 0); }
+        return fx.held.map(c => c.slice());
+      }
+      case 'pixel_rain': {
+        if (init) { fx.held = QMK_LEDS.map(() => [0, 0, 0]); fx.wait = 0; }
+        if (fx.wait < T) {
+          const i = (Math.random() * n) | 0;
+          fx.held[i] = (rand8() & 2) ? [0, 0, 0] : qmkHsvToRgb(rand8(), rand8mm(127, 255), V);
+          fx.wait = T + (2048 - scale16by8(1792, SP));
+        }
+        return fx.held.map(c => c.slice());
+      }
+      case 'pixel_flow': {
+        const rnd = () => (rand8() & 2) ? [0, 0, 0] : qmkHsvToRgb(rand8(), rand8mm(127, 255), V);
+        if (init) { fx.flow = QMK_LEDS.map(rnd); fx.wait = 0; }
+        if (fx.wait <= T) { fx.flow.shift(); fx.flow.push(rnd()); fx.wait = T + Math.floor(3000 / scale16by8(qadd8(SP, 16), 16)); }
+        return fx.flow.map(c => c.slice());
+      }
+      case 'typing_heatmap': {
+        if (init) fx.fb = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+        const dec = T - fx.heatTimer >= 25; if (dec) fx.heatTimer = T;
+        QMK_LEDS.forEach(([, , , r, c]) => {
+          const val = fx.fb[r][c];
+          out.push(qmkHsvToRgb(170 - qsub8(val, 85), S, scale8((qadd8(170, val) - 170) * 3, V)));
+          if (dec) fx.fb[r][c] = qsub8(val, 1);
+        });
+        break;
+      }
+      case 'digital_rain': {
+        const green = (V * 3) >> 2, boostMax = (V * 3) >> 2, maxI = V || 1, decayTicks = (255 / maxI) | 0, fb = fx.fb;
+        if (init) { fx.fb = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]; fx.drop = 0; }
+        fx.decay++;
+        for (let c = 0; c < 3; c++) for (let r = 0; r < 3; r++) {
+          if (r === 0 && fx.drop === 0 && Math.random() < 1 / 24) fx.fb[r][c] = maxI;
+          else if (fx.fb[r][c] > 0 && fx.fb[r][c] < maxI && fx.decay === decayTicks) fx.fb[r][c]--;
+        }
+        QMK_LEDS.forEach(([, , , r, c]) => {
+          const val = fx.fb[r][c];
+          if (val > green) { const b2 = (boostMax * (val - green) / (maxI - green)) | 0; out.push([b2, maxI, b2]); }
+          else out.push([0, (maxI * val / green) | 0, 0]);
+        });
+        if (fx.decay === decayTicks) fx.decay = 0;
+        if (++fx.drop > 28) {
+          fx.drop = 0;
+          for (let r = 2; r > 0; r--) for (let c = 0; c < 3; c++) {
+            if (r === 2 && fx.fb[r][c] === maxI) fx.fb[r][c]--;
+            if (fx.fb[r - 1][c] >= maxI) { fx.fb[r - 1][c] = maxI - 1; fx.fb[r][c] = maxI; }
+          }
+        }
+        void fb;
+        break;
+      }
+      case 'solid_reactive_simple': case 'solid_reactive': {
+        const maxTick = (65535 / qadd8(SP, 1)) | 0;
+        QMK_LEDS.forEach((l, i) => {
+          let tick = maxTick;
+          for (let j = fx.hits.length - 1; j >= 0; j--) if (fx.hits[j].i === i && fx.hits[j].tick < tick) { tick = fx.hits[j].tick; break; }
+          const off = Math.min(255, scale16by8(tick, qadd8(SP, 1)));
+          out.push(L.effect === 'solid_reactive_simple' ? qmkHsvToRgb(reactiveHue, S, scale8(255 - off, V)) : qmkHsvToRgb(reactiveHue + scale8(255 - off, 64), S, V));
+        });
+        break;
+      }
+      case 'solid_reactive_cross': splashRun((h, s, v, dx, dy, dist, tick) => {
+        let e = tick + dist; const ax = Math.min(255, Math.abs(dx) * 16), ay = Math.min(255, Math.abs(dy) * 16);
+        e += Math.min(ax, ay); e = Math.min(255, e & 0xffff);
+        return [reactiveHue, s, qadd8(v, 255 - e)];
+      }, Math.max(0, fx.hits.length - 1)); break;
+      case 'solid_reactive_nexus': splashRun((h, s, v, dx, dy, dist, tick) => {
+        let e = (tick - dist) & 0xffff; if (e > 255) e = 255; if (dist > 72) e = 255;
+        if ((dx > 8 || dx < -8) && (dy > 8 || dy < -8)) e = 255;
+        return [H + (dy / 4 | 0), s, qadd8(v, 255 - e)];
+      }, Math.max(0, fx.hits.length - 1)); break;
+      case 'splash': case 'solid_splash': splashRun((h, s, v, dx, dy, dist, tick) => {
+        let e = (tick - dist) & 0xffff; if (e > 255) e = 255;
+        return [L.effect === 'splash' ? h + e : h, s, qadd8(v, 255 - e)];
+      }, Math.max(0, fx.hits.length - 1)); break;
+      default: eachI((h, s, v) => [h, s, v]);
     }
-    return hsv(h, Math.max(0, Math.min(1, s)), Math.max(0, Math.min(1, v)));
+    return out;
+  }
+  let frameLeds = null;                                // this frame's colours, keyed by control id (0..1)
+  function computeLeds(t) {
+    const L = lighting;
+    if (L) {
+      const rgb = qmkFrame(L, t * 1000);
+      frameLeds = Object.fromEntries(QMK_LEDS.map(([id], i) => [id, rgb[i].map(c => c / 255)]));
+    } else frameLeds = null;
+  }
+  function ledColor(k, t) {
+    if (frameLeds) return frameLeds[k.id];
+    // idle demo backlight (no npad lighting to mirror): white, the pressed key flashing pink
+    const v = DEMO_LIGHT.v * idleGlow;
+    if (v <= 0.001) return [0, 0, 0];
+    const since = t - k.pressedAt, fade = since < 0 ? 0 : Math.max(0, 1 - since * (0.6 + DEMO_LIGHT.speed * 1.4));
+    return hsv(DEMO_LIGHT.h, 0.55 * fade, v);
   }
 
   // ---- idle demo: while the model spins, it "plays" itself: key taps, knob scrolls, a knob press.
@@ -1146,7 +1307,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   function demoKey(id, down, t) {
     const k = keys[id];
     k.down = down; k.demo = down;
-    if (down) { k.pressedAt = t; presses.push({ t, x: k.led[0], y: k.led[1] }); } // lights react like real presses
+    if (down) { k.pressedAt = t; } // the idle demo's pink flash
   }
   function scheduleDemo(t) {
     const r = Math.random(), ids = Object.keys(keys);
@@ -1212,7 +1373,6 @@ window.initDevice3D = function (host, { pick, icons }) {
       }
       placeCamera();
     }
-    while (presses.length && t - presses[0].t > 1.5) presses.shift();
     if (!viewLocked) par.to = 0;
     if (Math.abs(par.to - par.yaw) > 1e-5) { par.yaw += (par.to - par.yaw) * Math.min(1, dt * 3); placeCamera(); }
     // explode / reassemble, eased (~0.5 s), alongside the camera's turn to iso
@@ -1229,6 +1389,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     // selection: shift the material itself toward blue so lighting and shading still read, plus a
     // whisper of glow; hover: a fine, slightly translucent ring
     const SEL_GLOW = 0.07, OUTLINE = 0.9;
+    computeLeds(t);
     const ease = Math.min(1, dt * 10);
     Object.entries(keys).forEach(([id, k]) => {
       k.t += ((k.down ? 1 : 0) - k.t) * 0.45;
@@ -1248,7 +1409,6 @@ window.initDevice3D = function (host, { pick, icons }) {
       k.outlineMat.opacity = OUTLINE * k.hoverT;
       k.mat.color.copy(CAP_COLOR).lerp(CAP_SELECTED, k.selT);
       k.mat.emissiveIntensity = SEL_GLOW * k.selT;
-      k.heat = Math.max(0, k.heat - 0.004);
       const [r, g, b] = ledColor(k, t);
       const lit = Math.max(r, g, b);
       k.ledLin.setRGB(r, g, b).convertSRGBToLinear();
@@ -1266,7 +1426,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     const knobHoverTo = (!drag && hover.id === 'press') || ['cw', 'ccw', 'press'].includes(hover.panel) ? 1 : 0;
     knobHoverT += (knobHoverTo - knobHoverT) * ease;
     knob.position.y = H - KNOB_SINK - 1.2 * knobT + explodeT * EXPLODE.knob;
-    encoder.position.y = FLOOR + explodeT * Math.max(0, EXPLODE.knob - SWITCH_GAP);   // follows the knob, like the switches
+    encoder.position.y = FLOOR + explodeT * Math.max(0, EXPLODE.knob - SWITCH_GAP - 10);   // follows the knob, 10 mm further below it
     pcbLayer.position.y = -BASE.pcb * explodeT;
     foamLayer.position.y = -BASE.foam * explodeT;
     bottomLayer.position.y = -BASE.bottom * explodeT;
@@ -1289,8 +1449,7 @@ window.initDevice3D = function (host, { pick, icons }) {
       if (!k) return;
       if (down && !k.down) {
         const t = clock.getElapsedTime();
-        k.pressedAt = t; k.heat = Math.min(1.2, k.heat + 0.25);
-        presses.push({ t, x: k.led[0], y: k.led[1] });
+        k.pressedAt = t; qmkHit(id);
       }
       k.down = down;
     },
@@ -1568,7 +1727,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   // These are the ones the Aurora's board file enables.
   const EFFECTS = ['none', 'solid_color', 'gradient_up_down', 'gradient_left_right', 'breathing', 'band_sat', 'band_val',
     'band_pinwheel_sat', 'band_pinwheel_val', 'cycle_all', 'cycle_left_right', 'cycle_up_down', 'cycle_out_in', 'cycle_spiral',
-    'raindrops', 'jellybean_raindrops', 'hue_breathing', 'hue_wave', 'pixel_flow', 'pixel_rain', 'typing_heatmap', 'digital_rain',
+    'raindrops', 'jellybean_raindrops', 'hue_breathing', 'hue_wave', 'pixel_rain', 'pixel_flow', 'typing_heatmap', 'digital_rain',
     'solid_reactive_simple', 'solid_reactive', 'solid_reactive_cross', 'solid_reactive_nexus', 'splash', 'solid_splash'];
   let lightingText = '';
   const effectLabel = e => e.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase());
@@ -1737,6 +1896,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     // read the keymap (all layers), knob and macros, so key events line up with the npad and the
     // Keymap and Macros tabs can edit them
     await loadDeviceState();
+    devLayer.reset();
     relearnMap();
     renderEditor();
     setConnectedUI(true);
@@ -1763,7 +1923,7 @@ window.initDevice3D = function (host, { pick, icons }) {
         if (!i.pos) return;
         const [row, col] = i.pos;
         const now = (rows[row] >> col) & 1, was = (lastMatrix[row] >> col) & 1;
-        if (now !== was) { activate(i.id, !!now); log(now ? 'switch down' : 'switch up', '', `row ${row} col ${col}`, i.name); }
+        if (now !== was) { devLayer.key(i.id, !!now); activate(i.id, !!now); log(now ? 'switch down' : 'switch up', '', `row ${row} col ${col}`, i.name); }
       });
       lastMatrix = rows;
       if (++pollCount % 60 === 0) await refreshLighting(); // pick up lighting changes made on the device or in VIA
@@ -1958,6 +2118,40 @@ window.initDevice3D = function (host, { pick, icons }) {
     macroCount: 0, macroSize: 0, macros: [], draft: [], macroSel: 0, macroTimer: null, macroState: '',
   };
   const idxOf = i => i.pos[0] * 3 + i.pos[1];
+
+  // ---- the npad's active layer, worked out like QMK does from the switch presses we read and the
+  // keymap we loaded (stock VIA can't report it): MO/LT hold a layer, TG toggles, TO switches,
+  // TT holds or toggles on a tap, OSL holds for the next key, DF sets the default ----
+  const devLayer = {
+    def: 0, on: 0, held: {}, oneShot: null,
+    top() { const m = (1 << this.def) | this.on; return 31 - Math.clz32(m || 1); },
+    codeAt(id) {                                   // what a key does now: highest active layer that isn't transparent
+      const m = (1 << this.def) | this.on;
+      for (let l = edit.layers - 1; l >= 0; l--) if ((m >> l) & 1) { const c = getCode(l, id); if (c !== 0x01) return c; }
+      return getCode(0, id);
+    },
+    reset() { this.def = 0; this.on = 0; this.held = {}; this.oneShot = null; },
+    key(id, down) {
+      if (!edit.ready) return;
+      const before = this.top();
+      if (down) {
+        const c = this.codeAt(id);
+        const fn = Object.entries(LAYER_FNS).find(([, b]) => c >= b && c <= b + 0x1f), n = fn ? c - fn[1] : (c >= QK_LT && c <= 0x4fff ? (c >> 8) & 0xf : -1);
+        if (this.oneShot != null && !(fn && fn[0] === 'OSL')) { const l = this.oneShot; this.oneShot = null; this.on &= ~(1 << l); }
+        if (fn?.[0] === 'MO' || (c >= QK_LT && c <= 0x4fff)) { this.held[id] = n; this.on |= 1 << n; }
+        else if (fn?.[0] === 'TG') this.on ^= 1 << n;
+        else if (fn?.[0] === 'TO') this.on = 1 << n;
+        else if (fn?.[0] === 'DF') this.def = n;
+        else if (fn?.[0] === 'OSL') { this.oneShot = n; this.on |= 1 << n; }
+        else if (fn?.[0] === 'TT') { this.held[id] = n; this.on |= 1 << n; }   // held like MO (toggling needs 5 taps)
+      } else if (id in this.held) {
+        const n = this.held[id]; delete this.held[id];
+        this.on &= ~(1 << n);
+      }
+      const after = this.top();
+      if (after !== before) { edit.layer = after; renderKeymap(); render(); }
+    },
+  };
   const getCode = (layer, id) => byId[id].pos ? edit.keymap[layer]?.[idxOf(byId[id])] : edit.enc[layer]?.[id === 'cw' ? 1 : 0];
   const clone = v => JSON.parse(JSON.stringify(v));
 
@@ -2209,6 +2403,7 @@ window.initDevice3D = function (host, { pick, icons }) {
 
   function renderKeymap() {
     if (!edit.ready) return;
+    // the selected layer follows the npad: switching layers on the device switches it here
     $('#layer-seg').innerHTML = range(0, edit.layers - 1).map(l =>
       `<button type="button" data-layer="${l}" aria-pressed="${l === edit.layer}">${l}</button>`).join('');
     const cur = edit.ctrl ? getCode(edit.layer, edit.ctrl) : null;
