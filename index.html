@@ -2105,14 +2105,10 @@ window.initDevice3D = function (host, { pick, icons }) {
       const legend = ICONS[icon].replace('<svg ', '<svg x="6" y="6" width="12" height="12" ');
       return `<svg viewBox="0 0 24 24" width="24" height="24"><g ${ICON_STROKE.replace('stroke-width="0.6"', 'stroke-width="0.52"')}><rect x="0.4" y="0.4" width="23.2" height="23.2" rx="6.5"/></g><g fill="currentColor">${legend}</g></svg>`;
     }
-    const knob = '<circle cx="12" cy="14" r="6.5"/><circle cx="10" cy="12" r="1.4"/>';
-    const marks = {
-      ccw: '<path d="M18.5 7.5A9.5 9.5 0 0 0 4 9.5"/><path d="M3.6 6.2 4 9.5 7.2 8.8"/>',
-      cw: '<path d="M5.5 7.5A9.5 9.5 0 0 1 20 9.5"/><path d="M20.4 6.2 20 9.5 16.8 8.8"/>',
-      press: '<path d="M12 1.5v4"/><path d="M9.8 3.6 12 5.8 14.2 3.6"/>',
-    };
-    // cropped to the drawing so it fills the same box as the keycap icons; thinner stroke keeps the weight
-    return `<svg viewBox="2.1 1.1 19.8 19.8" width="24" height="24"><g ${ICON_STROKE.replace('stroke-width="0.6"', 'stroke-width="0.5"')}>${knob}${marks[id] || ''}</g></svg>`;
+    // the knob seen from above (a circle outline, like the keycap's square) with a Phosphor-light glyph
+    const KNOB_GLYPHS = { ccw: '<svg viewBox="0 0 256 256" fill="currentColor"><path d="M222,128a94,94,0,0,1-92.74,94H128a93.43,93.43,0,0,1-64.5-25.65,6,6,0,1,1,8.24-8.72A82,82,0,1,0,70,70l-.19.19L39.44,98H72a6,6,0,0,1,0,12H24a6,6,0,0,1-6-6V56a6,6,0,0,1,12,0V90.34L61.63,61.4A94,94,0,0,1,222,128Z"/></svg>', press: '<svg viewBox="0 0 256 256" fill="currentColor"><path d="M204.24,148.24l-72,72a6,6,0,0,1-8.48,0l-72-72a6,6,0,0,1,8.48-8.48L122,201.51V40a6,6,0,0,1,12,0V201.51l61.76-61.75a6,6,0,0,1,8.48,8.48Z"/></svg>', cw: '<svg viewBox="0 0 256 256" fill="currentColor"><path d="M238,56v48a6,6,0,0,1-6,6H184a6,6,0,0,1,0-12h32.55l-30.38-27.8c-.06-.06-.12-.13-.19-.19a82,82,0,1,0-1.7,117.65,6,6,0,0,1,8.24,8.73A93.46,93.46,0,0,1,128,222h-1.28A94,94,0,1,1,194.37,61.4L226,90.35V56a6,6,0,1,1,12,0Z"/></svg>' };
+    const glyph = (KNOB_GLYPHS[id] || '').replace('<svg ', '<svg x="6" y="6" width="12" height="12" ');
+    return `<svg viewBox="0 0 24 24" width="24" height="24"><g ${ICON_STROKE.replace('stroke-width="0.6"', 'stroke-width="0.52"')}><circle cx="12" cy="12" r="11.6"/></g><g fill="currentColor">${glyph}</g></svg>`;
   }
   // which side of its control each flag sits on, at the iso view: keys sharing a step of the explode
   // split left/right (shrimp | globe, sailboat | arrow), the rest alternate down the staircase
