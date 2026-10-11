@@ -4,6 +4,10 @@ A single-page configurator for the npad macropad (a [momokai Aurora](https://git
 
 Live at **https://npad.ngrok.dev**, deployed with ngrok Ship.
 
+<img width="1624" height="1062" alt="Screenshot 2026-10-11 at 1 38 56 PM" src="https://github.com/user-attachments/assets/d410de81-e89e-40da-b33d-a417ba5b2538" />
+<img width="1624" height="1062" alt="Screenshot 2026-10-11 at 1 38 40 PM" src="https://github.com/user-attachments/assets/1ae6697d-49c9-4150-9a1b-7c7bb8d02dae" />
+
+
 No build step: `index.html` is the whole site. The Dockerfile only wraps it in nginx for deployment.
 
 ## Run locally
@@ -23,7 +27,7 @@ docker build -t npad-keytester . && docker run --rm -p 8080:8080 npad-keytester
 
 ## Connecting
 
-**Connect npad** (Chrome or Edge) talks to the firmware over VIA's raw HID interface (usage page `0xFF60`). It needs HTTPS or localhost, and the VIA app has to be closed. Once allowed, the npad reconnects by itself on later visits and whenever it is plugged back in. There is no disconnect button: unplug the npad to disconnect.
+**Connect npad** (Chrome or Edge) talks to the firmware over VIA's raw HID interface (usage page `0xFF60`). It needs HTTPS or localhost, and the VIA app has to be closed. Once allowed, the npad reconnects by itself on later visits and whenever it is plugged back in.
 
 Without a connection the page still works as a preview: the model idles on a slow orbit and reacts to keys that match the npad's stock keymap.
 
@@ -38,20 +42,3 @@ Opening the sidebar switches to config mode (it opens by itself when you connect
 - **Event log:** presses and knob turns reported by the npad itself; other keyboards are ignored.
 - **Restore** puts back the keymap, macros and lighting from when the npad connected. **Export** / **Import** use VIA's `.layout.json` format (keycode names, layers, knob and macros), so layouts move between this page and the VIA app.
 
-## Stock keymap (layer 0)
-
-| Control | Matrix | Sends |
-|---|---|---|
-| n | 1,0 | `Z` |
-| Globe | 1,1 | `X` |
-| Arrow | 1,2 | `C` |
-| Shrimp | 2,0 | `` ` `` |
-| Sailboat | 2,1 | `Esc` |
-| Sparkle | 2,2 | `F2` |
-| Knob press | 0,1 | Mute |
-| Knob right / left | encoder 0 | Volume up / down |
-
-## Known limits
-
-- Knob turns aren't in the switch matrix, so the page only sees them if the browser receives the keys they send. macOS usually handles volume and mute keys before the browser does.
-- The active layer can only be inferred from layer-key presses; the firmware doesn't report it over VIA.
