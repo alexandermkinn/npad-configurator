@@ -1849,6 +1849,10 @@ window.initDevice3D = function (host, { pick, icons }) {
     return true;
   }
   const ANIMATED = e => !['none', 'solid_color'].includes(e);
+  // effects that pick their own colors (from QMK's effect code): the cycles and the heatmap animate
+  // the hue but keep the saturation; the random/rain effects ignore both
+  const NO_HUE = new Set(['cycle_all', 'cycle_left_right', 'cycle_up_down', 'cycle_out_in', 'cycle_spiral', 'typing_heatmap']);
+  const NO_COLOR = new Set(['jellybean_raindrops', 'pixel_rain', 'pixel_flow', 'digital_rain']);
   function renderLighting(fromControl) {
     const card = $('#light-card');
     card.hidden = !light.ok;
@@ -1859,8 +1863,10 @@ window.initDevice3D = function (host, { pick, icons }) {
       sel.value = light.effect;
       $('#light-v').value = light.v; $('#light-h').value = light.h; $('#light-s').value = light.s; $('#light-speed').value = light.speed;
     }
-    const off = light.effect === 0;
-    ['#light-v', '#light-h', '#light-s'].forEach(q => { $(q).disabled = off; });
+    const off = light.effect === 0, fx = EFFECTS[light.effect];
+    $('#light-v').disabled = off;
+    $('#light-h').disabled = off || NO_HUE.has(fx) || NO_COLOR.has(fx);
+    $('#light-s').disabled = off || NO_COLOR.has(fx);
     $('#light-speed').disabled = off || !ANIMATED(EFFECTS[light.effect]);
     const hue = Math.round(light.h / 255 * 360);
     card.style.setProperty('--sat-end', `hsl(${hue} 80% 56%)`);
