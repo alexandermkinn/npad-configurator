@@ -279,9 +279,6 @@ button:disabled { opacity: .45; cursor: default; }
 /* macros */
 .meter { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
 .meter.over { color: var(--warn); }
-.meter-bar { display: inline-block; width: 36px; height: 4px; margin-right: 7px; vertical-align: middle; border-radius: 2px; background: var(--line); overflow: hidden; }
-.meter-bar i { display: block; height: 100%; background: var(--muted); }
-.meter.over .meter-bar i { background: var(--warn); }
 .macro-empty { margin: 4px 0 8px; font-size: 12px; }
 .macro-tabs { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 10px 0; }
 /* macro tabs are drawn like the flags' keycap tops: same height, hairline outline, corner radius and type */
@@ -418,7 +415,7 @@ button:disabled { opacity: .45; cursor: default; }
 
     <div class="tabpanel" data-panel="macros">
       <section class="panel" aria-labelledby="h-macros">
-        <div class="panel-head"><h2 id="h-macros">Macros</h2><span class="meter" id="macro-meter"><span class="meter-bar"><i></i></span><span id="macro-pct"></span></span></div>
+        <div class="panel-head"><h2 id="h-macros">Macros</h2><span class="meter" id="macro-meter" hidden></span></div>
         <div class="macro-tabs" id="macro-tabs" role="tablist" aria-label="Macros"></div>
         <div class="macro-rows" id="macro-rows"></div>
       </section>
@@ -2829,13 +2826,10 @@ window.initDevice3D = function (host, { pick, icons }) {
   }
 
   function renderMacroMeta() {
-    const used = macroBytesUsed(edit.draft), pct = edit.macroSize ? Math.round(used / edit.macroSize * 100) : 0;
-    const m = $('#macro-meter');
-    m.hidden = !edit.macroSize;
-    m.querySelector('i').style.width = Math.min(100, pct) + '%';
-    $('#macro-pct').textContent = used > edit.macroSize ? 'Too long' : `${pct}%`;
-    m.title = `Macros use ${used} of the npad’s ${edit.macroSize} bytes`;
-    m.classList.toggle('over', used > edit.macroSize);
+    const used = macroBytesUsed(edit.draft), size = edit.macroSize, m = $('#macro-meter');
+    m.hidden = !size;
+    m.textContent = `${used} / ${size} bytes`;
+    m.classList.toggle('over', used > size);
   }
 
   // events
