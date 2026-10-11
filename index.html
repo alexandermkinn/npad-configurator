@@ -1917,7 +1917,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     if (!('hid' in navigator)) { toast('Connecting needs Chrome or Edge.', 'warn'); return; }
     try {
       const [dev] = await navigator.hid.requestDevice({ filters: [{ usagePage: 0xff60, usage: 0x61 }] });
-      if (dev) await attach(dev);
+      if (dev) await attach(dev, { edit: true });
     } catch (err) {
       if (err?.name !== 'NotFoundError') connectFailed(err); // NotFoundError: picker closed
     }
@@ -1934,10 +1934,13 @@ window.initDevice3D = function (host, { pick, icons }) {
     hidDev = null;
     toast(`Couldn't connect: ${err?.message || err}. Close the VIA app or other tabs using the npad, then try again.`, 'warn', 8000);
   }
-  async function attach(dev) {
+  // edit: open edit mode once connected (connecting with the button, or plugging the npad in);
+  // the quiet reconnect when the page loads stays in preview
+  async function attach(dev, { edit = false } = {}) {
     if (connecting || hidDev) return;               // auto-reconnect, plug-in and the button can race
     connecting = true;
     try { await attachNow(dev); } finally { connecting = false; }
+    if (edit && hidDev) setPanels(true);
   }
   async function attachNow(dev) {
     if (!dev.opened) await dev.open();
@@ -1955,7 +1958,6 @@ window.initDevice3D = function (host, { pick, icons }) {
     await refreshLighting();
     pollMatrix(++pollGen);
     render();
-    // edit mode only opens from a click on a control or the sidebar button, not from connecting
   }
   // sidebar edge fades: on when there's more to scroll to that way
   {
@@ -2007,7 +2009,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   }
   if ('hid' in navigator) {
     navigator.hid.addEventListener('disconnect', e => { if (e.device === hidDev) { hidDisconnect(); toast('npad disconnected.'); } });
-    navigator.hid.addEventListener('connect', e => { if (!hidDev && isNpadRaw(e.device)) attach(e.device).catch(connectFailed); });
+    navigator.hid.addEventListener('connect', e => { if (!hidDev && isNpadRaw(e.device)) attach(e.device, { edit: true }).catch(connectFailed); });
   }
   $('#btn-hid').addEventListener('click', () => { if (!hidDev) hidConnect(); });
 

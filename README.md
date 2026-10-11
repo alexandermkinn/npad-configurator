@@ -27,7 +27,7 @@ Without a connection the page still works as a preview: the model idles on a slo
 
 ## Editing the npad
 
-Opening the sidebar (it opens by itself on connect) switches to config mode: the model turns to a fixed, exploded view and each control gets a flag showing what it sends on the selected layer. Every change is written to the npad straight away, and ⌘Z undoes the last one.
+Opening the sidebar switches to config mode (it opens by itself when you connect with the button or plug the npad in): the model turns to a fixed, exploded view and each control gets a flag showing what it sends on the selected layer. Every change is written to the npad straight away, and ⌘Z undoes the last one.
 
 - **Remap:** click a flag or a key on the model, then press the key or shortcut you want (⌘⇧S, F13…), or type to search every keycode by name ("vol", "play", "m2", "left click") and pick with ↑/↓ and Enter. Esc cancels.
 - **Layer:** picks which of the 4 layers the flags show and edit. It also follows the npad: holding or tapping a layer key on the device switches it here. (Stock VIA firmware can't be told to change layers, so it only follows in that direction.)
