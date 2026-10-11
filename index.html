@@ -56,8 +56,8 @@ body { margin: 0; overflow: hidden;
 .topbar { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 h1 { font-family: var(--font-display); font-weight: 800; font-size: 24px; letter-spacing: -0.02em; margin: 0; line-height: 1.1;
   display: inline-flex; align-items: center; gap: 9px; }
-/* the npad from above, to scale: case, knob, two rows of keys */
-h1 .logo { width: 17px; height: 23px; flex: none; fill: none; stroke: currentColor; stroke-width: 4.2; stroke-linejoin: round; }
+/* the npad from above, to scale, as a silhouette: the case with the knob and keycaps picked out by their gaps */
+h1 .logo { width: 17px; height: 23px; flex: none; }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }
 /* The sidebar opens by animating its width (the render resizes and the model glides to its new
    centre), while the panels inside slide in from the right one after another. */
@@ -348,7 +348,7 @@ button:disabled { opacity: .45; cursor: default; }
 <body>
 <div class="app collapsed">
   <header class="topbar">
-    <h1><svg class="logo" viewBox="-3 -3 79 104" aria-hidden="true"><rect x="0" y="0" width="73" height="98" rx="9"/><circle cx="36.5" cy="29" r="15.5"/><rect x="11.45" y="54.48" width="12" height="12" rx="3"/><rect x="30.50" y="54.48" width="12" height="12" rx="3"/><rect x="49.55" y="54.48" width="12" height="12" rx="3"/><rect x="11.45" y="73.53" width="12" height="12" rx="3"/><rect x="30.50" y="73.53" width="12" height="12" rx="3"/><rect x="49.55" y="73.53" width="12" height="12" rx="3"/></svg>npad tester</h1>
+    <h1><svg class="logo" viewBox="0 0 73 98" aria-hidden="true"><defs><mask id="logo-cut"><rect width="73" height="98" rx="10" fill="#fff"/><circle cx="36.5" cy="29" r="17" fill="#000"/><circle cx="36.5" cy="29" r="11.5" fill="#fff"/><rect x="7.5" y="50.5" width="58" height="39" rx="5" fill="#000"/><rect x="10.70" y="53.73" width="13.5" height="13.5" rx="3.5" fill="#fff"/><rect x="29.75" y="53.73" width="13.5" height="13.5" rx="3.5" fill="#fff"/><rect x="48.80" y="53.73" width="13.5" height="13.5" rx="3.5" fill="#fff"/><rect x="10.70" y="72.78" width="13.5" height="13.5" rx="3.5" fill="#fff"/><rect x="29.75" y="72.78" width="13.5" height="13.5" rx="3.5" fill="#fff"/><rect x="48.80" y="72.78" width="13.5" height="13.5" rx="3.5" fill="#fff"/></mask></defs><rect width="73" height="98" fill="currentColor" mask="url(#logo-cut)"/></svg>npad tester</h1>
     <div class="actions">
       <button id="btn-hid" type="button" class="primary">Connect npad</button>
       <button class="side-tab" id="btn-panels" type="button" hidden aria-controls="side" aria-expanded="false" aria-label="Show panels">
