@@ -537,7 +537,8 @@ window.initDevice3D = function (host, { pick, icons }) {
   foam.position.y = PLATE + 0.5;
   [pcbBoard, foam].forEach(m => { m.castShadow = m.receiveShadow = true; });
   pcbLayer.add(pcbBoard); foamLayer.add(foam);
-  // PCB details: a hot-swap socket cutout pattern under each switch, and three standoff screws
+  // PCB details: a hot-swap socket cutout pattern under each switch, and a standoff screw at the back
+  // corner, hidden under the shell when assembled (there are none between the keys)
   {
     const holeMat = new T.MeshBasicMaterial({ color: 0x060607 });
     const top = FLOOR + 0.02;
@@ -550,7 +551,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     }
     const screwMat = new T.MeshStandardMaterial({ color: srgb(0xb8bbc0), metalness: 0.9, roughness: 0.35 });
     const thread = new T.TorusGeometry(0.82, 0.12, 4, 16); thread.rotateX(Math.PI / 2);
-    [[-PITCH / 2, WELL_Z], [PITCH / 2, WELL_Z], [W / 2 - 6, -D / 2 + 9]].forEach(([x, z]) => {
+    [[W / 2 - 6, -D / 2 + 9]].forEach(([x, z]) => {
       const screw = new T.Group();
       const body = new T.Mesh(new T.CylinderGeometry(0.8, 0.8, 5, 16), screwMat); body.position.y = 2.5; screw.add(body);
       for (let i = 0; i < 7; i++) { const r = new T.Mesh(thread, screwMat); r.position.y = 1 + i * 0.55; screw.add(r); }
