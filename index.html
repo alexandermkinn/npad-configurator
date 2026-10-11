@@ -273,12 +273,20 @@ button:disabled { opacity: .45; cursor: default; }
 .light-grid { display: grid; grid-template-columns: 78px minmax(0, 1fr); gap: 8px 10px; align-items: center; padding: 10px 14px 12px; }
 .light-grid label { font-size: 12px; color: var(--muted); }
 .light-grid select { font: inherit; font-size: 13px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 4px 6px; min-width: 0; }
-.light-grid input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
-.light-grid input.hue, .light-grid input.sat { -webkit-appearance: none; appearance: none; height: 8px; border-radius: 4px; }
-.light-grid input.hue { background: linear-gradient(90deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00); }
-.light-grid input.sat { background: linear-gradient(90deg, #fff, var(--sat-end, #f00)); }
-.light-grid input.hue::-webkit-slider-thumb, .light-grid input.sat::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--fg); border: 2px solid var(--bg); box-shadow: 0 0 0 1px var(--line); }
-.light-grid :disabled { opacity: .4; }
+/* sliders drawn for the dark card: a slim dark track (filled in the accent for amounts), one round handle */
+.light-grid input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; margin: 0; border-radius: 3px; cursor: pointer;
+  background: linear-gradient(90deg, var(--accent) var(--fill, 0%), color-mix(in srgb, var(--fg) 12%, transparent) var(--fill, 0%)); }
+.light-grid input.hue { background: linear-gradient(90deg, hsl(0 80% 56%), hsl(60 80% 56%), hsl(120 80% 50%), hsl(180 80% 50%), hsl(240 80% 62%), hsl(300 80% 60%), hsl(360 80% 56%)); }
+.light-grid input.sat { background: linear-gradient(90deg, color-mix(in srgb, var(--fg) 85%, transparent), var(--sat-end, hsl(0 80% 56%))); }
+.light-grid input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
+  background: var(--fg); border: 2px solid var(--panel); box-shadow: 0 0 0 1px rgb(0 0 0 / .35), 0 1px 3px rgb(0 0 0 / .4); transition: transform .12s; }
+.light-grid input[type="range"]::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; background: var(--fg); border: 2px solid var(--panel); box-shadow: 0 0 0 1px rgb(0 0 0 / .35); }
+.light-grid input[type="range"]::-moz-range-track { background: transparent; }
+.light-grid input[type="range"]:hover::-webkit-slider-thumb { transform: scale(1.12); }
+.light-grid input[type="range"]:focus-visible { outline: none; }
+.light-grid input[type="range"]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px var(--accent); }
+.light-grid input[type="range"]:disabled { cursor: default; }
+.light-grid :disabled { opacity: .35; }
 .light-swatch { width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--line); }
 .layout-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 8px; }
 .layout-actions button { font-size: 12px; padding: 6px 8px; }
@@ -1855,7 +1863,9 @@ window.initDevice3D = function (host, { pick, icons }) {
     ['#light-v', '#light-h', '#light-s'].forEach(q => { $(q).disabled = off; });
     $('#light-speed').disabled = off || !ANIMATED(EFFECTS[light.effect]);
     const hue = Math.round(light.h / 255 * 360);
-    card.style.setProperty('--sat-end', `hsl(${hue} 100% 50%)`);
+    card.style.setProperty('--sat-end', `hsl(${hue} 80% 56%)`);
+    $('#light-v').style.setProperty('--fill', `${light.v / 255 * 100}%`);       // amount sliders fill up to the handle
+    $('#light-speed').style.setProperty('--fill', `${light.speed / 255 * 100}%`);
     $('#light-swatch').style.background = off ? 'transparent' : `hsl(${hue} ${Math.round(light.s / 255 * 100)}% ${Math.round(100 - light.s / 255 * 50)}%)`;
   }
   $('#light-effect').addEventListener('change', e => setLight('effect', +e.target.value));
