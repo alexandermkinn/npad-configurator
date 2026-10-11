@@ -1970,9 +1970,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     fades();
   }
   function setConnectedUI(on) {
-    const b = $('#btn-hid');
-    b.textContent = on ? 'Disconnect npad' : 'Connect npad';
-    b.classList.toggle('primary', !on);
+    $('#btn-hid').hidden = on;                      // to disconnect, unplug it (the page notices and reconnects on replug)
     $('#btn-panels').hidden = !on;
   }
   async function pollMatrix(gen) {
@@ -2011,7 +2009,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     navigator.hid.addEventListener('disconnect', e => { if (e.device === hidDev) { hidDisconnect(); toast('npad disconnected.'); } });
     navigator.hid.addEventListener('connect', e => { if (!hidDev && isNpadRaw(e.device)) attach(e.device).catch(connectFailed); });
   }
-  $('#btn-hid').addEventListener('click', () => hidDev ? hidDisconnect() : hidConnect());
+  $('#btn-hid').addEventListener('click', () => { if (!hidDev) hidConnect(); });
 
   // ---- 3D model, with the flat drawing as a fallback ----
   try {

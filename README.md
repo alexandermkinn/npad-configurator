@@ -21,7 +21,7 @@ docker build -t npad-keytester . && docker run --rm -p 8080:8080 npad-keytester
 
 ## Connecting
 
-**Connect npad** (Chrome or Edge) talks to the firmware over VIA's raw HID interface (usage page `0xFF60`). It needs HTTPS or localhost, and the VIA app has to be closed. Once allowed, the npad reconnects by itself on later visits.
+**Connect npad** (Chrome or Edge) talks to the firmware over VIA's raw HID interface (usage page `0xFF60`). It needs HTTPS or localhost, and the VIA app has to be closed. Once allowed, the npad reconnects by itself on later visits and whenever it is plugged back in. There is no disconnect button: unplug the npad to disconnect.
 
 Without a connection the page still works as a preview: the model idles on a slow orbit and reacts to keys that match the npad's stock keymap.
 
