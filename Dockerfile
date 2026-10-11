@@ -5,6 +5,6 @@ ENV PORT=8080
 
 # nginx renders /etc/nginx/templates/*.template with env vars at startup.
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
-COPY index.html /usr/share/nginx/html/index.html
+COPY index.html og.png /usr/share/nginx/html/
 
 EXPOSE 8080
