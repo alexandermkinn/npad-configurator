@@ -2,6 +2,8 @@
 
 A single-page configurator for the npad macropad (a [momokai Aurora](https://github.com/qmk/qmk_firmware/tree/master/keyboards/momokai/aurora) running QMK/VIA, USB ID `69F9:0009`). It shows a 3D model of the npad that reacts as you press keys and turn the knob, and once the npad is connected it remaps keys, edits macros and lighting, and saves or loads layouts.
 
+Live at **https://npad.ngrok.dev**, deployed with ngrok Ship.
+
 No build step: `index.html` is the whole site. The Dockerfile only wraps it in nginx for deployment.
 
 ## Run locally
