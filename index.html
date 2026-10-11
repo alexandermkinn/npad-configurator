@@ -182,8 +182,8 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 
 /* keymap */
 .seg { display: flex; gap: 2px; }
-.seg button, .mods button, .cats button, .macro-list button, .macro-add button { padding: 3px 9px; font-size: 12px; }
-[aria-pressed="true"]:is(.seg button, .mods button, .cats button, .macro-list button, .key) { background: var(--accent); border-color: var(--accent); color: #fff; }
+.seg button, .mods button, .cats button { padding: 3px 9px; font-size: 12px; }
+[aria-pressed="true"]:is(.seg button, .mods button, .cats button, .key) { background: var(--accent); border-color: var(--accent); color: #fff; }
 
 .panel.picker { flex: 1 1 0; min-height: 200px; display: flex; flex-direction: column; } /* fills what's left; its keys scroll */
 .pick-current { font-family: var(--font-mono); font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55%; }
@@ -278,21 +278,32 @@ button:disabled { opacity: .45; cursor: default; }
 /* macros */
 .meter { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
 .meter.over { color: var(--warn); }
-.macro-list { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; padding: 8px 10px 10px; }
-.macro-list button { padding: 4px 0; font-family: var(--font-mono); }
-.macro-list button.used:not([aria-pressed="true"]) { border-color: var(--muted); color: var(--fg); }
-.panel.macro-editor { display: flex; flex-direction: column; }
-.macro-state { font-size: 12px; color: var(--muted); }
-.steps { display: grid; gap: 6px; padding: 8px 10px; align-content: start; }
-.step { display: grid; grid-template-columns: 74px minmax(0, 1fr) 24px; gap: 6px; align-items: center; }
-.step-type { font-size: 12px; color: var(--muted); }
-.step-body { display: flex; gap: 4px; align-items: center; min-width: 0; }
-.step-body input, .step-body select { flex: 1; min-width: 0; font: inherit; font-size: 13px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 4px 7px; }
-.step-body input[type="number"] { max-width: 90px; }
-.step-body .unit { font-size: 12px; color: var(--muted); }
-.step .mods button { padding: 2px 6px; }
-.step-del { padding: 0; width: 24px; height: 24px; line-height: 1; color: var(--muted); }
-.macro-add { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 10px 10px; }
+.meter-bar { display: inline-block; width: 36px; height: 4px; margin-right: 7px; vertical-align: middle; border-radius: 2px; background: var(--line); overflow: hidden; }
+.meter-bar i { display: block; height: 100%; background: var(--muted); }
+.meter.over .meter-bar i { background: var(--warn); }
+.macro-rows { display: grid; gap: 2px; padding: 6px 6px 4px; }
+.macro-empty { margin: 4px 8px 6px; font-size: 12px; }
+.macro-row { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 4px; align-items: start; }
+.macro-id { font-family: var(--font-mono); font-size: 11px; color: var(--muted); line-height: 30px; text-align: center; }
+.macro-row:focus-within .macro-id { color: var(--fg); }
+/* a macro is written like a flag's mapping: typed text stays text, shortcuts become little keycap tops */
+.mfield { display: flex; flex-wrap: wrap; align-items: center; row-gap: 3px; min-height: 30px; padding: 4px 7px; box-sizing: border-box;
+  border: 1px solid var(--line); border-radius: 7.5px; font-family: var(--font-mono); font-size: 12.5px; line-height: 20px;
+  cursor: text; outline: none; transition: border-color .15s; }
+.mfield:hover { border-color: color-mix(in srgb, var(--fg) 30%, var(--line)); }
+.mfield:focus-within { border-color: var(--accent); }
+.mch { white-space: pre; }
+.mchip { display: inline-flex; align-items: center; justify-content: center; height: 20px; min-width: 20px; padding: 0 5px; margin: 0 2px;
+  box-sizing: border-box; border: 0.6px solid color-mix(in srgb, var(--fg) 70%, transparent); border-radius: 5.5px; font-size: 11.5px; white-space: nowrap; }
+.mchip.wait { border-style: dashed; color: var(--muted); }
+.mwait { width: 4ch; padding: 0; border: 0; background: none; color: var(--fg); font: inherit; text-align: right; outline: none; }
+.mwait:focus { color: var(--accent); }
+.mfield .caret { flex: none; margin: 0 -0.75px; }
+.mplaceholder { color: var(--muted); font-family: var(--font-body); font-size: 12px; }
+.macro-actions { display: flex; opacity: 0; transition: opacity .15s; }
+.macro-row:hover .macro-actions, .macro-row:focus-within .macro-actions { opacity: 1; }
+.macro-actions button { width: 24px; height: 30px; padding: 0; border: 0; background: none; color: var(--muted); display: grid; place-items: center; }
+.macro-actions button:hover { color: var(--fg); }
 
 /* ---------- panels ---------- */
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; min-width: 0; flex: none; }
@@ -379,16 +390,9 @@ button:disabled { opacity: .45; cursor: default; }
 
     <div class="tabpanel" data-panel="macros">
       <section class="panel" aria-labelledby="h-macros">
-        <div class="panel-head"><h2 id="h-macros">Macros</h2><span class="meter" id="macro-meter"></span></div>
-        <div class="macro-list" id="macro-list"></div>
-      </section>
-      <section class="panel macro-editor" aria-labelledby="macro-title">
-        <div class="panel-head"><h2 id="macro-title">Macro 0</h2><span class="macro-state" id="macro-state"></span></div>
-        <div class="steps" id="macro-steps"></div>
-        <div class="macro-add" id="macro-add">
-          <button type="button" data-add="text">+ Text</button><button type="button" data-add="key">+ Key</button><button type="button" data-add="down">+ Hold</button><button type="button" data-add="up">+ Release</button><button type="button" data-add="wait">+ Wait</button>
-        </div>
-        <div class="panel-foot"><button type="button" id="macro-clear">Clear macro</button></div>
+        <div class="panel-head"><h2 id="h-macros">Macros</h2><span class="meter" id="macro-meter"><span class="meter-bar"><i></i></span><span id="macro-pct"></span></span></div>
+        <div class="macro-rows" id="macro-rows"></div>
+        <div class="panel-foot" id="macro-foot"><button type="button" id="macro-new">+ New macro</button></div>
       </section>
     </div>
 
@@ -396,7 +400,7 @@ button:disabled { opacity: .45; cursor: default; }
       <div class="panel-head"><h2 id="h-log">Event log</h2><button type="button" id="btn-clear-log">Clear</button></div>
       <div class="log"><table>
         <thead><tr><th>Time</th><th>Event</th><th>Key</th><th>Code</th><th>Control</th></tr></thead>
-        <tbody id="log"><tr class="empty"><td colspan="5">Key presses, knob turns and switch presses show up here.</td></tr></tbody>
+        <tbody id="log"><tr class="empty"><td colspan="5">Presses and knob turns from the npad show up here.</td></tr></tbody>
       </table></div>
     </section>
 
@@ -1656,8 +1660,12 @@ window.initDevice3D = function (host, { pick, icons }) {
   $('#btn-clear-log').addEventListener('click', () => { logEl.innerHTML = '<tr class="empty"><td colspan="5">Log cleared.</td></tr>'; });
 
   // typing into the sidebar's fields (search, macro text) isn't npad input
-  const inField = e => e.target instanceof Element && e.target.closest('input, textarea, select, [contenteditable]');
+  const inField = e => e.target instanceof Element && e.target.closest('input, textarea, select, [contenteditable], .mfield');
 
+  // The log only shows the npad. A browser can't tell which keyboard a key came from, so keys that
+  // aren't mapped to an npad control are left out. Once connected, the npad reports its own switches,
+  // so only knob turns (which aren't switches) are logged from keystrokes.
+  const npadKey = id => !!id && (!hidDev || id === 'cw' || id === 'ccw');
   window.addEventListener('keydown', e => {
     if (inField(e)) return;
     const modOnly = isModOnly(e);
@@ -1673,13 +1681,13 @@ window.initDevice3D = function (host, { pick, icons }) {
       if (handle(sig, e)) e.preventDefault();
       matched = inputFor(sig);
     }
-    log('down', e.key, e.code, matched ? byId[matched].name : '');
+    if (npadKey(matched)) log('down', e.key, e.code, byId[matched].name);
   });
   window.addEventListener('keyup', e => {
     if (inField(e)) return;
     const id = downCodes.get(e.code);
     if (id) { downCodes.delete(e.code); if (id !== 'cw' && id !== 'ccw') activate(id, false); e.preventDefault(); }
-    log('up', e.key, e.code, id ? byId[id].name : '');
+    if (npadKey(id)) log('up', e.key, e.code, byId[id].name);
   });
 
   // A knob that scrolls sends one wheel event per detent. Count each one (no throttling, so fast
@@ -1923,7 +1931,7 @@ window.initDevice3D = function (host, { pick, icons }) {
         if (!i.pos) return;
         const [row, col] = i.pos;
         const now = (rows[row] >> col) & 1, was = (lastMatrix[row] >> col) & 1;
-        if (now !== was) { devLayer.key(i.id, !!now); activate(i.id, !!now); log(now ? 'switch down' : 'switch up', '', `row ${row} col ${col}`, i.name); }
+        if (now !== was) { devLayer.key(i.id, !!now); activate(i.id, !!now); log(now ? 'down' : 'up', edit.ready ? labelFor(getCode(edit.layer, i.id)) : '', `row ${row} col ${col}`, i.name); }
       });
       lastMatrix = rows;
       if (++pollCount % 60 === 0) await refreshLighting(); // pick up lighting changes made on the device or in VIA
@@ -2088,7 +2096,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     if (c >= 0x0100 && c <= 0x1fff) { const { mods, key } = chordParts(c); return mods.join('') + key; }
     for (const [fn, base] of Object.entries(LAYER_FNS)) if (c >= base && c <= base + 0x1f) return `${LAYER_LABEL[fn]} ${c - base}`;
     if (c >= QK_LT && c <= 0x4fff) return `Layer ${(c >> 8) & 0xf} / ${labelFor(c & 0xff)}`;
-    if (c >= QK_MACRO && c <= 0x777f) return `Macro ${c - QK_MACRO}`;
+    if (c >= QK_MACRO && c <= 0x777f) return `M${c - QK_MACRO}`;
     return hex4(c);
   }
 
@@ -2115,7 +2123,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   const edit = {
     ready: false, layers: 0, keymap: [], enc: [],               // keymap[layer][row * 3 + col]; enc[layer] = [ccw, cw]
     original: null, undo: [], layer: 0, ctrl: null, more: false, mods: 0, cat: 'Media', query: '',
-    macroCount: 0, macroSize: 0, macros: [], draft: [], macroSel: 0, macroTimer: null, macroState: '',
+    macroCount: 0, macroSize: 0, macros: [], draft: [], macroTimer: null, macroState: '',
   };
   const idxOf = i => i.pos[0] * 3 + i.pos[1];
 
@@ -2499,12 +2507,14 @@ window.initDevice3D = function (host, { pick, icons }) {
   })();
   function searchIndex() {                          // layers and macros depend on the connected npad
     const extra = [];
-    PICKER.forEach(([cat, codes]) => { if (cat === 'Layers' || cat === 'Macros') codes.forEach(c => extra.push({ c, cat })); });
+    PICKER.forEach(([cat, codes]) => { if (cat === 'Layers') codes.forEach(c => extra.push({ c, cat })); });
+    // macros in use, shown with what they type
+    range(0, edit.macroCount - 1).filter(n => edit.macros[n]?.length).forEach(n => extra.push({ c: QK_MACRO + n, cat: macroPreview(n) }));
     const all = SEARCH_INDEX.concat(extra.filter(x => !SEARCH_INDEX.some(y => y.c === x.c)));
     return all.map(x => {
       const label = labelFor(x.c), via = codeToVia(x.c);
       const macro = x.c >= QK_MACRO && x.c <= 0x777f ? macroPreview(x.c - QK_MACRO) : '';
-      return { ...x, label, hay: `${label} ${via.replace(/^KC_/, '')} ${SYNONYMS[KC_NAME[x.c]] || ''} ${x.cat} ${macro}`.toLowerCase() };
+      return { ...x, label, hay: `${label} ${via.replace(/^KC_/, '')} ${SYNONYMS[KC_NAME[x.c]] || ''} ${x.cat} ${macro ? 'macro' : ''}`.toLowerCase() };
     });
   }
   const SUGGESTED = ['KC_MPLY', 'KC_MUTE', 'KC_VOLU', 'KC_VOLD', 'KC_MNXT', 'KC_MPRV', 'KC_MCTL', 'KC_MS_BTN1'];
@@ -2661,7 +2671,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   function layoutFlags() {
     if (!flagsOn()) return;
     const a = dev3d.anchors(), stage = $('#npad3d'), W = stage.clientWidth, Hh = stage.clientHeight;
-    const PAD = 6, GAP = 32, LEFT_RESERVE = 200, bottomLimit = Hh - 12;   // 200 px fits e.g. [icon] › [Previous track]
+    const PAD = 6, GAP = 32, LEFT_RESERVE = 200, ONE_CAP = 98, bottomLimit = Hh - 12;   // 200 px fits e.g. [icon] › [Previous track]
     const c = { x: (a.box.l + a.box.r) / 2, y: (a.box.t + a.box.b) / 2 }, hw = (a.box.r - a.box.l) / 2, hh = (a.box.b - a.box.t) / 2;
     const items = FLAGS.map(([fid]) => {
       const el = document.querySelector(`#flags [data-flag="${fid}"]`), at = a[fid];
@@ -2669,12 +2679,15 @@ window.initDevice3D = function (host, { pick, icons }) {
       const p = left ? at.rest.l : at.rest.r;                    // the corner the pointer meets, at rest
       // the left column is placed from a reserved width rather than each flag's own, so a flag growing
       // (say, to "Middle click") widens toward the keys instead of shifting the whole column
-      return { fid, el, at, w, h, left, x: left ? p.x - GAP - Math.max(w, LEFT_RESERVE) : p.x + GAP, y: p.y - h / 2 };
+      // the right column mirrors it: a one-cap flag (~98 px) sits as far from its control on either side
+      return { fid, el, at, w, h, left, x: left ? p.x - GAP - Math.max(w, LEFT_RESERVE) : p.x + GAP + LEFT_RESERVE - ONE_CAP, y: p.y - h / 2 };
     });
     // align each side into a column on its outer edge: left flags share a left edge, right flags a
     // left edge too, each set by the flag that needs to sit furthest out; pointers run as far as needed
     const leftEdge = Math.min(...items.filter(it => it.left).map(it => it.x));
-    const rightEdge = Math.max(...items.filter(it => !it.left).map(it => it.x));
+    // in a narrow window the right column moves in as a whole, so its widest flag (the knob) still fits
+    const rightEdge = Math.min(Math.max(...items.filter(it => !it.left).map(it => it.x)),
+      W - 12 - Math.max(...items.filter(it => !it.left).map(it => it.w)));
     items.forEach(it => { it.x = it.left ? leftEdge : rightEdge; });
     const clamp = r => { r.x = Math.max(12, Math.min(W - 12 - r.w, r.x)); r.y = Math.max(12, Math.min(bottomLimit - r.h, r.y)); };
     items.forEach(clamp);
@@ -2728,40 +2741,74 @@ window.initDevice3D = function (host, { pick, icons }) {
   (function followModel() { layoutFlags(); requestAnimationFrame(followModel); })();  // keeps up with the snap and resizes
   $('#flags').addEventListener('mouseover', e => { const r = e.target.closest('[data-input]'); dev3d?.setHover(r ? r.dataset.input : null); });
   $('#flags').addEventListener('mouseleave', () => dev3d?.setHover(null));
-  function macroPreview(n) {
-    const steps = edit.macros[n] || [];
-    if (!steps.length) return 'empty';
-    return macroToExpression(steps).replace(/\{KC_/g, '{').slice(0, 18);
-  }
+  const macroPreview = n => edit.macros[n]?.length ? macroText(edit.macros[n]).slice(0, 24) : 'empty';
 
-  // macro editor
-  const STEP_TYPES = [['text', 'Type text'], ['key', 'Press a key'], ['down', 'Hold'], ['up', 'Release'], ['wait', 'Wait']];
-  const keyOptions = selected => PICKER.filter(([n]) => !['Layers', 'Macros', 'Lighting', 'Special'].includes(n)).map(([n, cs]) =>
-    `<optgroup label="${n}">${cs.filter(c => c <= 0xff).map(c => `<option value="${KC_NAME[c]}"${KC_NAME[c] === selected ? ' selected' : ''}>${esc(labelFor(c))}</option>`).join('')}</optgroup>`).join('');
+  // ---- macro card: only the macros in use, each written in one field ----
+  // In the field a macro is a row of units: one per typed character, one per key, hold, release or
+  // wait. Typed characters stay text; shortcuts and keys you can't type become little keycap tops.
+  const MOD_BIT = { KC_LCTL: 1, KC_RCTL: 1, KC_LSFT: 2, KC_RSFT: 2, KC_LALT: 4, KC_RALT: 4, KC_LGUI: 8, KC_RGUI: 8 };
+  const stepCode = s => s.mods.reduce((m, n) => m | (MOD_BIT[n] || 0), 0) << 8 | (KC[s.key] ?? 0);
+  const toUnits = steps => steps.flatMap(s => s.t === 'text' ? [...s.v].map(v => ({ t: 'ch', v })) : [{ ...s }]);
+  const toSteps = units => units.reduce((out, u) => {
+    const last = out[out.length - 1];
+    if (u.t !== 'ch') out.push({ ...u }); else if (last?.t === 'text') last.v += u.v; else out.push({ t: 'text', v: u.v });
+    return out;
+  }, []);
+  function unitLabel(u) {
+    if (u.t === 'key') return labelFor(stepCode(u));
+    if (u.t === 'down' || u.t === 'up') return labelFor(KC[u.key] ?? 0) + (u.t === 'down' ? '↓' : '↑');
+    return '';
+  }
+  // what a macro does, in a line: for the flag search
+  const macroText = steps => toUnits(steps).map(u => u.t === 'ch' ? (u.v === '\n' ? '⏎' : u.v) : u.t === 'wait' ? '…' : ` ${unitLabel(u)} `)
+    .join('').replace(/\s+/g, ' ').trim();
+  const mac = { open: new Set(), caret: {}, focus: null };       // open: new macros that are still empty
+  const shownMacros = () => range(0, edit.macroCount - 1).filter(n => edit.draft[n]?.length || mac.open.has(n));
   function renderMacros() {
     if (!edit.ready) return;
-    if (!edit.macroCount) { $('#macro-list').innerHTML = '<p class="muted">This firmware has macros turned off.</p>'; return; }
-    $('#macro-list').innerHTML = range(0, edit.macroCount - 1).map(n =>
-      `<button type="button" data-macro="${n}" aria-pressed="${n === edit.macroSel}" class="${edit.draft[n]?.length ? 'used' : ''}">M${n}</button>`).join('');
-    $('#macro-title').textContent = `Macro ${edit.macroSel}`;
-    const steps = edit.draft[edit.macroSel] || [];
-    $('#macro-steps').innerHTML = steps.length ? steps.map((s, i) => {
-      let body = '';
-      if (s.t === 'text') body = `<input type="text" data-field="v" value="${esc(s.v)}" placeholder="Text to type" aria-label="Text to type">`;
-      else if (s.t === 'wait') body = `<input type="number" min="0" max="9999" step="10" data-field="ms" value="${s.ms}" aria-label="Milliseconds"><span class="unit">ms</span>`;
-      else body = (s.t === 'key' ? `<span class="mods">${[['KC_LCTL', '⌃'], ['KC_LALT', '⌥'], ['KC_LSFT', '⇧'], ['KC_LGUI', '⌘']].map(([m, sym]) =>
-          `<button type="button" data-step-mod="${m}" aria-pressed="${s.mods.includes(m)}" title="${KEY_LABELS[m]}">${sym}</button>`).join('')}</span>` : '')
-        + `<select data-field="key" aria-label="Key">${keyOptions(s.key)}</select>`;
-      return `<div class="step" data-step="${i}"><span class="step-type">${STEP_TYPES.find(t => t[0] === s.t)[1]}</span>
-        <div class="step-body">${body}</div><button type="button" class="step-del" data-del="${i}" aria-label="Remove step">×</button></div>`;
-    }).join('') : '<p class="muted">This macro is empty. Add a step below, then click a key’s flag and pick it from the Macros group.</p>';
+    const rows = $('#macro-rows');
+    $('#macro-foot').hidden = !edit.macroCount;
+    if (!edit.macroCount) { rows.dataset.shown = ''; rows.innerHTML = '<p class="muted macro-empty">This firmware has macros turned off.</p>'; renderMacroMeta(); return; }
+    const shown = shownMacros(), key = shown.join(',');
+    if (rows.dataset.shown === key && rows.querySelector('.mfield, .macro-empty')) {   // same rows: keep them (and the caret's focus)
+      shown.forEach(renderField); renderMacroMeta(); return;
+    }
+    rows.dataset.shown = key;
+    rows.innerHTML = shown.length ? shown.map(n => `<div class="macro-row" data-m="${n}">
+        <span class="macro-id">M${n}</span>
+        <div class="mfield" tabindex="0" role="textbox" aria-label="M${n}: type text, or press a shortcut" data-m="${n}"></div>
+        <span class="macro-actions">
+          <button type="button" data-pause="${n}" title="Add a pause" aria-label="Add a pause to M${n}"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="8" cy="8.5" r="5.5" fill="none" stroke="currentColor" stroke-width="1.1"/><path d="M8 5.5v3l2 1.3M6.5 1.8h3" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg></button>
+          <button type="button" data-delm="${n}" title="Delete" aria-label="Delete M${n}"><svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg></button>
+        </span></div>`).join('')
+      : '<p class="muted macro-empty">A macro types text and shortcuts with one press. Make one here, then pick it from a key’s flag.</p>';
+    shown.forEach(renderField);
+    $('#macro-new').disabled = shown.length >= edit.macroCount;
     renderMacroMeta();
   }
+  function renderField(n) {
+    const el = $(`.mfield[data-m="${n}"]`); if (!el) return;
+    const units = toUnits(edit.draft[n] || []), focused = mac.focus === n;
+    const caret = Math.min(mac.caret[n] ?? units.length, units.length);
+    const html = units.map((u, i) => u.t === 'ch' ? `<span class="mch" data-u="${i}">${u.v === '\n' ? '⏎' : esc(u.v)}</span>`
+      : u.t === 'wait' ? `<span class="mchip wait" data-u="${i}" title="Pause"><input class="mwait" data-u="${i}" value="${u.ms}" inputmode="numeric" maxlength="4" aria-label="Pause in milliseconds">ms</span>`
+      : `<span class="mchip" data-u="${i}" title="${u.t === 'down' ? 'Hold ' : u.t === 'up' ? 'Release ' : ''}${esc(codeToVia(u.t === 'key' ? stepCode(u) : KC[u.key] ?? 0))}">${esc(unitLabel(u))}</span>`);
+    if (focused) html.splice(caret, 0, '<span class="caret" aria-hidden="true"></span>');
+    else if (!units.length) html.push('<span class="mplaceholder">Type text, or press a shortcut</span>');
+    el.innerHTML = html.join('');
+  }
+  function setUnits(n, units, caret) {
+    edit.draft[n] = toSteps(units); mac.caret[n] = caret;
+    renderField(n); renderMacroMeta(); macroChanged();
+  }
   function renderMacroMeta() {
-    const used = macroBytesUsed(edit.draft);
-    $('#macro-meter').textContent = `${used} / ${edit.macroSize} bytes`;
-    $('#macro-meter').classList.toggle('over', used > edit.macroSize);
-    $('#macro-state').textContent = edit.macroState;
+    const used = macroBytesUsed(edit.draft), pct = edit.macroSize ? Math.round(used / edit.macroSize * 100) : 0;
+    const m = $('#macro-meter');
+    m.hidden = !edit.macroSize;
+    m.querySelector('i').style.width = Math.min(100, pct) + '%';
+    $('#macro-pct').textContent = used > edit.macroSize ? 'Too long' : `${pct}%`;
+    m.title = `Macros use ${used} of the npad’s ${edit.macroSize} bytes`;
+    m.classList.toggle('over', used > edit.macroSize);
   }
 
   // events
@@ -2783,26 +2830,91 @@ window.initDevice3D = function (host, { pick, icons }) {
   $('#btn-save-layout').addEventListener('click', saveLayoutFile);
   $('#btn-load-layout').addEventListener('click', () => $('#layout-file').click());
   $('#layout-file').addEventListener('change', e => { const f = e.target.files?.[0]; if (f) loadLayoutFile(f); e.target.value = ''; });
-  $('#macro-list').addEventListener('click', e => { const b = e.target.closest('[data-macro]'); if (b) { edit.macroSel = +b.dataset.macro; renderMacros(); } });
-  $('#macro-add').addEventListener('click', e => {
-    const b = e.target.closest('[data-add]'); if (!b) return;
-    const t = b.dataset.add, step = t === 'text' ? { t, v: '' } : t === 'wait' ? { t, ms: 100 } : t === 'key' ? { t, key: 'KC_A', mods: [] } : { t, key: 'KC_LSFT' };
-    edit.draft[edit.macroSel].push(step); renderMacros(); macroChanged();
-    if (t === 'text') $(`#macro-steps [data-step="${edit.draft[edit.macroSel].length - 1}"] input`)?.focus();
+  // the macro fields: a caret you move with ←/→; typing adds text, a shortcut adds a keycap
+  const fieldOf = el => el?.closest?.('.mfield');
+  $('#macro-new').addEventListener('click', () => {
+    const n = range(0, edit.macroCount - 1).find(i => !edit.draft[i]?.length && !mac.open.has(i));
+    if (n == null) return;
+    mac.open.add(n); mac.caret[n] = 0; renderMacros();
+    $(`.mfield[data-m="${n}"]`)?.focus();
   });
-  const stepAt = el => edit.draft[edit.macroSel][+el.closest('[data-step]').dataset.step];
-  $('#macro-steps').addEventListener('input', e => {
-    const f = e.target.dataset.field; if (!f) return;
-    const s = stepAt(e.target); s[f] = f === 'ms' ? Math.max(0, Math.min(9999, parseInt(e.target.value, 10) || 0)) : e.target.value;
-    renderMacroMeta(); macroChanged();
+  $('#macro-rows').addEventListener('focusin', e => {
+    const f = fieldOf(e.target); if (!f || e.target.classList.contains('mwait')) return;
+    if (mac.focus !== +f.dataset.m) { mac.focus = +f.dataset.m; renderField(mac.focus); }
   });
-  $('#macro-steps').addEventListener('click', e => {
-    const del = e.target.closest('[data-del]');
-    if (del) { edit.draft[edit.macroSel].splice(+del.dataset.del, 1); renderMacros(); macroChanged(); return; }
-    const mod = e.target.closest('[data-step-mod]');
-    if (mod) { const s = stepAt(mod), m = mod.dataset.stepMod; s.mods = s.mods.includes(m) ? s.mods.filter(x => x !== m) : [...s.mods, m]; renderMacros(); macroChanged(); }
+  $('#macro-rows').addEventListener('focusout', e => {
+    const f = fieldOf(e.target); if (!f) return;
+    setTimeout(() => {                                        // after focus has landed somewhere else
+      const n = +f.dataset.m;
+      if (fieldOf(document.activeElement) === f && document.activeElement !== f) return;   // into its pause box
+      if (document.activeElement === f) return;
+      if (mac.focus === n) mac.focus = null;
+      if (!edit.draft[n]?.length && mac.open.delete(n)) renderMacros(); else renderField(n);
+    });
   });
-  $('#macro-clear').addEventListener('click', () => { edit.draft[edit.macroSel] = []; renderMacros(); macroChanged(); });
+  $('#macro-rows').addEventListener('mousedown', e => {
+    if (e.target.closest('[data-pause]')) { e.preventDefault(); return; }   // keep the caret where it is
+    const f = fieldOf(e.target); if (!f || e.target.classList.contains('mwait')) return;
+    e.preventDefault();
+    const n = +f.dataset.m, u = e.target.closest('[data-u]');
+    if (u) { const r = u.getBoundingClientRect(); mac.caret[n] = +u.dataset.u + (e.clientX > r.left + r.width / 2 ? 1 : 0); }
+    else mac.caret[n] = toUnits(edit.draft[n]).length;
+    if (document.activeElement === f) renderField(n); else f.focus();
+  });
+  $('#macro-rows').addEventListener('click', e => {
+    const p = e.target.closest('[data-pause]');
+    if (p) {
+      const n = +p.dataset.pause, units = toUnits(edit.draft[n]);
+      const at = Math.min(mac.caret[n] ?? units.length, units.length);
+      units.splice(at, 0, { t: 'wait', ms: 100 });
+      mac.focus = n; setUnits(n, units, at + 1);
+      const box = $(`.mfield[data-m="${n}"] .mwait[data-u="${at}"]`); box?.focus(); box?.select();
+      return;
+    }
+    const d = e.target.closest('[data-delm]');
+    if (d) { const n = +d.dataset.delm; edit.draft[n] = []; mac.open.delete(n); delete mac.caret[n]; renderMacros(); macroChanged(); }
+  });
+  $('#macro-rows').addEventListener('input', e => {
+    if (!e.target.classList.contains('mwait')) return;
+    e.target.value = e.target.value.replace(/\D/g, '');
+    const n = +fieldOf(e.target).dataset.m, units = toUnits(edit.draft[n]);
+    units[+e.target.dataset.u].ms = Math.min(9999, parseInt(e.target.value, 10) || 0);
+    edit.draft[n] = toSteps(units); renderMacroMeta(); macroChanged();
+  });
+  $('#macro-rows').addEventListener('keyup', e => { if (fieldOf(e.target)) e.stopPropagation(); });
+  $('#macro-rows').addEventListener('keydown', e => {
+    const f = fieldOf(e.target); if (!f) return;
+    e.stopPropagation();                                      // the tester doesn't see keys typed into a macro
+    if (e.target.classList.contains('mwait')) {                // the pause box: Enter, Esc or Tab go back to the field
+      if (['Enter', 'Escape', 'Tab'].includes(e.key)) { e.preventDefault(); if (!e.target.value) e.target.value = '0'; f.focus(); }
+      return;
+    }
+    const n = +f.dataset.m, units = toUnits(edit.draft[n]);
+    let at = Math.min(mac.caret[n] ?? units.length, units.length);
+    const mods = (e.ctrlKey ? 1 : 0) | (e.shiftKey ? 2 : 0) | (e.altKey ? 4 : 0) | (e.metaKey ? 8 : 0);
+    const plain = !(e.ctrlKey || e.altKey || e.metaKey);
+    const move = c => { e.preventDefault(); mac.caret[n] = Math.max(0, Math.min(units.length, c)); renderField(n); };
+    if (e.key === 'Escape' && !mods) { e.preventDefault(); f.blur(); return; }
+    if (!mods && e.key === 'ArrowLeft') return move(at - 1);
+    if (!mods && e.key === 'ArrowRight') return move(at + 1);
+    if (!mods && (e.key === 'Home' || e.key === 'ArrowUp')) return move(0);
+    if (!mods && (e.key === 'End' || e.key === 'ArrowDown')) return move(units.length);
+    if (!mods && e.key === 'Backspace') { e.preventDefault(); if (at > 0) { units.splice(at - 1, 1); setUnits(n, units, at - 1); } return; }
+    if (!mods && e.key === 'Delete') { e.preventDefault(); if (at < units.length) { units.splice(at, 1); setUnits(n, units, at); } return; }
+    if (plain && e.key.length === 1) {                        // typed text, including Shift for capitals and symbols
+      e.preventDefault();
+      const c = e.key.charCodeAt(0);
+      if (c < 32 || c > 126) { toast('Macros can only type plain ASCII text.'); return; }
+      units.splice(at, 0, { t: 'ch', v: e.key }); setUnits(n, units, at + 1); return;
+    }
+    const kc = CODE_TO_KC[e.code];
+    if (kc == null || kc >= 0xe0) return;                     // modifiers on their own wait for the key they go with
+    if (e.repeat) { e.preventDefault(); return; }
+    e.preventDefault();
+    const MODS = [[1, 'KC_LCTL'], [4, 'KC_LALT'], [2, 'KC_LSFT'], [8, 'KC_LGUI']];
+    units.splice(at, 0, { t: 'key', key: KC_NAME[kc], mods: kc <= 0xa4 ? MODS.filter(([b]) => mods & b).map(([, m]) => m) : [] });
+    setUnits(n, units, at + 1);
+  });
 
   render();
   autoConnect();                                  // an npad connected on an earlier visit reconnects by itself
