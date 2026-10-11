@@ -58,9 +58,10 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 24px; letter
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }
 /* The sidebar opens by animating its width (the render resizes and the model glides to its new
    centre), while the panels inside slide in from the right one after another. */
-.side { width: 356px; min-height: 0; overflow: hidden; display: flex; justify-content: flex-end; padding-bottom: 16px;
+.side { width: 356px; min-height: 0; overflow: hidden; display: flex; justify-content: flex-end;
   transition: width .5s cubic-bezier(.25, .8, .25, 1); }
-.side-inner { width: 344px; padding-right: 4px; box-sizing: border-box; flex: none; display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.side-inner { width: 344px; padding-right: 4px; padding-bottom: 16px; box-sizing: border-box;   /* the gap under the last card scrolls with it */
+  flex: none; display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .side-inner > * { flex: none; }
 .side-inner > * { transition: transform .5s cubic-bezier(.2, .9, .25, 1), opacity .35s ease; }
 .side-inner > :nth-child(n+2) { transition-delay: 60ms; }
