@@ -300,7 +300,8 @@ button:disabled { opacity: .45; cursor: default; }
 .icon-btn { width: 24px; height: 24px; padding: 0; border: 0; background: none; color: var(--muted); display: grid; place-items: center; border-radius: 6px; }
 .icon-btn:hover { color: var(--fg); background: color-mix(in srgb, var(--fg) 8%, transparent); }
 .steps { display: grid; gap: 2px; }
-.step { display: grid; grid-template-columns: 14px 52px minmax(0, 1fr) 24px; gap: 6px; align-items: center; min-height: 34px; border-radius: 8px; }
+/* each step reads as a sentence: a verb, then its value as an inline token (no box until you point at it) */
+.step { display: grid; grid-template-columns: 14px minmax(0, 1fr) 24px; gap: 6px; align-items: center; min-height: 34px; border-radius: 8px; }
 .step .icon-btn { opacity: 0; transition: opacity .15s; }
 .step:hover .icon-btn, .step:focus-within .icon-btn { opacity: 1; }
 .grip { display: grid; place-items: center; height: 28px; color: var(--muted); fill: currentColor; cursor: grab; opacity: .5; }
@@ -308,16 +309,18 @@ button:disabled { opacity: .45; cursor: default; }
 .step.dragging { opacity: .4; }
 .step.drop-before { box-shadow: 0 -2px 0 var(--accent); }
 .step.drop-after { box-shadow: 0 2px 0 var(--accent); }
-.step-type { font-size: 12px; color: var(--muted); }
-.step-body { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.step-body input { min-width: 0; height: 28px; box-sizing: border-box; font-family: var(--font-mono); font-size: 12.5px; color: var(--fg);
-  background: transparent; border: 0.6px solid color-mix(in srgb, var(--fg) 40%, transparent); border-radius: 7.5px; padding: 0 8px; outline: none; transition: border-color .15s; }
-.step-body input:hover { border-color: color-mix(in srgb, var(--fg) 70%, transparent); }
-.step-body input:focus { border-color: var(--accent); }
-.step-text { flex: 1; }
-.step-ms { width: 56px; text-align: right; }
-.step-body .unit { font-size: 12px; color: var(--muted); }
-/* a Press step's key: the flag's keycap tops; click to record */
+.step-body { display: flex; align-items: center; gap: 7px; min-width: 0; font-size: 13.5px; }
+.step-type { color: var(--fg); font-weight: 500; flex: none; }
+.step-body input { field-sizing: content; min-width: 4ch; max-width: 100%; height: 26px; box-sizing: border-box; padding: 0 7px;
+  font-family: var(--font-mono); font-size: 12.5px; color: var(--fg); background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border: 1px solid transparent; border-radius: 6.5px; outline: none; transition: border-color .15s, background-color .15s;
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+.step-body input:hover { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+.step-body input:focus { border-color: var(--accent); background: transparent; }
+.step-body input::placeholder { color: var(--muted); }
+.step-text { min-width: 8ch; }
+.step-ms { text-align: right; }
+.step-body .unit { color: var(--muted); }
 .step-cap { padding: 0; border: 0; background: none; display: flex; border-radius: 8px; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 .step-cap:hover .flag-code { border-color: var(--fg); }
 .step-cap.recording .flag-code { border-color: var(--accent); }
@@ -2783,7 +2786,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     [3, 7, 11].map(y => `<circle cx="2" cy="${y}" r="1"/><circle cx="6" cy="${y}" r="1"/>`).join('') + '</svg>';
   const X_ICON = '<svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>';
   function stepBody(s, n, i) {
-    if (s.t === 'text') return `<input type="text" class="step-text" data-field="v" value="${esc(s.v)}" placeholder="Text to type" aria-label="Text to type" spellcheck="false" autocomplete="off" data-1p-ignore data-lpignore="true">`;
+    if (s.t === 'text') return `<input type="text" class="step-text" data-field="v" value="${esc(s.v)}" placeholder="some text" aria-label="Text to type" spellcheck="false" autocomplete="off" data-1p-ignore data-lpignore="true">`;
     if (s.t === 'wait') return `<input type="text" class="step-ms" data-field="ms" value="${s.ms}" inputmode="numeric" maxlength="4" aria-label="Milliseconds" autocomplete="off"><span class="unit">ms</span>`;
     const rec = mac.rec?.n === n && mac.rec?.i === i;
     const caps = rec ? '<span class="flag-keys"><span class="flag-code"><span class="caret"></span></span></span>'
@@ -2810,8 +2813,7 @@ window.initDevice3D = function (host, { pick, icons }) {
       : `<div class="macro" data-m="${n}">
         <div class="steps">${edit.draft[n].length ? edit.draft[n].map((s, i) => `<div class="step" data-step="${i}">
           <span class="grip" title="Drag to reorder">${GRIP}</span>
-          <span class="step-type">${STEP_NAME[s.t]}</span>
-          <div class="step-body">${stepBody(s, n, i)}</div>
+          <div class="step-body"><span class="step-type">${STEP_NAME[s.t]}</span>${stepBody(s, n, i)}</div>
           <button type="button" class="icon-btn" data-del="${i}" aria-label="Remove step">${X_ICON}</button></div>`).join('')
           : '<p class="muted macro-empty">No steps yet. Add what M' + n + ' should do:</p>'}</div>
         <div class="step-add"><button type="button" data-add="text">+ Type text</button><button type="button" data-add="key">+ Press key</button><button type="button" data-add="wait">+ Wait</button>
