@@ -280,7 +280,7 @@ button:disabled { opacity: .45; cursor: default; }
 .meter { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
 .meter.over { color: var(--warn); }
 .macro-empty { margin: 4px 0 8px; font-size: 12px; }
-.macro-tabs { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 10px 0; }
+.macro-tabs { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px; }
 /* macro tabs are drawn like the flags' keycap tops: same height, hairline outline, corner radius and type */
 .macro-tabs button { height: 28px; min-width: 28px; padding: 0 7px; background: transparent; color: var(--fg);
   border: 0.6px solid color-mix(in srgb, var(--fg) 70%, transparent); border-radius: 7.5px;
@@ -290,10 +290,14 @@ button:disabled { opacity: .45; cursor: default; }
 .macro-tabs [aria-selected="true"], .macro-tabs [aria-selected="true"]:hover { border-color: var(--accent); }   /* like a selected flag */
 .macro-tabs .macro-add { font-family: var(--font-body); font-size: 12px; color: var(--muted); border-style: dashed; border-color: color-mix(in srgb, var(--fg) 35%, transparent); }
 .macro-tabs .macro-add:hover:not(:disabled) { color: var(--fg); border-color: var(--fg); }
-.macro-rows { padding: 8px 10px 10px; }
+.macro-rows { padding: 2px 10px 10px; }
+/* the selected macro's builder: a section under the tab row, set off by a hairline and a small heading */
+.macro-editor { border-top: 1px solid var(--line); }
+.macro-sub { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px 0 14px; }
+.macro-sub h3 { margin: 0; font-family: var(--font-mono); font-size: 11.5px; font-weight: 500; color: var(--muted); }
 .macro-rows > .macro-empty { margin: 2px 4px; }
-.macro-rows:empty { display: none; }
-.macro-tabs:has(+ .macro-rows:empty) { padding-bottom: 10px; }   /* no macros yet: just the Add button */
+#macro-del { width: 26px; height: 26px; }
+#macro-del:hover { color: var(--warn); }
 .icon-btn { width: 24px; height: 24px; padding: 0; border: 0; background: none; color: var(--muted); display: grid; place-items: center; border-radius: 6px; }
 .icon-btn:hover { color: var(--fg); background: color-mix(in srgb, var(--fg) 8%, transparent); }
 .steps { display: grid; gap: 2px; }
@@ -322,8 +326,6 @@ button:disabled { opacity: .45; cursor: default; }
 .step-cap:hover .flag-code { border-color: var(--fg); }
 .step-cap.recording .flag-code { border-color: var(--accent); }
 .step-add { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 0 0 20px; }
-.step-add .macro-del { margin-left: auto; width: 26px; height: 26px; padding: 0; border: 0; }
-.step-add .macro-del:hover { color: var(--warn); }
 .steps:empty { display: none; }
 .steps:empty + .step-add { padding: 0; }   /* a new macro: just the add buttons, in line with the tabs */
 .step-add button { padding: 3px 9px; font-size: 12px; color: var(--muted); background: none; border: 1px dashed var(--line); }
@@ -417,7 +419,10 @@ button:disabled { opacity: .45; cursor: default; }
       <section class="panel" aria-labelledby="h-macros">
         <div class="panel-head"><h2 id="h-macros">Macros</h2><span class="meter" id="macro-meter" hidden></span></div>
         <div class="macro-tabs" id="macro-tabs" role="tablist" aria-label="Macros"></div>
-        <div class="macro-rows" id="macro-rows"></div>
+        <div class="macro-editor" id="macro-editor" role="tabpanel" aria-labelledby="macro-title" hidden>
+          <div class="macro-sub"><h3 id="macro-title">M0</h3><button type="button" class="icon-btn macro-del" id="macro-del" data-delm="0" title="Delete M0" aria-label="Delete M0"></button></div>
+          <div class="macro-rows" id="macro-rows"></div>
+        </div>
       </section>
     </div>
 
@@ -2795,15 +2800,23 @@ window.initDevice3D = function (host, { pick, icons }) {
   function renderMacros() {
     if (!edit.ready) return;
     const box = $('#macro-rows'), tabs = $('#macro-tabs');
-    tabs.hidden = !edit.macroCount;
-    if (!edit.macroCount) { box.innerHTML = '<p class="muted macro-empty">This firmware has macros turned off.</p>'; renderMacroMeta(); return; }
+    if (!edit.macroCount) {
+      tabs.innerHTML = '<p class="muted macro-empty">This firmware has macros turned off.</p>';
+      $('#macro-editor').hidden = true; renderMacroMeta(); return;
+    }
     const shown = shownMacros();
     if (!shown.includes(mac.sel)) mac.sel = shown[0] ?? null;
     // the macros in use, as tabs; pick one to edit its steps
     tabs.innerHTML = shown.map(n => `<button type="button" role="tab" data-sel="${n}" aria-selected="${n === mac.sel}">M${n}</button>`).join('')
       + `<button type="button" class="macro-add" data-newm${shown.length >= edit.macroCount ? ' disabled' : ''}>+ Add macro</button>`;
     // keep the steps' DOM (and whatever field has focus) when nothing about their shape changed
-    const n = mac.sel;
+    const n = mac.sel, ed = $('#macro-editor'), del = $('#macro-del');
+    ed.hidden = n == null;
+    if (n != null) {
+      $('#macro-title').textContent = `M${n}`;
+      del.dataset.delm = n; del.title = del.ariaLabel = `Delete M${n}`;
+      if (!del.firstChild) del.innerHTML = TRASH_ICON;
+    }
     const shape = n == null ? '' : n + ':' + edit.draft[n].map(s => s.t).join('') + '|' + JSON.stringify(mac.rec);
     if (box.dataset.shape === shape && box.firstChild) { renderMacroMeta(); return; }
     box.dataset.shape = shape;
@@ -2816,7 +2829,7 @@ window.initDevice3D = function (host, { pick, icons }) {
           <button type="button" class="icon-btn" data-del="${i}" aria-label="Remove step">${X_ICON}</button></div>`).join('')
           : ''}</div>
         <div class="step-add"><button type="button" data-add="text">+ Type text</button><button type="button" data-add="key">+ Press key</button><button type="button" data-add="wait">+ Wait</button>
-          <button type="button" class="icon-btn macro-del" data-delm="${n}" title="Delete M${n}" aria-label="Delete M${n}">${TRASH_ICON}</button></div>
+</div>
       </div>`;
     renderMacroMeta();
   }
@@ -2873,7 +2886,7 @@ window.initDevice3D = function (host, { pick, icons }) {
       stopRec(false); mac.open.add(n); mac.sel = n; renderMacros();
     }
   });
-  $('#macro-rows').addEventListener('click', e => {
+  $('#macro-editor').addEventListener('click', e => {
     const add = e.target.closest('[data-add]');
     if (add) {
       const n = macroAt(add), t = add.dataset.add, steps = edit.draft[n];
