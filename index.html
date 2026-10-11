@@ -325,9 +325,10 @@ button:disabled { opacity: .45; cursor: default; }
 .step-cap:hover .flag-code { border-color: var(--fg); }
 .step-cap.recording .flag-code { border-color: var(--accent); }
 .step-add { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 0 0 20px; }
-.step-add .macro-del { margin-left: auto; border: 0; }
+.step-add .macro-del { margin-left: auto; width: 26px; height: 26px; padding: 0; border: 0; }
 .step-add .macro-del:hover { color: var(--warn); }
-.steps > .macro-empty { padding-left: 20px; }
+.steps:empty { display: none; }
+.steps:empty + .step-add { padding: 0; }   /* a new macro: just the add buttons, in line with the tabs */
 .step-add button { padding: 3px 9px; font-size: 12px; color: var(--muted); background: none; border: 1px dashed var(--line); }
 .step-add button:hover { color: var(--fg); border-color: var(--muted); }
 
@@ -2784,6 +2785,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   const shownMacros = () => range(0, edit.macroCount - 1).filter(n => edit.draft[n]?.length || mac.open.has(n));
   const GRIP = '<svg viewBox="0 0 8 14" width="7" height="12" aria-hidden="true">' +
     [3, 7, 11].map(y => `<circle cx="2" cy="${y}" r="1"/><circle cx="6" cy="${y}" r="1"/>`).join('') + '</svg>';
+  const TRASH_ICON = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5M7 7v4M9 7v4"/></svg>';
   const X_ICON = '<svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>';
   function stepBody(s, n, i) {
     if (s.t === 'text') return `<input type="text" class="step-text" data-field="v" value="${esc(s.v)}" placeholder="some text" aria-label="Text to type" spellcheck="false" autocomplete="off" data-1p-ignore data-lpignore="true">`;
@@ -2815,9 +2817,9 @@ window.initDevice3D = function (host, { pick, icons }) {
           <span class="grip" title="Drag to reorder">${GRIP}</span>
           <div class="step-body"><span class="step-type">${STEP_NAME[s.t]}</span>${stepBody(s, n, i)}</div>
           <button type="button" class="icon-btn" data-del="${i}" aria-label="Remove step">${X_ICON}</button></div>`).join('')
-          : '<p class="muted macro-empty">No steps yet. Add what M' + n + ' should do:</p>'}</div>
+          : ''}</div>
         <div class="step-add"><button type="button" data-add="text">+ Type text</button><button type="button" data-add="key">+ Press key</button><button type="button" data-add="wait">+ Wait</button>
-          <button type="button" class="macro-del" data-delm="${n}">Delete M${n}</button></div>
+          <button type="button" class="icon-btn macro-del" data-delm="${n}" title="Delete M${n}" aria-label="Delete M${n}">${TRASH_ICON}</button></div>
       </div>`;
     renderMacroMeta();
   }
