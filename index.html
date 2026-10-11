@@ -227,8 +227,8 @@ button:disabled { opacity: .45; cursor: default; }
 .flag-name { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
 .flag-code { /* the mapping drawn as a little keycap top, like the icon beside it: same height, outline,
   corner radius and inset; its width snaps to the text, and a single character makes a square cap */
-  display: inline-flex; align-items: center; justify-content: center; justify-self: start;
-  height: 28px; min-width: 28px; width: max-content; max-width: 132px; padding: 0 7px; box-sizing: border-box;
+  display: inline-block; justify-self: start; text-align: center; line-height: 26.8px; vertical-align: middle;   /* block, so a long label ends in … inside the padding */
+  height: 28px; min-width: 28px; width: max-content; max-width: 168px; padding: 0 7px; box-sizing: border-box;
   border: 0.6px solid color-mix(in srgb, var(--fg) 70%, transparent); border-radius: 7.5px; background: transparent;
   font-family: var(--font-mono); font-size: 12.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   transition: border-color .15s, color .15s; }
@@ -236,7 +236,7 @@ button:disabled { opacity: .45; cursor: default; }
 .flag-row[aria-pressed="true"] .flag-code { border-color: var(--accent); color: var(--fg); }
 .flag-row.recording { cursor: default; }
 .flag-row.recording .flag-code { border-color: var(--accent); }   /* an empty cap waiting for a key */
-.caret { width: 1.5px; height: 14px; background: var(--accent); animation: caret-blink 1.06s steps(1) infinite; }
+.caret { display: inline-block; vertical-align: middle; width: 1.5px; height: 14px; background: var(--accent); animation: caret-blink 1.06s steps(1) infinite; }
 @keyframes caret-blink { 50% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .caret { animation: none; } }
 .flag-input { all: unset; box-sizing: border-box; display: inline-flex; height: 28px; min-width: 28px; padding: 0 7px;
