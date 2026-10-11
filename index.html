@@ -2781,6 +2781,20 @@ window.initDevice3D = function (host, { pick, icons }) {
     const rightEdge = Math.min(Math.max(...items.filter(it => !it.left).map(it => it.x)),
       W - 12 - Math.max(...items.filter(it => !it.left).map(it => it.w)));
     items.forEach(it => { it.x = it.left ? leftEdge : rightEdge; });
+    // even spacing down each column: same gap between every pair of flags (the average of the natural
+    // gaps, at least FLAG_GAP), with the stack kept centred on where the controls are
+    const FLAG_GAP = 10;
+    [true, false].forEach(side => {
+      const col = items.filter(it => it.left === side).sort((p, q) => p.y - q.y);
+      if (col.length < 2) return;
+      let natural = 0;
+      for (let i = 1; i < col.length; i++) natural += col[i].y - (col[i - 1].y + col[i - 1].h);
+      const gap = Math.max(FLAG_GAP, natural / (col.length - 1));
+      const rel = []; let at = 0;
+      col.forEach(it => { rel.push(at); at += it.h + gap; });
+      const start = col.reduce((sum, it, i) => sum + it.y - rel[i], 0) / col.length;
+      col.forEach((it, i) => { it.y = start + rel[i]; });
+    });
     const clamp = r => { r.x = Math.max(12, Math.min(W - 12 - r.w, r.x)); r.y = Math.max(12, Math.min(bottomLimit - r.h, r.y)); };
     items.forEach(clamp);
     for (let iter = 0; iter < 60; iter++) {                    // separate overlapping flags
