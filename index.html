@@ -282,29 +282,38 @@ button:disabled { opacity: .45; cursor: default; }
 .meter-bar { display: inline-block; width: 36px; height: 4px; margin-right: 7px; vertical-align: middle; border-radius: 2px; background: var(--line); overflow: hidden; }
 .meter-bar i { display: block; height: 100%; background: var(--muted); }
 .meter.over .meter-bar i { background: var(--warn); }
-.macro-rows { display: grid; gap: 2px; padding: 6px 6px 4px; }
-.macro-empty { margin: 4px 8px 6px; font-size: 12px; }
-.macro-row { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 4px; align-items: start; }
-.macro-id { font-family: var(--font-mono); font-size: 11px; color: var(--muted); line-height: 30px; text-align: center; }
-.macro-row:focus-within .macro-id { color: var(--fg); }
-/* a macro is written like a flag's mapping: typed text stays text, shortcuts become little keycap tops */
-.mfield { display: flex; flex-wrap: wrap; align-items: center; row-gap: 3px; min-height: 30px; padding: 4px 7px; box-sizing: border-box;
-  border: 1px solid var(--line); border-radius: 7.5px; font-family: var(--font-mono); font-size: 12.5px; line-height: 20px;
-  cursor: text; outline: none; transition: border-color .15s; }
-.mfield:hover { border-color: color-mix(in srgb, var(--fg) 30%, var(--line)); }
-.mfield:focus-within { border-color: var(--accent); }
-.mch { white-space: pre; }
-.mchip { display: inline-flex; align-items: center; justify-content: center; height: 20px; min-width: 20px; padding: 0 5px; margin: 0 2px;
-  box-sizing: border-box; border: 0.6px solid color-mix(in srgb, var(--fg) 70%, transparent); border-radius: 5.5px; font-size: 11.5px; white-space: nowrap; }
-.mchip.wait { border-style: dashed; color: var(--muted); }
-.mwait { width: 4ch; padding: 0; border: 0; background: none; color: var(--fg); font: inherit; text-align: right; outline: none; }
-.mwait:focus { color: var(--accent); }
-.mfield .caret { flex: none; margin: 0 -0.75px; }
-.mplaceholder { color: var(--muted); font-family: var(--font-body); font-size: 12px; }
-.macro-actions { display: flex; opacity: 0; transition: opacity .15s; }
-.macro-row:hover .macro-actions, .macro-row:focus-within .macro-actions { opacity: 1; }
-.macro-actions button { width: 24px; height: 30px; padding: 0; border: 0; background: none; color: var(--muted); display: grid; place-items: center; }
-.macro-actions button:hover { color: var(--fg); }
+.macro-empty { margin: 10px 14px; font-size: 12px; }
+.macro + .macro { border-top: 1px solid var(--line); }
+.macro { padding: 6px 10px 10px; }
+.macro-head { display: flex; align-items: center; justify-content: space-between; height: 26px; padding-left: 4px; }
+.macro-id { font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: .04em; color: var(--muted); }
+.icon-btn { width: 24px; height: 24px; padding: 0; border: 0; background: none; color: var(--muted); display: grid; place-items: center; border-radius: 6px; }
+.icon-btn:hover { color: var(--fg); background: color-mix(in srgb, var(--fg) 8%, transparent); }
+.steps { display: grid; gap: 2px; }
+.step { display: grid; grid-template-columns: 14px 52px minmax(0, 1fr) 24px; gap: 6px; align-items: center; min-height: 34px; border-radius: 8px; }
+.step .icon-btn { opacity: 0; transition: opacity .15s; }
+.step:hover .icon-btn, .step:focus-within .icon-btn { opacity: 1; }
+.grip { display: grid; place-items: center; height: 28px; color: var(--muted); fill: currentColor; cursor: grab; opacity: .5; }
+.step:hover .grip { opacity: 1; }
+.step.dragging { opacity: .4; }
+.step.drop-before { box-shadow: 0 -2px 0 var(--accent); }
+.step.drop-after { box-shadow: 0 2px 0 var(--accent); }
+.step-type { font-size: 12px; color: var(--muted); }
+.step-body { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.step-body input { min-width: 0; height: 28px; box-sizing: border-box; font-family: var(--font-mono); font-size: 12.5px; color: var(--fg);
+  background: transparent; border: 0.6px solid color-mix(in srgb, var(--fg) 40%, transparent); border-radius: 7.5px; padding: 0 8px; outline: none; transition: border-color .15s; }
+.step-body input:hover { border-color: color-mix(in srgb, var(--fg) 70%, transparent); }
+.step-body input:focus { border-color: var(--accent); }
+.step-text { flex: 1; }
+.step-ms { width: 56px; text-align: right; }
+.step-body .unit { font-size: 12px; color: var(--muted); }
+/* a Press step's key: the flag's keycap tops; click to record */
+.step-cap { padding: 0; border: 0; background: none; display: flex; border-radius: 8px; }
+.step-cap:hover .flag-code { border-color: var(--fg); }
+.step-cap.recording .flag-code { border-color: var(--accent); }
+.step-add { display: flex; gap: 6px; padding: 6px 0 0 20px; }
+.step-add button { padding: 3px 9px; font-size: 12px; color: var(--muted); background: none; border: 1px dashed var(--line); }
+.step-add button:hover { color: var(--fg); border-color: var(--muted); }
 
 /* ---------- panels ---------- */
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; min-width: 0; flex: none; }
@@ -1558,7 +1567,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   let knobAngle = 0;
   let dev3d = null;
 
-  const $ = s => document.querySelector(s);
+  const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const save = () => { try { localStorage.setItem(STORE, JSON.stringify(map)); } catch {} };
 
   // ---- build the device + rows ----
@@ -1663,7 +1672,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   $('#btn-clear-log').addEventListener('click', () => { logEl.innerHTML = '<tr class="empty"><td colspan="5">Log cleared.</td></tr>'; });
 
   // typing into the sidebar's fields (search, macro text) isn't npad input
-  const inField = e => e.target instanceof Element && e.target.closest('input, textarea, select, [contenteditable], .mfield');
+  const inField = e => e.target instanceof Element && e.target.closest('input, textarea, select, [contenteditable]');
 
   // The log only shows the npad. A browser can't tell which keyboard a key came from, so keys that
   // aren't mapped to an npad control are left out. Once connected, the npad reports its own switches,
@@ -2746,64 +2755,57 @@ window.initDevice3D = function (host, { pick, icons }) {
   $('#flags').addEventListener('mouseleave', () => dev3d?.setHover(null));
   const macroPreview = n => edit.macros[n]?.length ? macroText(edit.macros[n]).slice(0, 24) : 'empty';
 
-  // ---- macro card: only the macros in use, each written in one field ----
-  // In the field a macro is a row of units: one per typed character, one per key, hold, release or
-  // wait. Typed characters stay text; shortcuts and keys you can't type become little keycap tops.
+  // ---- macro card: each macro in use as a list of steps ----
+  // Type (text), Press (a key or shortcut, recorded by clicking its keycap), Wait (ms); Hold and
+  // Release come in from imported layouts. Steps drag to reorder.
   const MOD_BIT = { KC_LCTL: 1, KC_RCTL: 1, KC_LSFT: 2, KC_RSFT: 2, KC_LALT: 4, KC_RALT: 4, KC_LGUI: 8, KC_RGUI: 8 };
-  const stepCode = s => s.mods.reduce((m, n) => m | (MOD_BIT[n] || 0), 0) << 8 | (KC[s.key] ?? 0);
-  const toUnits = steps => steps.flatMap(s => s.t === 'text' ? [...s.v].map(v => ({ t: 'ch', v })) : [{ ...s }]);
-  const toSteps = units => units.reduce((out, u) => {
-    const last = out[out.length - 1];
-    if (u.t !== 'ch') out.push({ ...u }); else if (last?.t === 'text') last.v += u.v; else out.push({ t: 'text', v: u.v });
-    return out;
-  }, []);
-  function unitLabel(u) {
-    if (u.t === 'key') return labelFor(stepCode(u));
-    if (u.t === 'down' || u.t === 'up') return labelFor(KC[u.key] ?? 0) + (u.t === 'down' ? '↓' : '↑');
-    return '';
-  }
+  const stepCode = s => (s.mods || []).reduce((m, n) => m | (MOD_BIT[n] || 0), 0) << 8 | (KC[s.key] ?? 0);
   // what a macro does, in a line: for the flag search
-  const macroText = steps => toUnits(steps).map(u => u.t === 'ch' ? (u.v === '\n' ? '⏎' : u.v) : u.t === 'wait' ? '…' : ` ${unitLabel(u)} `)
-    .join('').replace(/\s+/g, ' ').trim();
-  const mac = { open: new Set(), caret: {}, focus: null };       // open: new macros that are still empty
+  const macroText = steps => steps.map(s => s.t === 'text' ? s.v.replace(/\n/g, '⏎') : s.t === 'wait' ? '…'
+    : ` ${labelFor(stepCode(s))}${s.t === 'down' ? '↓' : s.t === 'up' ? '↑' : ''} `).join('').replace(/\s+/g, ' ').trim();
+  const STEP_NAME = { text: 'Type', key: 'Press', wait: 'Wait', down: 'Hold', up: 'Release' };
+  const mac = { open: new Set(), rec: null };                    // open: new macros with no steps yet; rec: {n, i} recording
   const shownMacros = () => range(0, edit.macroCount - 1).filter(n => edit.draft[n]?.length || mac.open.has(n));
+  const GRIP = '<svg viewBox="0 0 8 14" width="7" height="12" aria-hidden="true">' +
+    [3, 7, 11].map(y => `<circle cx="2" cy="${y}" r="1"/><circle cx="6" cy="${y}" r="1"/>`).join('') + '</svg>';
+  const X_ICON = '<svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>';
+  function stepBody(s, n, i) {
+    if (s.t === 'text') return `<input type="text" class="step-text" data-field="v" value="${esc(s.v)}" placeholder="Text to type" aria-label="Text to type" spellcheck="false" autocomplete="off" data-1p-ignore data-lpignore="true">`;
+    if (s.t === 'wait') return `<input type="text" class="step-ms" data-field="ms" value="${s.ms}" inputmode="numeric" maxlength="4" aria-label="Milliseconds" autocomplete="off"><span class="unit">ms</span>`;
+    const rec = mac.rec?.n === n && mac.rec?.i === i;
+    const caps = rec ? '<span class="flag-keys"><span class="flag-code"><span class="caret"></span></span></span>'
+      : s.key ? chordCaps(stepCode(s)) : '<span class="flag-keys"><span class="flag-code muted">…</span></span>';
+    return `<button type="button" class="step-cap${rec ? ' recording' : ''}" data-rec title="${rec ? 'Press a key or shortcut (Esc cancels)' : 'Click, then press a key or shortcut'}">${caps}</button>`;
+  }
   function renderMacros() {
     if (!edit.ready) return;
-    const rows = $('#macro-rows');
+    const box = $('#macro-rows');
     $('#macro-foot').hidden = !edit.macroCount;
-    if (!edit.macroCount) { rows.dataset.shown = ''; rows.innerHTML = '<p class="muted macro-empty">This firmware has macros turned off.</p>'; renderMacroMeta(); return; }
-    const shown = shownMacros(), key = shown.join(',');
-    if (rows.dataset.shown === key && rows.querySelector('.mfield, .macro-empty')) {   // same rows: keep them (and the caret's focus)
-      shown.forEach(renderField); renderMacroMeta(); return;
-    }
-    rows.dataset.shown = key;
-    rows.innerHTML = shown.length ? shown.map(n => `<div class="macro-row" data-m="${n}">
-        <span class="macro-id">M${n}</span>
-        <div class="mfield" tabindex="0" role="textbox" aria-label="M${n}: type text, or press a shortcut" data-m="${n}"></div>
-        <span class="macro-actions">
-          <button type="button" data-pause="${n}" title="Add a pause" aria-label="Add a pause to M${n}"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="8" cy="8.5" r="5.5" fill="none" stroke="currentColor" stroke-width="1.1"/><path d="M8 5.5v3l2 1.3M6.5 1.8h3" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg></button>
-          <button type="button" data-delm="${n}" title="Delete" aria-label="Delete M${n}"><svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg></button>
-        </span></div>`).join('')
-      : '<p class="muted macro-empty">A macro types text and shortcuts with one press. Make one here, then pick it from a key’s flag.</p>';
-    shown.forEach(renderField);
+    if (!edit.macroCount) { box.innerHTML = '<p class="muted macro-empty">This firmware has macros turned off.</p>'; renderMacroMeta(); return; }
+    // keep the DOM (and whatever field has focus) when nothing about the steps' shape changed
+    const shape = shownMacros().map(n => n + ':' + edit.draft[n].map(s => s.t).join('')).join(',') + '|' + JSON.stringify(mac.rec);
+    if (box.dataset.shape === shape && box.firstChild) { renderMacroMeta(); return; }
+    box.dataset.shape = shape;
+    const shown = shownMacros();
+    box.innerHTML = shown.length ? shown.map(n => `<div class="macro" data-m="${n}">
+        <div class="macro-head"><span class="macro-id">M${n}</span>
+          <button type="button" class="icon-btn" data-delm="${n}" title="Delete M${n}" aria-label="Delete M${n}">${X_ICON}</button></div>
+        <div class="steps">${edit.draft[n].map((s, i) => `<div class="step" data-step="${i}">
+          <span class="grip" title="Drag to reorder">${GRIP}</span>
+          <span class="step-type">${STEP_NAME[s.t]}</span>
+          <div class="step-body">${stepBody(s, n, i)}</div>
+          <button type="button" class="icon-btn" data-del="${i}" aria-label="Remove step">${X_ICON}</button></div>`).join('')}</div>
+        <div class="step-add"><button type="button" data-add="text">+ Type text</button><button type="button" data-add="key">+ Press key</button><button type="button" data-add="wait">+ Wait</button></div>
+      </div>`).join('')
+      : '<p class="muted macro-empty">A macro plays a series of steps (typing text, pressing keys, waiting) with one press. Make one here, then pick it from a key’s flag.</p>';
     $('#macro-new').disabled = shown.length >= edit.macroCount;
     renderMacroMeta();
   }
-  function renderField(n) {
-    const el = $(`.mfield[data-m="${n}"]`); if (!el) return;
-    const units = toUnits(edit.draft[n] || []), focused = mac.focus === n;
-    const caret = Math.min(mac.caret[n] ?? units.length, units.length);
-    const html = units.map((u, i) => u.t === 'ch' ? `<span class="mch" data-u="${i}">${u.v === '\n' ? '⏎' : esc(u.v)}</span>`
-      : u.t === 'wait' ? `<span class="mchip wait" data-u="${i}" title="Pause"><input class="mwait" data-u="${i}" value="${u.ms}" inputmode="numeric" maxlength="4" aria-label="Pause in milliseconds">ms</span>`
-      : `<span class="mchip" data-u="${i}" title="${u.t === 'down' ? 'Hold ' : u.t === 'up' ? 'Release ' : ''}${esc(codeToVia(u.t === 'key' ? stepCode(u) : KC[u.key] ?? 0))}">${esc(unitLabel(u))}</span>`);
-    if (focused) html.splice(caret, 0, '<span class="caret" aria-hidden="true"></span>');
-    else if (!units.length) html.push('<span class="mplaceholder">Type text, or press a shortcut</span>');
-    el.innerHTML = html.join('');
+  function stepsChanged(n) {
+    if (edit.draft[n].length) mac.open.delete(n); else mac.open.add(n);
+    renderMacros(); macroChanged();
   }
-  function setUnits(n, units, caret) {
-    edit.draft[n] = toSteps(units); mac.caret[n] = caret;
-    renderField(n); renderMacroMeta(); macroChanged();
-  }
+
   function renderMacroMeta() {
     const used = macroBytesUsed(edit.draft), pct = edit.macroSize ? Math.round(used / edit.macroSize * 100) : 0;
     const m = $('#macro-meter');
@@ -2833,92 +2835,113 @@ window.initDevice3D = function (host, { pick, icons }) {
   $('#btn-save-layout').addEventListener('click', saveLayoutFile);
   $('#btn-load-layout').addEventListener('click', () => $('#layout-file').click());
   $('#layout-file').addEventListener('change', e => { const f = e.target.files?.[0]; if (f) loadLayoutFile(f); e.target.value = ''; });
-  // the macro fields: a caret you move with ←/→; typing adds text, a shortcut adds a keycap
-  const fieldOf = el => el?.closest?.('.mfield');
+  // macro card: add, delete, edit and reorder steps; a Press step's keycap records the next key
+  const macroAt = el => +el.closest('[data-m]').dataset.m;
+  const stepIdx = el => +el.closest('[data-step]').dataset.step;
+  function startRec(n, i) {
+    if (edit.ctrl) pick(null);                                // one recorder at a time
+    mac.rec = { n, i }; renderMacros();
+  }
+  function stopRec(keep = true) {
+    const r = mac.rec; if (!r) return;
+    mac.rec = null; macLonelyMod = null;
+    if (!keep && !edit.draft[r.n][r.i]?.key) edit.draft[r.n].splice(r.i, 1);   // a new Press step left empty goes away
+    stepsChanged(r.n);
+  }
   $('#macro-new').addEventListener('click', () => {
     const n = range(0, edit.macroCount - 1).find(i => !edit.draft[i]?.length && !mac.open.has(i));
     if (n == null) return;
-    mac.open.add(n); mac.caret[n] = 0; renderMacros();
-    $(`.mfield[data-m="${n}"]`)?.focus();
-  });
-  $('#macro-rows').addEventListener('focusin', e => {
-    const f = fieldOf(e.target); if (!f || e.target.classList.contains('mwait')) return;
-    if (mac.focus !== +f.dataset.m) { mac.focus = +f.dataset.m; renderField(mac.focus); }
-  });
-  $('#macro-rows').addEventListener('focusout', e => {
-    const f = fieldOf(e.target); if (!f) return;
-    setTimeout(() => {                                        // after focus has landed somewhere else
-      const n = +f.dataset.m;
-      if (fieldOf(document.activeElement) === f && document.activeElement !== f) return;   // into its pause box
-      if (document.activeElement === f) return;
-      if (mac.focus === n) mac.focus = null;
-      if (!edit.draft[n]?.length && mac.open.delete(n)) renderMacros(); else renderField(n);
-    });
-  });
-  $('#macro-rows').addEventListener('mousedown', e => {
-    if (e.target.closest('[data-pause]')) { e.preventDefault(); return; }   // keep the caret where it is
-    const f = fieldOf(e.target); if (!f || e.target.classList.contains('mwait')) return;
-    e.preventDefault();
-    const n = +f.dataset.m, u = e.target.closest('[data-u]');
-    if (u) { const r = u.getBoundingClientRect(); mac.caret[n] = +u.dataset.u + (e.clientX > r.left + r.width / 2 ? 1 : 0); }
-    else mac.caret[n] = toUnits(edit.draft[n]).length;
-    if (document.activeElement === f) renderField(n); else f.focus();
+    mac.open.add(n); renderMacros();
+    $(`.macro[data-m="${n}"]`)?.scrollIntoView({ block: 'nearest' });
   });
   $('#macro-rows').addEventListener('click', e => {
-    const p = e.target.closest('[data-pause]');
-    if (p) {
-      const n = +p.dataset.pause, units = toUnits(edit.draft[n]);
-      const at = Math.min(mac.caret[n] ?? units.length, units.length);
-      units.splice(at, 0, { t: 'wait', ms: 100 });
-      mac.focus = n; setUnits(n, units, at + 1);
-      const box = $(`.mfield[data-m="${n}"] .mwait[data-u="${at}"]`); box?.focus(); box?.select();
+    const add = e.target.closest('[data-add]');
+    if (add) {
+      const n = macroAt(add), t = add.dataset.add, steps = edit.draft[n];
+      steps.push(t === 'text' ? { t, v: '' } : t === 'wait' ? { t, ms: 100 } : { t, key: null, mods: [] });
+      if (t === 'key') { mac.rec = { n, i: steps.length - 1 }; if (edit.ctrl) pick(null); }
+      stepsChanged(n);
+      if (t !== 'key') { const f = $(`.macro[data-m="${n}"] [data-step="${steps.length - 1}"] input`); f?.focus(); f?.select(); }
       return;
     }
-    const d = e.target.closest('[data-delm]');
-    if (d) { const n = +d.dataset.delm; edit.draft[n] = []; mac.open.delete(n); delete mac.caret[n]; renderMacros(); macroChanged(); }
+    const rec = e.target.closest('[data-rec]');
+    if (rec) { const n = macroAt(rec), i = stepIdx(rec); if (mac.rec?.n === n && mac.rec?.i === i) stopRec(false); else { stopRec(false); startRec(n, i); } return; }
+    const del = e.target.closest('[data-del]');
+    if (del) { const n = macroAt(del); if (mac.rec?.n === n) mac.rec = null; edit.draft[n].splice(stepIdx(del), 1); stepsChanged(n); return; }
+    const delm = e.target.closest('[data-delm]');
+    if (delm) { const n = +delm.dataset.delm; if (mac.rec?.n === n) mac.rec = null; edit.draft[n] = []; mac.open.delete(n); renderMacros(); macroChanged(); }
   });
+  // clicking anywhere else stops a recording
+  document.addEventListener('mousedown', e => { if (mac.rec && !e.target.closest('[data-rec]')) stopRec(false); }, true);
   $('#macro-rows').addEventListener('input', e => {
-    if (!e.target.classList.contains('mwait')) return;
-    e.target.value = e.target.value.replace(/\D/g, '');
-    const n = +fieldOf(e.target).dataset.m, units = toUnits(edit.draft[n]);
-    units[+e.target.dataset.u].ms = Math.min(9999, parseInt(e.target.value, 10) || 0);
-    edit.draft[n] = toSteps(units); renderMacroMeta(); macroChanged();
+    const f = e.target.dataset.field; if (!f) return;
+    const st = edit.draft[macroAt(e.target)][stepIdx(e.target)];
+    if (f === 'ms') { e.target.value = e.target.value.replace(/\D/g, ''); st.ms = Math.min(9999, parseInt(e.target.value, 10) || 0); }
+    else st.v = e.target.value.replace(/[^\x20-\x7e]/g, '');   // the npad can only type plain ASCII
+    renderMacroMeta(); macroChanged();
   });
-  $('#macro-rows').addEventListener('keyup', e => { if (fieldOf(e.target)) e.stopPropagation(); });
   $('#macro-rows').addEventListener('keydown', e => {
-    const f = fieldOf(e.target); if (!f) return;
-    e.stopPropagation();                                      // the tester doesn't see keys typed into a macro
-    if (e.target.classList.contains('mwait')) {                // the pause box: Enter, Esc or Tab go back to the field
-      if (['Enter', 'Escape', 'Tab'].includes(e.key)) { e.preventDefault(); if (!e.target.value) e.target.value = '0'; f.focus(); }
-      return;
-    }
-    const n = +f.dataset.m, units = toUnits(edit.draft[n]);
-    let at = Math.min(mac.caret[n] ?? units.length, units.length);
-    const mods = (e.ctrlKey ? 1 : 0) | (e.shiftKey ? 2 : 0) | (e.altKey ? 4 : 0) | (e.metaKey ? 8 : 0);
-    const plain = !(e.ctrlKey || e.altKey || e.metaKey);
-    const move = c => { e.preventDefault(); mac.caret[n] = Math.max(0, Math.min(units.length, c)); renderField(n); };
-    if (e.key === 'Escape' && !mods) { e.preventDefault(); f.blur(); return; }
-    if (!mods && e.key === 'ArrowLeft') return move(at - 1);
-    if (!mods && e.key === 'ArrowRight') return move(at + 1);
-    if (!mods && (e.key === 'Home' || e.key === 'ArrowUp')) return move(0);
-    if (!mods && (e.key === 'End' || e.key === 'ArrowDown')) return move(units.length);
-    if (!mods && e.key === 'Backspace') { e.preventDefault(); if (at > 0) { units.splice(at - 1, 1); setUnits(n, units, at - 1); } return; }
-    if (!mods && e.key === 'Delete') { e.preventDefault(); if (at < units.length) { units.splice(at, 1); setUnits(n, units, at); } return; }
-    if (plain && e.key.length === 1) {                        // typed text, including Shift for capitals and symbols
-      e.preventDefault();
-      const c = e.key.charCodeAt(0);
-      if (c < 32 || c > 126) { toast('Macros can only type plain ASCII text.'); return; }
-      units.splice(at, 0, { t: 'ch', v: e.key }); setUnits(n, units, at + 1); return;
-    }
-    const kc = CODE_TO_KC[e.code];
-    if (kc == null || kc >= 0xe0) return;                     // modifiers on their own wait for the key they go with
-    if (e.repeat) { e.preventDefault(); return; }
-    e.preventDefault();
-    const MODS = [[1, 'KC_LCTL'], [4, 'KC_LALT'], [2, 'KC_LSFT'], [8, 'KC_LGUI']];
-    units.splice(at, 0, { t: 'key', key: KC_NAME[kc], mods: kc <= 0xa4 ? MODS.filter(([b]) => mods & b).map(([, m]) => m) : [] });
-    setUnits(n, units, at + 1);
+    if (e.target.matches('.step-text, .step-ms') && (e.key === 'Enter' || e.key === 'Escape')) { e.preventDefault(); e.target.blur(); }
   });
-
+  // recording a Press step: the next key or shortcut; a modifier on its own records when released
+  let macLonelyMod = null;
+  const MOD_ORDER = [[1, 'KC_LCTL'], [4, 'KC_LALT'], [2, 'KC_LSFT'], [8, 'KC_LGUI']];
+  window.addEventListener('keydown', e => {
+    if (!mac.rec) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    if (e.repeat) return;
+    if (e.key === 'Escape' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) { stopRec(false); return; }
+    const kc = CODE_TO_KC[e.code];
+    if (kc == null) { toast('That key can’t be recorded.'); return; }
+    if (kc >= 0xe0) { macLonelyMod = e.code; return; }
+    const st = edit.draft[mac.rec.n][mac.rec.i];
+    const bits = (e.ctrlKey ? 1 : 0) | (e.shiftKey ? 2 : 0) | (e.altKey ? 4 : 0) | (e.metaKey ? 8 : 0);
+    st.key = KC_NAME[kc];
+    if (st.t === 'key') st.mods = kc <= 0xa4 ? MOD_ORDER.filter(([b]) => bits & b).map(([, m]) => m) : [];
+    stopRec();
+  }, true);
+  window.addEventListener('keyup', e => {
+    if (!mac.rec) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    if (macLonelyMod && e.code === macLonelyMod) {
+      const st = edit.draft[mac.rec.n][mac.rec.i];
+      st.key = KC_NAME[CODE_TO_KC[e.code]]; if (st.t === 'key') st.mods = [];
+      stopRec();
+    }
+  }, true);
+  // drag a step by its grip to reorder it within its macro
+  let drag = null;
+  $('#macro-rows').addEventListener('pointerdown', e => { const g = e.target.closest('.grip'); if (g) g.closest('.step').draggable = true; });
+  $('#macro-rows').addEventListener('dragstart', e => {
+    const row = e.target.closest?.('.step'); if (!row) return;
+    drag = { n: macroAt(row), i: stepIdx(row) };
+    e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', '');
+    row.classList.add('dragging');
+  });
+  const dropAt = e => {
+    const row = e.target.closest?.('.step');
+    if (!drag || !row || macroAt(row) !== drag.n) return null;
+    const r = row.getBoundingClientRect(), i = stepIdx(row);
+    return { row, to: e.clientY > r.top + r.height / 2 ? i + 1 : i };
+  };
+  const clearMarks = () => $$('#macro-rows .drop-before, #macro-rows .drop-after').forEach(x => x.classList.remove('drop-before', 'drop-after'));
+  $('#macro-rows').addEventListener('dragover', e => {
+    const d = dropAt(e); if (!d) return;
+    e.preventDefault(); clearMarks();
+    d.row.classList.add(d.to > stepIdx(d.row) ? 'drop-after' : 'drop-before');
+  });
+  $('#macro-rows').addEventListener('drop', e => {
+    const d = dropAt(e); if (!d) return;
+    e.preventDefault();
+    const steps = edit.draft[drag.n], [st] = steps.splice(drag.i, 1);
+    steps.splice(d.to > drag.i ? d.to - 1 : d.to, 0, st);
+    const n = drag.n; drag = null; clearMarks();
+    $('#macro-rows').dataset.shape = ''; stepsChanged(n);
+  });
+  $('#macro-rows').addEventListener('dragend', e => {
+    drag = null; clearMarks();
+    $$('#macro-rows .step').forEach(r => { r.draggable = false; r.classList.remove('dragging'); });
+  });
   render();
   autoConnect();                                  // an npad connected on an earlier visit reconnects by itself
 })();
