@@ -66,6 +66,12 @@ h1 .logo { width: 17px; height: 23px; flex: none; }
 .side-inner { width: 344px; padding-right: 4px; padding-bottom: 16px; box-sizing: border-box;   /* the gap under the last card scrolls with it */
   flex: none; display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .side-inner > * { flex: none; }
+/* cards fade out at an edge only while there's more to scroll to on that side */
+.side-inner { --fade-top: 0px; --fade-bottom: 0px;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 var(--fade-top), #000 calc(100% - var(--fade-bottom)), transparent);
+          mask-image: linear-gradient(to bottom, transparent, #000 var(--fade-top), #000 calc(100% - var(--fade-bottom)), transparent); }
+.side-inner.more-above { --fade-top: 28px; }
+.side-inner.more-below { --fade-bottom: 28px; }
 .side-inner > * { transition: transform .5s cubic-bezier(.2, .9, .25, 1), opacity .35s ease; }
 .side-inner > :nth-child(n+2) { transition-delay: 60ms; }
 .app.collapsed .side { width: 0; }
@@ -1946,6 +1952,18 @@ window.initDevice3D = function (host, { pick, icons }) {
     pollMatrix(++pollGen);
     render();
     // edit mode only opens from a click on a control or the sidebar button, not from connecting
+  }
+  // sidebar edge fades: on when there's more to scroll to that way
+  {
+    const el = $('.side-inner');
+    const fades = () => {
+      el.classList.toggle('more-above', el.scrollTop > 1);
+      el.classList.toggle('more-below', el.scrollTop + el.clientHeight < el.scrollHeight - 1);
+    };
+    el.addEventListener('scroll', fades, { passive: true });
+    new ResizeObserver(fades).observe(el);
+    new MutationObserver(fades).observe(el, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden'] });
+    fades();
   }
   function setConnectedUI(on) {
     const b = $('#btn-hid');
