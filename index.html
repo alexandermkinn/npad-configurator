@@ -295,6 +295,8 @@ button:disabled { opacity: .45; cursor: default; }
 .macro-tabs .macro-add:hover:not(:disabled) { color: var(--fg); border-color: var(--fg); }
 .macro-rows { padding: 8px 10px 10px; }
 .macro-rows > .macro-empty { margin: 2px 4px; }
+.macro-rows:empty { display: none; }
+.macro-tabs:has(+ .macro-rows:empty) { padding-bottom: 10px; }   /* no macros yet: just the Add button */
 .icon-btn { width: 24px; height: 24px; padding: 0; border: 0; background: none; color: var(--muted); display: grid; place-items: center; border-radius: 6px; }
 .icon-btn:hover { color: var(--fg); background: color-mix(in srgb, var(--fg) 8%, transparent); }
 .steps { display: grid; gap: 2px; }
@@ -2804,7 +2806,7 @@ window.initDevice3D = function (host, { pick, icons }) {
     if (box.dataset.shape === shape && box.firstChild) { renderMacroMeta(); return; }
     box.dataset.shape = shape;
     box.innerHTML = n == null
-      ? '<p class="muted macro-empty">A macro plays a series of steps (typing text, pressing keys, waiting) with one press. Add one, then pick it from a key’s flag.</p>'
+      ? ''
       : `<div class="macro" data-m="${n}">
         <div class="steps">${edit.draft[n].length ? edit.draft[n].map((s, i) => `<div class="step" data-step="${i}">
           <span class="grip" title="Drag to reorder">${GRIP}</span>
