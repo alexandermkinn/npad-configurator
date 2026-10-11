@@ -282,11 +282,14 @@ button:disabled { opacity: .45; cursor: default; }
 .meter-bar { display: inline-block; width: 36px; height: 4px; margin-right: 7px; vertical-align: middle; border-radius: 2px; background: var(--line); overflow: hidden; }
 .meter-bar i { display: block; height: 100%; background: var(--muted); }
 .meter.over .meter-bar i { background: var(--warn); }
-.macro-empty { margin: 10px 14px; font-size: 12px; }
-.macro + .macro { border-top: 1px solid var(--line); }
-.macro { padding: 6px 10px 10px; }
-.macro-head { display: flex; align-items: center; justify-content: space-between; height: 26px; padding-left: 4px; }
-.macro-id { font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: .04em; color: var(--muted); }
+.macro-empty { margin: 4px 0 8px; font-size: 12px; }
+.macro-tabs { display: flex; flex-wrap: wrap; gap: 4px; padding: 10px 10px 0; }
+.macro-tabs button { padding: 3px 9px; font-size: 12px; font-family: var(--font-mono); }
+.macro-tabs [aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.macro-tabs .macro-add { font-family: var(--font-body); color: var(--muted); background: none; border-style: dashed; }
+.macro-tabs .macro-add:hover:not(:disabled) { color: var(--fg); border-color: var(--muted); }
+.macro-rows { padding: 8px 10px 10px; }
+.macro-rows > .macro-empty { margin: 2px 4px; }
 .icon-btn { width: 24px; height: 24px; padding: 0; border: 0; background: none; color: var(--muted); display: grid; place-items: center; border-radius: 6px; }
 .icon-btn:hover { color: var(--fg); background: color-mix(in srgb, var(--fg) 8%, transparent); }
 .steps { display: grid; gap: 2px; }
@@ -311,7 +314,10 @@ button:disabled { opacity: .45; cursor: default; }
 .step-cap { padding: 0; border: 0; background: none; display: flex; border-radius: 8px; }
 .step-cap:hover .flag-code { border-color: var(--fg); }
 .step-cap.recording .flag-code { border-color: var(--accent); }
-.step-add { display: flex; gap: 6px; padding: 6px 0 0 20px; }
+.step-add { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 0 0 20px; }
+.step-add .macro-del { margin-left: auto; border: 0; }
+.step-add .macro-del:hover { color: var(--warn); }
+.steps > .macro-empty { padding-left: 20px; }
 .step-add button { padding: 3px 9px; font-size: 12px; color: var(--muted); background: none; border: 1px dashed var(--line); }
 .step-add button:hover { color: var(--fg); border-color: var(--muted); }
 
@@ -402,8 +408,8 @@ button:disabled { opacity: .45; cursor: default; }
     <div class="tabpanel" data-panel="macros">
       <section class="panel" aria-labelledby="h-macros">
         <div class="panel-head"><h2 id="h-macros">Macros</h2><span class="meter" id="macro-meter"><span class="meter-bar"><i></i></span><span id="macro-pct"></span></span></div>
+        <div class="macro-tabs" id="macro-tabs" role="tablist" aria-label="Macros"></div>
         <div class="macro-rows" id="macro-rows"></div>
-        <div class="panel-foot" id="macro-foot"><button type="button" id="macro-new">+ New macro</button></div>
       </section>
     </div>
 
@@ -2764,7 +2770,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   const macroText = steps => steps.map(s => s.t === 'text' ? s.v.replace(/\n/g, '⏎') : s.t === 'wait' ? '…'
     : ` ${labelFor(stepCode(s))}${s.t === 'down' ? '↓' : s.t === 'up' ? '↑' : ''} `).join('').replace(/\s+/g, ' ').trim();
   const STEP_NAME = { text: 'Type', key: 'Press', wait: 'Wait', down: 'Hold', up: 'Release' };
-  const mac = { open: new Set(), rec: null };                    // open: new macros with no steps yet; rec: {n, i} recording
+  const mac = { open: new Set(), rec: null, sel: null };         // open: new macros with no steps yet; rec: {n, i} recording; sel: the macro being edited
   const shownMacros = () => range(0, edit.macroCount - 1).filter(n => edit.draft[n]?.length || mac.open.has(n));
   const GRIP = '<svg viewBox="0 0 8 14" width="7" height="12" aria-hidden="true">' +
     [3, 7, 11].map(y => `<circle cx="2" cy="${y}" r="1"/><circle cx="6" cy="${y}" r="1"/>`).join('') + '</svg>';
@@ -2779,30 +2785,35 @@ window.initDevice3D = function (host, { pick, icons }) {
   }
   function renderMacros() {
     if (!edit.ready) return;
-    const box = $('#macro-rows');
-    $('#macro-foot').hidden = !edit.macroCount;
+    const box = $('#macro-rows'), tabs = $('#macro-tabs');
+    tabs.hidden = !edit.macroCount;
     if (!edit.macroCount) { box.innerHTML = '<p class="muted macro-empty">This firmware has macros turned off.</p>'; renderMacroMeta(); return; }
-    // keep the DOM (and whatever field has focus) when nothing about the steps' shape changed
-    const shape = shownMacros().map(n => n + ':' + edit.draft[n].map(s => s.t).join('')).join(',') + '|' + JSON.stringify(mac.rec);
+    const shown = shownMacros();
+    if (!shown.includes(mac.sel)) mac.sel = shown[0] ?? null;
+    // the macros in use, as tabs; pick one to edit its steps
+    tabs.innerHTML = shown.map(n => `<button type="button" role="tab" data-sel="${n}" aria-selected="${n === mac.sel}">M${n}</button>`).join('')
+      + `<button type="button" class="macro-add" data-newm${shown.length >= edit.macroCount ? ' disabled' : ''}>+ Add macro</button>`;
+    // keep the steps' DOM (and whatever field has focus) when nothing about their shape changed
+    const n = mac.sel;
+    const shape = n == null ? '' : n + ':' + edit.draft[n].map(s => s.t).join('') + '|' + JSON.stringify(mac.rec);
     if (box.dataset.shape === shape && box.firstChild) { renderMacroMeta(); return; }
     box.dataset.shape = shape;
-    const shown = shownMacros();
-    box.innerHTML = shown.length ? shown.map(n => `<div class="macro" data-m="${n}">
-        <div class="macro-head"><span class="macro-id">M${n}</span>
-          <button type="button" class="icon-btn" data-delm="${n}" title="Delete M${n}" aria-label="Delete M${n}">${X_ICON}</button></div>
-        <div class="steps">${edit.draft[n].map((s, i) => `<div class="step" data-step="${i}">
+    box.innerHTML = n == null
+      ? '<p class="muted macro-empty">A macro plays a series of steps (typing text, pressing keys, waiting) with one press. Add one, then pick it from a key’s flag.</p>'
+      : `<div class="macro" data-m="${n}">
+        <div class="steps">${edit.draft[n].length ? edit.draft[n].map((s, i) => `<div class="step" data-step="${i}">
           <span class="grip" title="Drag to reorder">${GRIP}</span>
           <span class="step-type">${STEP_NAME[s.t]}</span>
           <div class="step-body">${stepBody(s, n, i)}</div>
-          <button type="button" class="icon-btn" data-del="${i}" aria-label="Remove step">${X_ICON}</button></div>`).join('')}</div>
-        <div class="step-add"><button type="button" data-add="text">+ Type text</button><button type="button" data-add="key">+ Press key</button><button type="button" data-add="wait">+ Wait</button></div>
-      </div>`).join('')
-      : '<p class="muted macro-empty">A macro plays a series of steps (typing text, pressing keys, waiting) with one press. Make one here, then pick it from a key’s flag.</p>';
-    $('#macro-new').disabled = shown.length >= edit.macroCount;
+          <button type="button" class="icon-btn" data-del="${i}" aria-label="Remove step">${X_ICON}</button></div>`).join('')
+          : '<p class="muted macro-empty">No steps yet. Add what M' + n + ' should do:</p>'}</div>
+        <div class="step-add"><button type="button" data-add="text">+ Type text</button><button type="button" data-add="key">+ Press key</button><button type="button" data-add="wait">+ Wait</button>
+          <button type="button" class="macro-del" data-delm="${n}">Delete M${n}</button></div>
+      </div>`;
     renderMacroMeta();
   }
   function stepsChanged(n) {
-    if (edit.draft[n].length) mac.open.delete(n); else mac.open.add(n);
+    if (edit.draft[n].length) mac.open.delete(n); else mac.open.add(n);   // emptied: stays as a tab until deleted
     renderMacros(); macroChanged();
   }
 
@@ -2848,11 +2859,14 @@ window.initDevice3D = function (host, { pick, icons }) {
     if (!keep && !edit.draft[r.n][r.i]?.key) edit.draft[r.n].splice(r.i, 1);   // a new Press step left empty goes away
     stepsChanged(r.n);
   }
-  $('#macro-new').addEventListener('click', () => {
-    const n = range(0, edit.macroCount - 1).find(i => !edit.draft[i]?.length && !mac.open.has(i));
-    if (n == null) return;
-    mac.open.add(n); renderMacros();
-    $(`.macro[data-m="${n}"]`)?.scrollIntoView({ block: 'nearest' });
+  $('#macro-tabs').addEventListener('click', e => {
+    const t = e.target.closest('[data-sel]');
+    if (t) { stopRec(false); mac.sel = +t.dataset.sel; renderMacros(); return; }
+    if (e.target.closest('[data-newm]')) {
+      const n = range(0, edit.macroCount - 1).find(i => !edit.draft[i]?.length && !mac.open.has(i));
+      if (n == null) return;
+      stopRec(false); mac.open.add(n); mac.sel = n; renderMacros();
+    }
   });
   $('#macro-rows').addEventListener('click', e => {
     const add = e.target.closest('[data-add]');
@@ -2869,7 +2883,13 @@ window.initDevice3D = function (host, { pick, icons }) {
     const del = e.target.closest('[data-del]');
     if (del) { const n = macroAt(del); if (mac.rec?.n === n) mac.rec = null; edit.draft[n].splice(stepIdx(del), 1); stepsChanged(n); return; }
     const delm = e.target.closest('[data-delm]');
-    if (delm) { const n = +delm.dataset.delm; if (mac.rec?.n === n) mac.rec = null; edit.draft[n] = []; mac.open.delete(n); renderMacros(); macroChanged(); }
+    if (delm) {
+      const n = +delm.dataset.delm, shown = shownMacros(), at = shown.indexOf(n);
+      if (mac.rec?.n === n) mac.rec = null;
+      edit.draft[n] = []; mac.open.delete(n);
+      mac.sel = shown[at + 1] ?? shown[at - 1] ?? null;
+      renderMacros(); macroChanged();
+    }
   });
   // clicking anywhere else stops a recording
   document.addEventListener('mousedown', e => { if (mac.rec && !e.target.closest('[data-rec]')) stopRec(false); }, true);
