@@ -972,7 +972,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   // config-mode parallax: the model turns gently with the mouse's horizontal position
   const PARALLAX = 0.085;                                      // radians either side (~5°)
   const par = { yaw: 0, to: 0 };
-  const look = new T.Vector3(0, 6, 0); // middle of the case, so it stays centred all the way round
+  const look = new T.Vector3(0, 6, 0); // middle of the case across (so it stays centred all the way round); the height is set per frame
   const HOME_YAW = -0.42, HOME_PITCH = 0.92;
   const view = { yaw: HOME_YAW, pitch: HOME_PITCH, dist: 268, zoom: 1 };
   // The idle orbit swoops low as it goes round: the front view at HOME_PITCH, dipping to
@@ -991,7 +991,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   // steps (n; globe + shrimp; arrow + sailboat; sparkle), leaving a clear band at each step for flags.
   // Lifts (mm) are filled in once the parts exist: lift = MIN + SLOPE * (how much further back than the
   // frontmost part).
-  const EXPLODE = { SLOPE: 0.6, MIN: 10, KNOB_DROP: 2, lift: {}, knob: 0, lookUp: 2 };   // gentle steps; sparkle 10 mm up, n key ~34 mm
+  const EXPLODE = { SLOPE: 0.6, MIN: 10, KNOB_DROP: 2, lift: {}, knob: 0, meanLift: 0 };   // gentle steps; sparkle 10 mm up, n key ~34 mm
   const depthAlongView = (x, z) => (x + z) / Math.SQRT2;          // toward the iso camera (+x, +z)
   {
     const parts = Object.entries(keys).map(([id, k]) => [id, depthAlongView(k.group.position.x, k.group.position.z)]);
@@ -1001,7 +1001,12 @@ window.initDevice3D = function (host, { pick, icons }) {
       const lift = EXPLODE.MIN + EXPLODE.SLOPE * (front - u);
       if (id === 'knob') EXPLODE.knob = lift - EXPLODE.KNOB_DROP; else EXPLODE.lift[id] = lift;   // knob sits 2 mm below the plane
     });
+    const lifts = Object.values(EXPLODE.lift);
+    EXPLODE.meanLift = lifts.reduce((a, b) => a + b, 0) / lifts.length;
   }
+  // The view is centred, in height, on the keycaps (the middle of a cap), and follows them up as they
+  // lift in the exploded view; the case and layers below can run out of frame.
+  const CAP_MID = CAP_Y + CAP.height / 2;
   let explodeT = 0, explodeTo = 0;
   let viewLocked = false;                                      // config mode holds the camera at ISO
   // Two modes, switched by the page (the sidebar): preview (on load) runs the orbit, demo taps and
@@ -1019,7 +1024,7 @@ window.initDevice3D = function (host, { pick, icons }) {
   }
   function placeCamera() {
     const cp = Math.cos(view.pitch), d = view.dist * view.zoom;
-    const ly = look.y + EXPLODE.lookUp * explodeT;              // aim a little higher while exploded
+    const ly = CAP_MID + EXPLODE.meanLift * explodeT;
     const put = (cam, yaw) => {
       cam.position.set(look.x + d * cp * Math.sin(yaw), ly + d * Math.sin(view.pitch), look.z + d * cp * Math.cos(yaw));
       cam.lookAt(look.x, ly, look.z);
