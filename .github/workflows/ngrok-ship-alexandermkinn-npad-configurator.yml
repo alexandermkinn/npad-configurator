@@ -2,7 +2,7 @@
 # template changes. To take over the file and stop those pull requests, add
 # the line "# ngrok-ship: pipeline-updates disabled" anywhere in it.
 
-name: "Build and Push Container (alexandermkinn-npad-configurator / app_3KYgI4hVmGasJxz7d28SRZYuF6G)"
+name: "Build and Push Container (npad-configurator / app_3KYgI4hVmGasJxz7d28SRZYuF6G)"
 
 on:
   push:
